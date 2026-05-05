@@ -1,6 +1,4 @@
 import Link from "next/link"
-
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -9,8 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { SignInForm } from "./sign-in-form"
 
 export default function SignInPage() {
   return (
@@ -26,37 +23,7 @@ export default function SignInPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form>
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="fjona@smartlms.com"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="12345678"
-                    required
-                  />
-                  <Link
-                    href="#"
-                    className="inline-block text-sm text-muted-foreground underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <Button type="submit" className="mt-2 w-full">
-                  Login
-                </Button>
-              </div>
-            </form>
+            <SignInForm />
           </CardContent>
           <CardFooter className="flex-col gap-4 text-center text-sm text-muted-foreground">
             <div>
