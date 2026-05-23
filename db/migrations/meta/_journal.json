@@ -5,8 +5,29 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1777985161804,
-      "tag": "0000_nasty_paibok",
+      "when": 1779569696675,
+      "tag": "0000_loving_red_wolf",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779571283951,
+      "tag": "0001_shiny_sheva_callister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779574439623,
+      "tag": "0002_fair_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779574698900,
+      "tag": "0003_red_captain_america",
       "breakpoints": true
     }
   ]

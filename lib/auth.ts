@@ -1,11 +1,13 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import bcrypt from "bcryptjs"
 import { db } from "@/db"
 import { users, userAuth } from "@/db/schema"
 import { eq } from "drizzle-orm"
 
 export const authOptions: NextAuthOptions = {
+  adapter: DrizzleAdapter(db) as any,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -46,7 +48,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: userRecord.id,
           email: userRecord.email,
-          name: userRecord.fullName,
+          name: userRecord.name || userRecord.fullName || "",
           role: userRecord.role,
         }
       },

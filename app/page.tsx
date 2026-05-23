@@ -19,32 +19,32 @@ export default function Page() {
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center space-x-2">
               <span className="font-heading text-xl font-bold tracking-tight">
-                SmartLMS
+                Optimo
               </span>
             </Link>
 
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <Link href="/" legacyBehavior passHref>
-                    <NavigationMenuLink className={navLinkClass}>
+                  <NavigationMenuLink asChild>
+                    <Link href="/" className={navLinkClass}>
                       Home
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
                 <NavigationMenuItem>
-                  <Link href="#about" legacyBehavior passHref>
-                    <NavigationMenuLink className={navLinkClass}>
+                  <NavigationMenuLink asChild>
+                    <Link href="#about" className={navLinkClass}>
                       About
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
                 <NavigationMenuItem>
-                  <Link href="#features" legacyBehavior passHref>
-                    <NavigationMenuLink className={navLinkClass}>
+                  <NavigationMenuLink asChild>
+                    <Link href="#features" className={navLinkClass}>
                       Features
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
@@ -87,7 +87,7 @@ export default function Page() {
               size="lg"
               className="h-12 px-8 text-base font-semibold"
             >
-              <Link href="/sign-in">Go to LMS</Link>
+              <Link href="/sign-in">Go to Optimo</Link>
             </Button>
           </div>
         </div>
