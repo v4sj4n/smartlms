@@ -6,13 +6,14 @@ import path from "path"
 async function main() {
   console.log("🛠️ Reading SQL migration file...")
   const migrationDir = path.join(process.cwd(), "db", "migrations")
+  const requestedFile = process.argv[2]
 
   if (!fs.existsSync(migrationDir)) {
     console.error("❌ Migrations directory does not exist!")
     process.exit(1)
   }
 
-  const files = fs.readdirSync(migrationDir).filter((f) => f.endsWith(".sql"))
+  let files = fs.readdirSync(migrationDir).filter((f) => f.endsWith(".sql"))
 
   if (files.length === 0) {
     console.error("❌ No SQL migration files found!")
@@ -21,6 +22,15 @@ async function main() {
 
   // Sort files to apply in correct order
   files.sort()
+
+  // Optional: apply only a single migration file
+  if (requestedFile) {
+    if (!files.includes(requestedFile)) {
+      console.error(`❌ Migration file not found: ${requestedFile}`)
+      process.exit(1)
+    }
+    files = [requestedFile]
+  }
 
   for (const file of files) {
     console.log(`📦 Applying migration: ${file}`)

@@ -10,9 +10,21 @@ import {
   date,
   uniqueIndex,
   primaryKey,
+  jsonb,
+  index,
+  customType,
 } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { type AdapterAccount } from "next-auth/adapters"
+
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "vector(1536)"
+  },
+  toDriver(value) {
+    return `[${value.join(",")}]`
+  },
+})
 
 /* ==========================================================================
    1. USERS & AUTH DOMAIN
@@ -123,6 +135,41 @@ export const courseWeeks = pgTable("course_weeks", {
 
 export const quizTypeEnum = pgEnum("quiz_type", ["graded", "practice"])
 
+export const fileStatusEnum = pgEnum("file_status", [
+  "UPLOADING",
+  "UPLOADED",
+  "PROCESSING",
+  "READY",
+  "FAILED",
+  "DELETED",
+])
+
+export const generationOriginEnum = pgEnum("generation_origin", [
+  "MANUAL",
+  "AI",
+])
+
+export const contentStatusEnum = pgEnum("content_status", [
+  "DRAFT",
+  "PENDING_REVIEW",
+  "PUBLISHED",
+  "ARCHIVED",
+])
+
+export const chatbotRoleEnum = pgEnum("chatbot_role", [
+  "system",
+  "user",
+  "assistant",
+])
+
+export const quizQuestionTypeEnum = pgEnum("quiz_question_type", [
+  "mcq",
+  "true_false",
+  "short_answer",
+])
+
+export const difficultyEnum = pgEnum("difficulty", ["easy", "medium", "hard"])
+
 export const quizzes = pgTable("quizzes", {
   id: uuid("id").primaryKey().defaultRandom(),
   weekId: uuid("week_id")
@@ -132,6 +179,12 @@ export const quizzes = pgTable("quizzes", {
   description: text("description"),
   type: quizTypeEnum("type").default("graded").notNull(),
   timeLimitMinutes: integer("time_limit_minutes"),
+  sourceFileId: uuid("source_file_id").references(() => files.id, {
+    onDelete: "set null",
+  }),
+  origin: generationOriginEnum("origin").default("MANUAL").notNull(),
+  status: contentStatusEnum("status").default("DRAFT").notNull(),
+  difficulty: difficultyEnum("difficulty").default("medium").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -177,6 +230,17 @@ export const flashcards = pgTable("flashcards", {
     .notNull(),
   frontContent: text("front_content").notNull(),
   backContent: text("back_content").notNull(),
+  sourceFileId: uuid("source_file_id").references(() => files.id, {
+    onDelete: "set null",
+  }),
+  origin: generationOriginEnum("origin").default("MANUAL").notNull(),
+  status: contentStatusEnum("status").default("DRAFT").notNull(),
+  difficulty: difficultyEnum("difficulty").default("medium").notNull(),
+  sourceChunkIds: jsonb("source_chunk_ids")
+    .$type<string[]>()
+    .default([])
+    .notNull(),
+  fingerprint: varchar("fingerprint", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -208,8 +272,13 @@ export const clubMembers = pgTable(
       .notNull(),
     role: varchar("role", { length: 50 }).default("MEMBER").notNull(), // LEADER, MEMBER, ADVISOR
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
+    lastReadMessageId: uuid("last_read_message_id"),
+    mutedUntil: timestamp("muted_until"),
   },
-  (t) => [uniqueIndex("unq_club_user").on(t.clubId, t.userId)]
+  (t) => [
+    uniqueIndex("unq_club_user").on(t.clubId, t.userId),
+    index("idx_club_members_user").on(t.userId),
+  ]
 )
 
 export const clubMaterials = pgTable("club_materials", {
@@ -231,18 +300,208 @@ export const clubMaterials = pgTable("club_materials", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
-export const clubMessages = pgTable("club_messages", {
+export const clubMessages = pgTable(
+  "club_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id")
+      .references(() => clubs.id, { onDelete: "cascade" })
+      .notNull(),
+    authorId: uuid("author_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    content: text("content").notNull(),
+    attachments: jsonb("attachments")
+      .$type<
+        Array<{ path: string; name: string; mimeType: string; size: number }>
+      >()
+      .default([])
+      .notNull(),
+    mentionedUserIds: jsonb("mentioned_user_ids")
+      .$type<string[]>()
+      .default([])
+      .notNull(),
+    replyToId: uuid("reply_to_id"),
+    editedAt: timestamp("edited_at"),
+    deletedAt: timestamp("deleted_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_club_messages_club_created_at").on(t.clubId, t.createdAt),
+    index("idx_club_messages_reply_to").on(t.replyToId),
+  ]
+)
+
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    mimeType: varchar("mime_type", { length: 128 }).notNull(),
+    size: integer("size").notNull(),
+    path: text("path").notNull(),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    subjectId: uuid("subject_id").references(() => courses.id, {
+      onDelete: "set null",
+    }),
+    weekNumber: integer("week_number"),
+    clubId: uuid("club_id").references(() => clubs.id, {
+      onDelete: "set null",
+    }),
+    status: fileStatusEnum("status").default("UPLOADED").notNull(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    deletedAt: timestamp("deleted_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_files_subject_week").on(t.subjectId, t.weekNumber),
+    index("idx_files_club").on(t.clubId),
+    index("idx_files_uploaded_by").on(t.uploadedBy),
+  ]
+)
+
+export const fileChunks = pgTable(
+  "file_chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fileId: uuid("file_id")
+      .references(() => files.id, { onDelete: "cascade" })
+      .notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    chunkText: text("chunk_text").notNull(),
+    embedding: vector("embedding").notNull(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_file_chunks_file_index").on(t.fileId, t.chunkIndex),
+    index("idx_file_chunks_file").on(t.fileId),
+  ]
+)
+
+export const clubMessageReactions = pgTable(
+  "club_message_reactions",
+  {
+    messageId: uuid("message_id")
+      .references(() => clubMessages.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    emoji: varchar("emoji", { length: 32 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.messageId, t.userId, t.emoji] }),
+    index("idx_club_message_reactions_message").on(t.messageId),
+  ]
+)
+
+export const clubMessageReads = pgTable(
+  "club_message_reads",
+  {
+    messageId: uuid("message_id")
+      .references(() => clubMessages.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    readAt: timestamp("read_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.messageId, t.userId] }),
+    index("idx_club_message_reads_user").on(t.userId),
+  ]
+)
+
+export const chatbots = pgTable("chatbots", {
   id: uuid("id").primaryKey().defaultRandom(),
-  clubId: uuid("club_id")
-    .references(() => clubs.id, { onDelete: "cascade" })
+  subjectId: uuid("subject_id")
+    .references(() => courses.id, { onDelete: "cascade" })
     .notNull(),
-  authorId: uuid("author_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  content: text("content").notNull(),
+  systemPrompt: text("system_prompt").notNull(),
+  model: varchar("model", { length: 64 }).default("gemini-3.5-flash").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
+
+export const chatbotConversations = pgTable(
+  "chatbot_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    chatbotId: uuid("chatbot_id")
+      .references(() => chatbots.id, { onDelete: "cascade" })
+      .notNull(),
+    title: text("title"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_chatbot_conversations_user").on(t.userId, t.updatedAt)]
+)
+
+export const chatbotMessages = pgTable(
+  "chatbot_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .references(() => chatbotConversations.id, { onDelete: "cascade" })
+      .notNull(),
+    role: chatbotRoleEnum("role").notNull(),
+    content: text("content").notNull(),
+    citations: jsonb("citations")
+      .$type<Array<{ chunkId: string; fileId: string; quote?: string }>>()
+      .default([])
+      .notNull(),
+    tokenUsage: jsonb("token_usage")
+      .$type<Record<string, number>>()
+      .default({})
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_chatbot_messages_conv_created").on(
+      t.conversationId,
+      t.createdAt
+    ),
+  ]
+)
+
+export const quizQuestions = pgTable(
+  "quiz_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    quizId: uuid("quiz_id")
+      .references(() => quizzes.id, { onDelete: "cascade" })
+      .notNull(),
+    type: quizQuestionTypeEnum("type").notNull(),
+    prompt: text("prompt").notNull(),
+    options: jsonb("options").$type<string[]>().default([]).notNull(),
+    answer: jsonb("answer").$type<string | string[] | boolean>().notNull(),
+    explanation: text("explanation"),
+    difficulty: difficultyEnum("difficulty").default("medium").notNull(),
+    sourceChunkIds: jsonb("source_chunk_ids")
+      .$type<string[]>()
+      .default([])
+      .notNull(),
+    fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_quiz_questions_fingerprint").on(t.quizId, t.fingerprint),
+    index("idx_quiz_questions_quiz").on(t.quizId),
+  ]
+)
 
 /* ==========================================================================
    6. ACADEMIC STRUCTURE DOMAIN
@@ -474,6 +733,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   announcements: many(announcements),
   submissions: many(submissions, { relationName: "studentSubmissions" }),
   gradedSubmissions: many(submissions, { relationName: "gradedSubmissions" }),
+  uploadedFiles: many(files),
+  clubMessageReactions: many(clubMessageReactions),
+  clubMessageReads: many(clubMessageReads),
+  chatbotConversations: many(chatbotConversations),
 }))
 
 export const userAuthRelations = relations(userAuth, ({ one }) => ({
@@ -513,6 +776,8 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
   }),
   weeks: many(courseWeeks),
   enrollments: many(courseEnrollments),
+  files: many(files),
+  chatbots: many(chatbots),
 }))
 
 export const courseWeeksRelations = relations(courseWeeks, ({ one, many }) => ({
@@ -531,7 +796,12 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
     fields: [quizzes.weekId],
     references: [courseWeeks.id],
   }),
+  sourceFile: one(files, {
+    fields: [quizzes.sourceFileId],
+    references: [files.id],
+  }),
   questions: many(questions),
+  aiQuestions: many(quizQuestions),
 }))
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -556,6 +826,10 @@ export const flashcardsRelations = relations(flashcards, ({ one }) => ({
   week: one(courseWeeks, {
     fields: [flashcards.weekId],
     references: [courseWeeks.id],
+  }),
+  sourceFile: one(files, {
+    fields: [flashcards.sourceFileId],
+    references: [files.id],
   }),
 }))
 
@@ -660,6 +934,7 @@ export const clubsRelations = relations(clubs, ({ one, many }) => ({
   members: many(clubMembers),
   materials: many(clubMaterials),
   messages: many(clubMessages),
+  files: many(files),
   posts: many(clubPosts),
   events: many(clubEvents),
 }))
@@ -686,14 +961,117 @@ export const clubMaterialsRelations = relations(clubMaterials, ({ one }) => ({
   }),
 }))
 
-export const clubMessagesRelations = relations(clubMessages, ({ one }) => ({
+export const clubMessagesRelations = relations(
+  clubMessages,
+  ({ one, many }) => ({
+    club: one(clubs, {
+      fields: [clubMessages.clubId],
+      references: [clubs.id],
+    }),
+    author: one(users, {
+      fields: [clubMessages.authorId],
+      references: [users.id],
+    }),
+    replyTo: one(clubMessages, {
+      fields: [clubMessages.replyToId],
+      references: [clubMessages.id],
+      relationName: "clubMessageReply",
+    }),
+    reactions: many(clubMessageReactions),
+    reads: many(clubMessageReads),
+  })
+)
+
+export const filesRelations = relations(files, ({ one, many }) => ({
+  uploader: one(users, {
+    fields: [files.uploadedBy],
+    references: [users.id],
+  }),
+  subject: one(courses, {
+    fields: [files.subjectId],
+    references: [courses.id],
+  }),
   club: one(clubs, {
-    fields: [clubMessages.clubId],
+    fields: [files.clubId],
     references: [clubs.id],
   }),
-  author: one(users, {
-    fields: [clubMessages.authorId],
-    references: [users.id],
+  chunks: many(fileChunks),
+  quizzes: many(quizzes),
+  flashcards: many(flashcards),
+}))
+
+export const fileChunksRelations = relations(fileChunks, ({ one }) => ({
+  file: one(files, {
+    fields: [fileChunks.fileId],
+    references: [files.id],
+  }),
+}))
+
+export const clubMessageReactionsRelations = relations(
+  clubMessageReactions,
+  ({ one }) => ({
+    message: one(clubMessages, {
+      fields: [clubMessageReactions.messageId],
+      references: [clubMessages.id],
+    }),
+    user: one(users, {
+      fields: [clubMessageReactions.userId],
+      references: [users.id],
+    }),
+  })
+)
+
+export const clubMessageReadsRelations = relations(
+  clubMessageReads,
+  ({ one }) => ({
+    message: one(clubMessages, {
+      fields: [clubMessageReads.messageId],
+      references: [clubMessages.id],
+    }),
+    user: one(users, {
+      fields: [clubMessageReads.userId],
+      references: [users.id],
+    }),
+  })
+)
+
+export const chatbotsRelations = relations(chatbots, ({ one, many }) => ({
+  subject: one(courses, {
+    fields: [chatbots.subjectId],
+    references: [courses.id],
+  }),
+  conversations: many(chatbotConversations),
+}))
+
+export const chatbotConversationsRelations = relations(
+  chatbotConversations,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [chatbotConversations.userId],
+      references: [users.id],
+    }),
+    chatbot: one(chatbots, {
+      fields: [chatbotConversations.chatbotId],
+      references: [chatbots.id],
+    }),
+    messages: many(chatbotMessages),
+  })
+)
+
+export const chatbotMessagesRelations = relations(
+  chatbotMessages,
+  ({ one }) => ({
+    conversation: one(chatbotConversations, {
+      fields: [chatbotMessages.conversationId],
+      references: [chatbotConversations.id],
+    }),
+  })
+)
+
+export const quizQuestionsRelations = relations(quizQuestions, ({ one }) => ({
+  quiz: one(quizzes, {
+    fields: [quizQuestions.quizId],
+    references: [quizzes.id],
   }),
 }))
 

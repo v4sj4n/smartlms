@@ -29,6 +29,20 @@
       "when": 1779574698900,
       "tag": "0003_red_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779641956978,
+      "tag": "0004_jazzy_maria_hill",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779642308239,
+      "tag": "0005_right_norrin_radd",
+      "breakpoints": true
     }
   ]
 }

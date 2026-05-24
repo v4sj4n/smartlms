@@ -1,9 +1,17 @@
 "use server"
 
 import { db } from "@/db"
-import { quizzes, questions, questionOptions, submissions } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
+import {
+  quizzes,
+  questions,
+  questionOptions,
+  submissions,
+  flashcards,
+  courseWeeks,
+} from "@/db/schema"
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { requireAuth } from "@/lib/auth-guard"
 
 // ============================================================================
 // QUIZ ACTIONS
@@ -214,5 +222,218 @@ export async function submitQuiz(data: {
   } catch (error) {
     console.error("Failed to submit quiz:", error)
     return { success: false, error: "Failed to submit quiz" }
+  }
+}
+
+// ============================================================================
+// MANUAL CONTENT CREATION ACTIONS
+// ============================================================================
+
+type ManualQuizQuestionInput = {
+  type: "true_false" | "multiple_choice"
+  content: string
+  points?: number
+  options?: { content: string; isCorrect?: boolean }[]
+  correctBooleanAnswer?: boolean
+}
+
+async function resolveWeekAccess(weekId: string, userId: string, role: string) {
+  const week = await db.query.courseWeeks.findFirst({
+    where: eq(courseWeeks.id, weekId),
+    with: {
+      course: {
+        columns: {
+          id: true,
+          teacherId: true,
+        },
+      },
+    },
+  })
+
+  if (!week || !week.course) {
+    throw new Error("Folder not found")
+  }
+
+  if (role !== "ADMIN" && week.course.teacherId !== userId) {
+    throw new Error("Forbidden")
+  }
+
+  return week
+}
+
+export async function createManualQuiz(input: {
+  weekId: string
+  title: string
+  description?: string
+  type?: "graded" | "practice"
+  timeLimitMinutes?: number
+  difficulty?: "easy" | "medium" | "hard"
+  status?: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "ARCHIVED"
+  questions: ManualQuizQuestionInput[]
+}) {
+  try {
+    const user = await requireAuth()
+    if (!["ADMIN", "PROFESSOR"].includes(user.role)) {
+      return { success: false, error: "Forbidden" }
+    }
+
+    await resolveWeekAccess(input.weekId, user.id, user.role)
+
+    const title = input.title.trim()
+    if (!title) {
+      return { success: false, error: "Quiz title is required" }
+    }
+
+    const validQuestions = input.questions
+      .map((question) => ({
+        ...question,
+        content: question.content.trim(),
+      }))
+      .filter((question) => question.content.length > 0)
+
+    if (!validQuestions.length) {
+      return { success: false, error: "At least one question is required" }
+    }
+
+    const createdQuiz = await db.transaction(async (tx) => {
+      const [quiz] = await tx
+        .insert(quizzes)
+        .values({
+          weekId: input.weekId,
+          title,
+          description: input.description?.trim() || undefined,
+          type: input.type ?? "graded",
+          timeLimitMinutes: input.timeLimitMinutes,
+          origin: "MANUAL" as const,
+          difficulty: input.difficulty ?? "medium",
+          status: input.status ?? "DRAFT",
+        })
+        .returning()
+
+      for (let index = 0; index < validQuestions.length; index += 1) {
+        const question = validQuestions[index]
+
+        const [createdQuestion] = await tx
+          .insert(questions)
+          .values({
+            quizId: quiz.id,
+            type: question.type,
+            content: question.content,
+            points: question.points ?? 1,
+            orderIndex: index,
+          })
+          .returning()
+
+        if (question.type === "true_false") {
+          const correctAnswer = question.correctBooleanAnswer ?? true
+          await tx.insert(questionOptions).values([
+            {
+              questionId: createdQuestion.id,
+              content: "True",
+              isCorrect: correctAnswer,
+            },
+            {
+              questionId: createdQuestion.id,
+              content: "False",
+              isCorrect: !correctAnswer,
+            },
+          ])
+          continue
+        }
+
+        const options = (question.options ?? [])
+          .map((option) => ({
+            content: option.content.trim(),
+            isCorrect: option.isCorrect ?? false,
+          }))
+          .filter((option) => option.content.length > 0)
+
+        if (options.length < 2) {
+          throw new Error(`Question ${index + 1} must have at least 2 options`)
+        }
+
+        const correctCount = options.filter((option) => option.isCorrect).length
+        if (correctCount !== 1) {
+          throw new Error(
+            `Question ${index + 1} must have exactly one correct option`
+          )
+        }
+
+        await tx.insert(questionOptions).values(
+          options.map((option) => ({
+            questionId: createdQuestion.id,
+            content: option.content,
+            isCorrect: option.isCorrect,
+          }))
+        )
+      }
+
+      return quiz
+    })
+
+    revalidatePath(`/professor/courses`)
+    return { success: true, data: createdQuiz }
+  } catch (error) {
+    console.error("Failed to create manual quiz:", error)
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to create manual quiz",
+    }
+  }
+}
+
+export async function createManualFlashcards(input: {
+  weekId: string
+  difficulty?: "easy" | "medium" | "hard"
+  status?: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "ARCHIVED"
+  cards: { frontContent: string; backContent: string }[]
+}) {
+  try {
+    const user = await requireAuth()
+    if (!["ADMIN", "PROFESSOR"].includes(user.role)) {
+      return { success: false, error: "Forbidden" }
+    }
+
+    await resolveWeekAccess(input.weekId, user.id, user.role)
+
+    const cards = input.cards
+      .map((card) => ({
+        frontContent: card.frontContent.trim(),
+        backContent: card.backContent.trim(),
+      }))
+      .filter(
+        (card) => card.frontContent.length > 0 && card.backContent.length > 0
+      )
+
+    if (!cards.length) {
+      return { success: false, error: "At least one flashcard is required" }
+    }
+
+    const createdCards = await db
+      .insert(flashcards)
+      .values(
+        cards.map((card) => ({
+          weekId: input.weekId,
+          frontContent: card.frontContent,
+          backContent: card.backContent,
+          origin: "MANUAL" as const,
+          difficulty: input.difficulty ?? "medium",
+          status: input.status ?? "DRAFT",
+        }))
+      )
+      .returning({ id: flashcards.id })
+
+    revalidatePath(`/professor/courses`)
+    return { success: true, data: { createdCount: createdCards.length } }
+  } catch (error) {
+    console.error("Failed to create manual flashcards:", error)
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create manual flashcards",
+    }
   }
 }

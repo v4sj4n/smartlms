@@ -28,7 +28,15 @@ type ClubSummary = {
   description?: string | null
   members?: unknown[]
   materials?: unknown[]
-  messages?: unknown[]
+  messages?: {
+    id: string
+    content: string
+    createdAt: Date | string
+    author?: {
+      fullName?: string | null
+      nickname?: string | null
+    } | null
+  }[]
 }
 
 export default async function StudentClubsPage() {
@@ -172,9 +180,36 @@ export default async function StudentClubsPage() {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-border/40 pt-4 text-sm text-muted-foreground">
-                  <span>Club details coming next</span>
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <div className="space-y-2 border-t border-border/40 pt-4 text-sm">
+                  {club.messages?.[0] ? (
+                    <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <p className="line-clamp-2 text-foreground/90">
+                        {club.messages[0].content}
+                      </p>
+                      <p className="mt-1">
+                        Last message by{" "}
+                        {club.messages[0].author?.fullName ||
+                          club.messages[0].author?.nickname ||
+                          "Member"}{" "}
+                        •{" "}
+                        {new Date(club.messages[0].createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No messages yet.
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <Link
+                      href={`/student/clubs/${club.id}`}
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                    >
+                      Open club
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

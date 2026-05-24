@@ -40,12 +40,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 
-function OptimoMark() {
+function OptimoMark({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 540.92 490.7"
-      className="h-8 w-8 text-foreground transition-colors duration-200 dark:text-white"
+      className={`text-foreground transition-colors duration-200 dark:text-white ${className || ""}`}
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -170,8 +170,8 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="hover:bg-transparent">
-              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-primary/10 shadow-md ring-1 ring-border/60 transition-all duration-300 hover:scale-105">
-                <OptimoMark />
+              <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-xl bg-primary/10 shadow-md ring-1 ring-border/60 transition-all duration-300 hover:scale-105">
+                <OptimoMark className="size-full p-1.5" />
               </div>
               <div className="ml-2 grid flex-1 text-left leading-tight">
                 <span className="font-heading text-lg font-bold tracking-tight text-foreground">

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { redirect, notFound } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { getCourseById } from "@/lib/actions/courses"
+import { createConversation } from "@/lib/actions/chatbot"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,6 +14,18 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
   Users,
   Calendar,
   ArrowLeft,
@@ -22,6 +35,7 @@ import {
   Layers,
 } from "lucide-react"
 import Link from "next/link"
+import { CourseAiOverlay } from "@/components/course-ai-overlay"
 
 type SemesterWeekSlot = {
   weekNumber: number
@@ -151,6 +165,23 @@ export default async function ProfessorCourseDetailPage({
     semesterWeekSlots.length > 0 ? semesterWeekSlots.length : weeks.length
   const configuredWeekCount = weeks.length
 
+  const aiChatbot = course.chatbots?.[0] ?? null
+  let conversationId: string | null = null
+  let initialMessages: {
+    id: string
+    role: "user" | "assistant"
+    content: string
+  }[] = []
+
+  if (aiChatbot) {
+    const conversation = await createConversation(
+      aiChatbot.id,
+      `${course.title} Assistant`
+    )
+
+    conversationId = conversation.id
+  }
+
   return (
     <div className="flex-1 space-y-6 p-8">
       {/* Header */}
@@ -179,10 +210,10 @@ export default async function ProfessorCourseDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Link href={`/professor/courses/${course.id}/weeks/new`}>
+          <Link href={`/professor/courses/${course.id}/folders/new`}>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Add Week
+              Add Folder
             </Button>
           </Link>
         </div>
@@ -205,7 +236,7 @@ export default async function ProfessorCourseDetailPage({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
-              Semester Weeks
+              Semester Folders
             </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -241,114 +272,169 @@ export default async function ProfessorCourseDetailPage({
       {/* Course Content Tabs */}
       <Tabs defaultValue="weeks" className="space-y-4 pt-2">
         <TabsList>
-          <TabsTrigger value="weeks">Course Weeks</TabsTrigger>
+          <TabsTrigger value="weeks">Course Folders</TabsTrigger>
           <TabsTrigger value="students">Enrolled Students</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weeks" className="space-y-4">
           {timelineWeeks.length > 0 ? (
-            <div className="space-y-4">
+            <Accordion type="multiple" className="space-y-4">
               {timelineWeeks.map((timelineWeek) => {
                 const week = timelineWeek.contentWeek
-                const cardKey = week
+                const itemKey = week
                   ? week.id
                   : `slot-${timelineWeek.weekNumber}`
 
                 return (
-                  <Card key={cardKey}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
-                            {timelineWeek.weekNumber}
+                  <AccordionItem key={itemKey} value={`folder-${itemKey}`}>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <AccordionTrigger className="py-1 hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
+                              {timelineWeek.weekNumber}
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">
+                                {week
+                                  ? week.title
+                                  : `Folder ${timelineWeek.weekNumber}`}
+                              </CardTitle>
+                              <CardDescription className="mt-0.5">
+                                {timelineWeek.rangeLabel}
+                              </CardDescription>
+                            </div>
                           </div>
-                          <div>
-                            <CardTitle className="text-lg">
-                              {week
-                                ? week.title
-                                : `Week ${timelineWeek.weekNumber}`}
-                            </CardTitle>
-                            <CardDescription className="mt-0.5">
-                              {timelineWeek.rangeLabel}
-                            </CardDescription>
-                            {week?.description && (
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {week.description}
-                              </p>
-                            )}
-                            {!week && (
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                No content added for this week yet.
-                              </p>
+                          <div className="mr-2 flex items-center gap-2">
+                            <Badge variant={week ? "default" : "secondary"}>
+                              {week ? "Configured" : "Empty"}
+                            </Badge>
+                            {timelineWeek.isOutsideSemester && (
+                              <Badge variant="outline">Outside semester</Badge>
                             )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {week ? (
-                            <Link
-                              href={`/professor/courses/${course.id}/weeks/${week.id}`}
-                            >
-                              <Button variant="outline" size="sm">
-                                View Week
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Link
-                              href={`/professor/courses/${course.id}/weeks/new`}
-                            >
-                              <Button variant="outline" size="sm">
-                                Add Content
-                              </Button>
-                            </Link>
+                        </AccordionTrigger>
+                      </CardHeader>
+
+                      <AccordionContent>
+                        <CardContent className="space-y-4 pt-1">
+                          {week?.description && (
+                            <p className="text-sm text-muted-foreground">
+                              {week.description}
+                            </p>
                           )}
-                          <Badge variant={week ? "default" : "secondary"}>
-                            {week ? "Configured" : "Empty"}
-                          </Badge>
-                          {timelineWeek.isOutsideSemester && (
-                            <Badge variant="outline">Outside semester</Badge>
+
+                          {!week && (
+                            <p className="text-sm text-muted-foreground">
+                              No content added for this folder yet.
+                            </p>
                           )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          <span>{week?.materials?.length || 0} Materials</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <HelpCircle className="h-4 w-4" />
-                          <span>{week?.quizzes?.length || 0} Quizzes</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4" />
-                          <span>
-                            {week?.flashcards?.length || 0} Flashcards
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+
+                          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              <span>
+                                {week?.materials?.length || 0} Materials
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <HelpCircle className="h-4 w-4" />
+                              <span>{week?.quizzes?.length || 0} Quizzes</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Layers className="h-4 w-4" />
+                              <span>
+                                {week?.flashcards?.length || 0} Flashcards
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {week ? (
+                              <>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button size="sm" variant="outline">
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add Content
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start">
+                                    <DropdownMenuItem asChild>
+                                      <Link
+                                        href={`/professor/courses/${course.id}/files/new`}
+                                        className="flex cursor-pointer items-center"
+                                      >
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Materials
+                                      </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                      <Link
+                                        href={`/professor/courses/${course.id}/quizzes/new`}
+                                        className="flex cursor-pointer items-center"
+                                      >
+                                        <HelpCircle className="mr-2 h-4 w-4" />
+                                        Quizzes
+                                      </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                      <Link
+                                        href={`/professor/courses/${course.id}/flashcards/new`}
+                                        className="flex cursor-pointer items-center"
+                                      >
+                                        <Layers className="mr-2 h-4 w-4" />
+                                        Flashcards
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <Link
+                                  href={`/professor/courses/${course.id}/folders/${week.id}`}
+                                >
+                                  <Button variant="outline" size="sm">
+                                    Open Folder
+                                  </Button>
+                                </Link>
+                              </>
+                            ) : (
+                              <Link
+                                href={`/professor/courses/${course.id}/folders/new`}
+                              >
+                                <Button size="sm">
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Create Folder
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        </CardContent>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
                 )
               })}
-            </div>
+            </Accordion>
           ) : (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Calendar className="h-12 w-12 text-muted-foreground/50" />
-                <h3 className="mt-4 text-lg font-semibold">No Weeks Created</h3>
+                <h3 className="mt-4 text-lg font-semibold">
+                  No Folders Created
+                </h3>
                 <p className="mt-2 max-w-sm text-center text-muted-foreground">
-                  Start building your course by adding weekly content. Each week
-                  can contain lectures, quizzes, and flashcards.
+                  Start building your course by creating a folder. Each folder
+                  can contain materials, quizzes, and flashcards.
                 </p>
                 <Link
-                  href={`/professor/courses/${course.id}/weeks/new`}
+                  href={`/professor/courses/${course.id}/folders/new`}
                   className="mt-6"
                 >
                   <Button>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add First Week
+                    Add First Folder
                   </Button>
                 </Link>
               </CardContent>
@@ -430,7 +516,7 @@ export default async function ProfessorCourseDetailPage({
                     {plannedWeekCount}
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    Semester Weeks
+                    Semester Folders
                   </div>
                 </div>
                 <div className="rounded-lg border p-4 text-center">
@@ -446,6 +532,13 @@ export default async function ProfessorCourseDetailPage({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CourseAiOverlay
+        courseTitle={course.title}
+        chatbotId={aiChatbot?.id ?? null}
+        conversationId={conversationId}
+        initialMessages={initialMessages}
+      />
     </div>
   )
 }

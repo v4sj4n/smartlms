@@ -2,6 +2,7 @@
 
 import { client, db } from "@/db"
 import {
+  chatbots,
   courses,
   courseWeeks,
   courseEnrollments,
@@ -11,12 +12,109 @@ import {
 import { eq, and, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
+type CourseSchemaCompatibility = {
+  lectureMaterialsTableExists: boolean
+  quizzesSchemaCompatible: boolean
+  flashcardsSchemaCompatible: boolean
+}
+
+let courseSchemaCompatibilityPromise: Promise<CourseSchemaCompatibility> | null =
+  null
+
 async function hasTable(tableName: string) {
   const rows = await client<{ exists: boolean }[]>`
     select to_regclass(${`public.${tableName}`}) is not null as "exists"
   `
 
   return rows[0]?.exists ?? false
+}
+
+async function hasColumn(tableName: string, columnName: string) {
+  const rows = await client<{ exists: boolean }[]>`
+    select exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public'
+        and table_name = ${tableName}
+        and column_name = ${columnName}
+    ) as "exists"
+  `
+
+  return rows[0]?.exists ?? false
+}
+
+async function hasColumns(tableName: string, columnNames: string[]) {
+  const checks = await Promise.all(
+    columnNames.map((columnName) => hasColumn(tableName, columnName))
+  )
+
+  return checks.every(Boolean)
+}
+
+async function getCourseSchemaCompatibility(): Promise<CourseSchemaCompatibility> {
+  if (!courseSchemaCompatibilityPromise) {
+    courseSchemaCompatibilityPromise = (async () => {
+      const [
+        lectureMaterialsTableExists,
+        quizzesTableExists,
+        flashcardsTableExists,
+      ] = await Promise.all([
+        hasTable("lecture_materials"),
+        hasTable("quizzes"),
+        hasTable("flashcards"),
+      ])
+
+      const [quizzesSchemaCompatible, flashcardsSchemaCompatible] =
+        await Promise.all([
+          quizzesTableExists
+            ? hasColumns("quizzes", [
+                "source_file_id",
+                "origin",
+                "status",
+                "difficulty",
+              ])
+            : Promise.resolve(false),
+          flashcardsTableExists
+            ? hasColumns("flashcards", [
+                "source_file_id",
+                "origin",
+                "status",
+                "difficulty",
+                "source_chunk_ids",
+                "fingerprint",
+              ])
+            : Promise.resolve(false),
+        ])
+
+      return {
+        lectureMaterialsTableExists,
+        quizzesSchemaCompatible,
+        flashcardsSchemaCompatible,
+      }
+    })()
+  }
+
+  return courseSchemaCompatibilityPromise
+}
+
+async function ensureCourseChatbot(courseId: string, courseTitle: string) {
+  const existingChatbot = await db.query.chatbots.findFirst({
+    where: eq(chatbots.subjectId, courseId),
+  })
+
+  if (existingChatbot) {
+    return existingChatbot
+  }
+
+  const [createdChatbot] = await db
+    .insert(chatbots)
+    .values({
+      subjectId: courseId,
+      systemPrompt: `You are the AI assistant for the course "${courseTitle}". Help students understand the material, guide their thinking, and point them toward relevant course content.`,
+    })
+    .returning()
+
+  return createdChatbot
 }
 
 // ============================================================================
@@ -115,7 +213,11 @@ export async function getCourses(filters?: {
 
 export async function getCourseById(id: string) {
   try {
-    const lectureMaterialsTableExists = await hasTable("lecture_materials")
+    const {
+      lectureMaterialsTableExists,
+      quizzesSchemaCompatible,
+      flashcardsSchemaCompatible,
+    } = await getCourseSchemaCompatibility()
 
     const course = await db.query.courses.findFirst({
       where: eq(courses.id, id),
@@ -127,8 +229,8 @@ export async function getCourseById(id: string) {
           orderBy: [asc(courseWeeks.weekNumber)],
           with: {
             ...(lectureMaterialsTableExists ? { materials: true } : {}),
-            quizzes: true,
-            flashcards: true,
+            ...(quizzesSchemaCompatible ? { quizzes: true } : {}),
+            ...(flashcardsSchemaCompatible ? { flashcards: true } : {}),
           },
         },
         enrollments: {
@@ -136,11 +238,18 @@ export async function getCourseById(id: string) {
             student: true,
           },
         },
+        chatbots: true,
       },
     })
 
     if (!course) {
       return { success: false, error: "Course not found" }
+    }
+
+    const chatbotsForCourse = course.chatbots ?? []
+    if (chatbotsForCourse.length === 0) {
+      const chatbot = await ensureCourseChatbot(course.id, course.title)
+      course.chatbots = [chatbot]
     }
 
     let semesterWindow: null | {

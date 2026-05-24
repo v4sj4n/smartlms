@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth"
 import { redirect, notFound } from "next/navigation"
-import type { CSSProperties } from "react"
 
 import { authOptions } from "@/lib/auth"
 import { getCourseById } from "@/lib/actions/courses"
+import { createConversation } from "@/lib/actions/chatbot"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -18,12 +18,15 @@ import {
   ArrowLeft,
   BookOpen,
   Calendar,
+  Download,
+  ExternalLink,
   FileText,
   HelpCircle,
   Layers,
   Users,
 } from "lucide-react"
 import Link from "next/link"
+import { CourseAiOverlay } from "@/components/course-ai-overlay"
 
 type SemesterWeekSlot = {
   weekNumber: number
@@ -155,6 +158,23 @@ export default async function StudentCourseDetailPage({
         isOutsideSemester: true,
       })),
   ]
+
+  const aiChatbot = course.chatbots?.[0] ?? null
+  let conversationId: string | null = null
+  let initialMessages: {
+    id: string
+    role: "user" | "assistant"
+    content: string
+  }[] = []
+
+  if (aiChatbot) {
+    const conversation = await createConversation(
+      aiChatbot.id,
+      `${course.title} Assistant`
+    )
+
+    conversationId = conversation.id
+  }
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
@@ -309,7 +329,7 @@ export default async function StudentCourseDetailPage({
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4" />
@@ -326,6 +346,120 @@ export default async function StudentCourseDetailPage({
                           </span>
                         </div>
                       </div>
+
+                      {week && (
+                        <Tabs defaultValue="materials" className="space-y-3">
+                          <TabsList>
+                            <TabsTrigger value="materials">
+                              Materials
+                            </TabsTrigger>
+                            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+                            <TabsTrigger value="flashcards">
+                              Flashcards
+                            </TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="materials" className="space-y-2">
+                            {week.materials?.length ? (
+                              week.materials.map((material) => {
+                                const contentUrl = material.contentUrl
+                                const isExternal =
+                                  Boolean(contentUrl) &&
+                                  (contentUrl?.startsWith("http://") ||
+                                    contentUrl?.startsWith("https://"))
+                                const downloadHref = contentUrl
+                                  ? isExternal
+                                    ? contentUrl
+                                    : `/api/uploads/download?path=${encodeURIComponent(
+                                        contentUrl
+                                      )}`
+                                  : null
+
+                                return (
+                                  <div
+                                    key={material.id}
+                                    className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm"
+                                  >
+                                    <div>
+                                      <p className="font-medium">
+                                        {material.title}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {material.type}
+                                      </p>
+                                    </div>
+                                    {downloadHref && (
+                                      <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                      >
+                                        <Link href={downloadHref}>
+                                          {isExternal ? (
+                                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                                          ) : (
+                                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                                          )}
+                                          {isExternal ? "Open" : "Download"}
+                                        </Link>
+                                      </Button>
+                                    )}
+                                  </div>
+                                )
+                              })
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No materials posted yet.
+                              </p>
+                            )}
+                          </TabsContent>
+
+                          <TabsContent value="quizzes" className="space-y-2">
+                            {week.quizzes?.length ? (
+                              week.quizzes.map((quiz) => (
+                                <div
+                                  key={quiz.id}
+                                  className="rounded-lg border border-border/50 px-3 py-2 text-sm"
+                                >
+                                  <p className="font-medium">{quiz.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {quiz.type}
+                                    {quiz.timeLimitMinutes
+                                      ? ` • ${quiz.timeLimitMinutes} min`
+                                      : ""}
+                                  </p>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No quizzes yet.
+                              </p>
+                            )}
+                          </TabsContent>
+
+                          <TabsContent value="flashcards" className="space-y-2">
+                            {week.flashcards?.length ? (
+                              week.flashcards.map((flashcard) => (
+                                <div
+                                  key={flashcard.id}
+                                  className="rounded-lg border border-border/50 px-3 py-2 text-sm"
+                                >
+                                  <p className="font-medium">
+                                    Front: {flashcard.frontContent}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Back: {flashcard.backContent}
+                                  </p>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No flashcards yet.
+                              </p>
+                            )}
+                          </TabsContent>
+                        </Tabs>
+                      )}
                     </CardContent>
                   </Card>
                 )
@@ -431,6 +565,15 @@ export default async function StudentCourseDetailPage({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CourseAiOverlay
+        courseTitle={course.title}
+        chatbotId={aiChatbot?.id ?? null}
+        conversationId={conversationId}
+        initialMessages={initialMessages}
+        model="gemini-2.0-flash-lite"
+        systemInstructions="You are a course study coach. Never provide direct answers, final solutions, or completed work. Only give hints, guiding questions, study steps, and references to the course materials. If the student asks for the answer, refuse briefly and offer a hint instead."
+      />
     </div>
   )
 }

@@ -26,7 +26,7 @@ export default async function ProfessorCoursesPage() {
           </h1>
           <p className="mt-2 text-muted-foreground">
             View and manage your assigned courses. Click on a course to view
-            weeks, add content, and manage quizzes.
+            folders, add content, and manage quizzes.
           </p>
         </div>
       </div>
