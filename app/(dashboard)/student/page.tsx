@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { getUserDisplayName } from "@/lib/display-name"
 import {
   BookOpen,
   Calendar,
@@ -37,6 +38,8 @@ export default async function StudentDashboardPage() {
   if (!session || session.user.role !== "STUDENT") {
     redirect("/sign-in")
   }
+
+  const displayName = getUserDisplayName(session.user)
 
   const [{ data: allCourses }, { data: clubs }, { data: announcements }] =
     await Promise.all([
@@ -67,10 +70,10 @@ export default async function StudentDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Welcome back, {session.user.name?.split(" ")[0] || "Student"}! 👋
+            Welcome back, {displayName}! 👋
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Here's what's happening with your courses today.
+            Here&apos;s what&apos;s happening with your courses today.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -221,7 +224,7 @@ export default async function StudentDashboardPage() {
                 <BookOpen className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Enrolled Courses</h3>
                 <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  You're not enrolled in any courses yet. Contact your
+                  You&apos;re not enrolled in any courses yet. Contact your
                   administrator or academic advisor.
                 </p>
               </CardContent>
@@ -267,7 +270,7 @@ export default async function StudentDashboardPage() {
                 <Users className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Clubs Available</h3>
                 <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  Student clubs will appear here once they're created by
+                  Student clubs will appear here once they&apos;re created by
                   administrators.
                 </p>
               </CardContent>

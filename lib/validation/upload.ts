@@ -19,6 +19,7 @@ export const createSignedUploadSchema = z.object({
   subjectId: z.string().uuid().optional(),
   weekNumber: z.number().int().min(1).max(52).optional(),
   clubId: z.string().uuid().optional(),
+  profileImage: z.boolean().optional(),
 })
 
 export const finalizeUploadSchema = z.object({
@@ -29,5 +30,6 @@ export const finalizeUploadSchema = z.object({
   subjectId: z.string().uuid().optional(),
   weekNumber: z.number().int().min(1).max(52).optional(),
   clubId: z.string().uuid().optional(),
+  profileImage: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
 })

@@ -24,7 +24,7 @@ export function useClubChatRealtime(
       config: { presence: { key: crypto.randomUUID() } },
     })
 
-    const realtimeChannel = channel as any
+      const realtimeChannel = channel
 
     realtimeChannel
       .on(
@@ -65,7 +65,7 @@ export function useClubChatRealtime(
         },
         handlers.onReadChanged
       )
-      .on("broadcast", { event: "typing" }, ({ payload }: any) => {
+      .on("broadcast", { event: "typing" }, ({ payload }: { payload: unknown }) => {
         const typed = payload as { userId?: string; isTyping?: boolean }
         if (typed.userId && typeof typed.isTyping === "boolean") {
           handlers.onTyping?.(typed.userId, typed.isTyping)

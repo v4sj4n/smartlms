@@ -23,7 +23,8 @@ export async function requireRole(
   allowedRoles: ("ADMIN" | "PROFESSOR" | "STUDENT")[]
 ) {
   const user = await requireAuth()
-  if (!allowedRoles.includes(user.role as any)) {
+  const userRole = user.role as "ADMIN" | "PROFESSOR" | "STUDENT"
+  if (!allowedRoles.includes(userRole)) {
     redirect("/dashboard")
   }
   return user

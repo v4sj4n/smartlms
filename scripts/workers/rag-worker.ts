@@ -14,9 +14,16 @@ async function start() {
   await boss.start()
   await boss.createQueue("file.ingest")
 
-  await boss.work("file.ingest", async (job: any) => {
-    const payload = Array.isArray(job) ? job[0]?.data : job?.data
-    const fileId = payload?.fileId as string | undefined
+  await boss.work("file.ingest", async (job: unknown) => {
+    const payload = Array.isArray(job)
+      ? (job as Array<Record<string, unknown>>)[0]?.data
+      : (job as Record<string, unknown>)['data']
+
+    const fileId =
+      typeof payload === 'object' && payload !== null && 'fileId' in payload
+        ? (payload as Record<string, unknown>)['fileId'] as string | undefined
+        : undefined
+
     if (!fileId) throw new Error("Missing fileId in job payload")
 
     await ingestFileToRag(fileId)

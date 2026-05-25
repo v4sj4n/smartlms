@@ -1,13 +1,17 @@
 import { NextAuthOptions } from "next-auth"
+import type { Adapter } from "next-auth/adapters"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
 import bcrypt from "bcryptjs"
 import { db } from "@/db"
 import { users, userAuth } from "@/db/schema"
 import { eq } from "drizzle-orm"
+import { resolveProfileImageUrl } from "@/lib/profile-image"
+
+type AuthUser = { id: string; role?: string | null; image?: string | null; nickname?: string | null }
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db) as any,
+  adapter: DrizzleAdapter(db) as unknown as Adapter,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -49,6 +53,7 @@ export const authOptions: NextAuthOptions = {
           id: userRecord.id,
           email: userRecord.email,
           name: userRecord.name || userRecord.fullName || "",
+          nickname: userRecord.nickname,
           role: userRecord.role,
         }
       },
@@ -60,15 +65,29 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
-        token.role = (user as any).role
+        token.id = (user as AuthUser).id
+        token.role = (user as AuthUser).role ?? null
       }
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
-        ;(session.user as any).id = token.id as string
-        ;(session.user as any).role = token.role as string
+        const su = session.user as unknown as AuthUser
+        su.id = token.id as string
+        su.role = token.role as string
+
+        if (token.id) {
+          const userRecord = await db.query.users.findFirst({
+            where: eq(users.id, token.id as string),
+            columns: {
+              image: true,
+              nickname: true,
+            },
+          })
+
+          su.image = await resolveProfileImageUrl(userRecord?.image ?? null)
+          su.nickname = userRecord?.nickname ?? null
+        }
       }
       return session
     },

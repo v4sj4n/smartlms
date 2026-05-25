@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import {
@@ -39,23 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-
-function OptimoMark({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 540.92 490.7"
-      className={`text-foreground transition-colors duration-200 dark:text-white ${className || ""}`}
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M238.18,222.21c-.09,19.09-29.1,19.09-29.19,0,.09-19.09,29.1-19.09,29.19,0Z" />
-      <path d="M332.28,222.25c-.09,18.99-28.94,18.99-29.03,0,.09-18.99,28.94-18.99,29.03,0Z" />
-      <path d="M359.53,66.33c-76.07-97.22-230.81-14.69-200.86,101.95,22.83,83.41,105.62,184.79,3.67,247.44-71.56,47.36-191.6-21.66-155.83-109.58,17.51-44.17,76.19-55.56,107.44-23.35,18.73,18.72,28.63,59.72,7,59-20.47-.68-2.21-27.55-28.32-46.28-25.22-18.98-62.72-1-67.59,29.38-11.97,67.51,79.76,105.17,129.72,67.94,61.06-39.85,25.59-112.32.19-163.01C87.89,116.34,176.53-32.91,311.86,6.44c74.63,22.06,114.77,106.9,90.91,179.62-14,51.07-44.59,88.08-50.06,132.53-13.78,108.3,164.42,121.2,164.46,12.68-1.28-32.53-38.61-55.53-66.52-36.96-27.87,17.5-10.35,45.38-29.08,47.43-38.13.83,6.87-110.22,84.06-68.73,66.39,39.61,30.52,136.98-36.69,152.74-73.87,25.29-157.32-40.59-138.04-119.58,18.68-77.44,94.07-162.1,28.64-239.84Z" />
-      <path d="M270.6,390.58c-31.5,80.99-114.11,125.22-193.84,84.9-4.25-4.52-5.03-9.78-2.39-14.3,2.39-4.09,9.45-7.91,14.62-5.33,82.09,43.23,168.31-38.55,169.95-121.83-.47-15.53,22.57-16.8,23.26-.79,2.62,43.38,22.36,84.33,56.53,111.19,70.23,54.19,119.02-7.52,128.92,18.46,2.46,6.93-1.41,12.37-8.13,15.43-75.8,36.17-161.02-10.99-188.91-87.73Z" />
-    </svg>
-  )
-}
+import { getUserDisplayName } from "@/lib/display-name"
 
 export function AppSidebar() {
   const { data: session } = useSession()
@@ -63,12 +48,13 @@ export function AppSidebar() {
 
   const user = session?.user
   const role = user?.role ?? "STUDENT"
+  const displayName = getUserDisplayName(user)
   const settingsUrl =
     role === "PROFESSOR"
       ? "/professor/settings"
       : role === "STUDENT"
         ? "/student/settings"
-        : "/admin"
+        : "/admin/settings"
 
   // Define navigation items per role
   const getNavItems = () => {
@@ -169,11 +155,22 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border/50 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-transparent">
-              <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-xl bg-primary/10 shadow-md ring-1 ring-border/60 transition-all duration-300 hover:scale-105">
-                <OptimoMark className="size-full p-1.5" />
+            <SidebarMenuButton
+              size="lg"
+              aria-label="Optimo"
+              className="justify-start gap-3 hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-0! group-data-[collapsible=icon]:p-0!"
+            >
+              <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-xl bg-background shadow-md ring-1 ring-border/60 transition-transform duration-200 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:shadow-none">
+                <Image
+                  src="/optimo-logo.svg"
+                  alt="Optimo logo"
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-contain p-1 transition-[filter] dark:invert"
+                  priority
+                />
               </div>
-              <div className="ml-2 grid flex-1 text-left leading-tight">
+              <div className="ml-2 grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="font-heading text-lg font-bold tracking-tight text-foreground">
                   Optimo
                 </span>
@@ -237,28 +234,28 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="w-full justify-between rounded-xl p-2 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  className="w-full justify-between rounded-xl p-2 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
                 >
-                  <div className="flex items-center gap-2 text-left">
-                    <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-sm">
+                  <div className="flex items-center gap-2 text-left group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:gap-0">
+                    <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-sm group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:shadow-none">
                       <AvatarImage
                         src={user?.image || undefined}
-                        alt={user?.name || "User Avatar"}
+                        alt={displayName || "User Avatar"}
                       />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         <User className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="ml-1 grid max-w-30 leading-tight">
+                    <div className="ml-1 grid max-w-30 leading-tight group-data-[collapsible=icon]:hidden">
                       <span className="truncate text-sm font-bold text-foreground">
-                        {user?.name || "Default Account"}
+                        {displayName}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {user?.email || "user@smartlms.com"}
                       </span>
                     </div>
                   </div>
-                  <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground/80" />
+                  <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground/80 group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

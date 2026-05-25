@@ -93,7 +93,7 @@ export default async function ProfessorCoursesPage() {
             No Assigned Courses
           </h3>
           <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-            You haven't been assigned any courses yet. Contact the
+            You haven&apos;t been assigned any courses yet. Contact the
             administration to get your courses assigned.
           </p>
         </Card>

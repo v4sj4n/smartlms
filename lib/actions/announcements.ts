@@ -51,7 +51,7 @@ export async function getAnnouncements(filters?: {
   limit?: number
 }) {
   try {
-    let query = db.query.announcements.findMany({
+    const query = db.query.announcements.findMany({
       where: (announcements, { and, eq, or, isNull, gte }) => {
         const conditions = []
 

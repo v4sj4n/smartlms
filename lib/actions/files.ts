@@ -74,11 +74,14 @@ export async function createSignedUpload(input: unknown) {
   const user = await requireAuth()
 
   const data = createSignedUploadSchema.parse(input)
-  await assertUploadPermission({
-    role: user.role,
-    userId: user.id,
-    clubId: data.clubId,
-  })
+
+  if (!data.profileImage) {
+    await assertUploadPermission({
+      role: user.role,
+      userId: user.id,
+      clubId: data.clubId,
+    })
+  }
 
   if (data.size > MAX_FILE_SIZE_BYTES) {
     throw new Error("File exceeds maximum allowed size")
@@ -87,9 +90,9 @@ export async function createSignedUpload(input: unknown) {
   const now = new Date()
   const stamp = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`
   const path = [
-    data.subjectId ?? "unscoped",
-    data.weekNumber ? `week-${data.weekNumber}` : "week-none",
-    data.clubId ?? "club-none",
+    data.profileImage ? "profile-images" : (data.subjectId ?? "unscoped"),
+    data.profileImage ? user.id : (data.weekNumber ? `week-${data.weekNumber}` : "week-none"),
+    data.profileImage ? stamp : (data.clubId ?? "club-none"),
     user.id,
     stamp,
     `${crypto.randomUUID()}-${safeFileName(data.name)}`,

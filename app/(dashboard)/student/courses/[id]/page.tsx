@@ -161,7 +161,7 @@ export default async function StudentCourseDetailPage({
 
   const aiChatbot = course.chatbots?.[0] ?? null
   let conversationId: string | null = null
-  let initialMessages: {
+  const initialMessages: {
     id: string
     role: "user" | "assistant"
     content: string
@@ -218,6 +218,16 @@ export default async function StudentCourseDetailPage({
           >
             Enrolled
           </Badge>
+          <Link href={`/student/courses/${course.id}/quizzes`}>
+            <Button variant="outline" size="sm" className="rounded-full">
+              Quizzes
+            </Button>
+          </Link>
+          <Link href={`/student/courses/${course.id}/flashcards`}>
+            <Button variant="outline" size="sm" className="rounded-full">
+              Flashcards
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -320,9 +330,6 @@ export default async function StudentCourseDetailPage({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={week ? "default" : "secondary"}>
-                            {week ? "Configured" : "Empty"}
-                          </Badge>
                           {timelineWeek.isOutsideSemester && (
                             <Badge variant="outline">Outside semester</Badge>
                           )}

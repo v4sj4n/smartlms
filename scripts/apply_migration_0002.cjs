@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 require('dotenv').config();
 const fs = require('fs');
 const postgres = require('postgres');

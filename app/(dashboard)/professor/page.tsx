@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getUserDisplayName } from "@/lib/display-name"
 import {
   BookOpen,
   Calendar,
@@ -33,6 +34,8 @@ export default async function ProfessorDashboardPage() {
   if (!session || session.user.role !== "PROFESSOR") {
     redirect("/sign-in")
   }
+
+  const displayName = getUserDisplayName(session.user)
 
   const [{ data: allCourses }, { data: announcements }] = await Promise.all([
     getCourses({ teacherId: session.user.id }),
@@ -61,7 +64,7 @@ export default async function ProfessorDashboardPage() {
             Professor Dashboard
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Welcome back, {session.user.name || session.user.email}. Manage your
+            Welcome back, {displayName}. Manage your
             courses and students.
           </p>
         </div>
@@ -195,7 +198,7 @@ export default async function ProfessorDashboardPage() {
                 <BookOpen className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Courses Assigned</h3>
                 <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  You haven't been assigned to any courses yet. Contact your
+                  You haven&apos;t been assigned to any courses yet. Contact your
                   administrator.
                 </p>
               </CardContent>
@@ -276,7 +279,7 @@ export default async function ProfessorDashboardPage() {
                   Schedule Coming Soon
                 </h3>
                 <p className="mt-2 max-w-sm text-center text-muted-foreground">
-                  The scheduling feature is currently in development. You'll be
+                  The scheduling feature is currently in development. You&apos;ll be
                   able to view your teaching schedule here soon.
                 </p>
               </div>

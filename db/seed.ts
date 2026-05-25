@@ -9,14 +9,12 @@ import {
   courses,
   courseEnrollments,
   courseWeeks,
-  lectureMaterials,
   quizzes,
   questions,
   questionOptions,
   flashcards,
   clubs,
   clubMembers,
-  clubMaterials,
   clubMessages,
   announcements,
 } from "./schema"
@@ -282,36 +280,6 @@ async function main() {
   const webWeekOne = weekByCourseAndNumber(webEngineeringCourse.id, 1)
   const vizWeekOne = weekByCourseAndNumber(visualizationCourse.id, 1)
 
-  await db.insert(lectureMaterials).values([
-    {
-      weekId: mlWeekOne.id,
-      title: "Linear Model Notes",
-      description:
-        "A short PDF-style resource for supervised learning terminology.",
-      type: "PDF",
-      contentUrl: "https://example.com/materials/linear-model-notes.pdf",
-      orderIndex: 1,
-    },
-    {
-      weekId: webWeekOne.id,
-      title: "Auth Guard Walkthrough",
-      description:
-        "Reference implementation notes for protected dashboard routes.",
-      type: "LINK",
-      contentUrl: "https://example.com/materials/auth-guard",
-      orderIndex: 1,
-    },
-    {
-      weekId: vizWeekOne.id,
-      title: "Chart Selection Cheatsheet",
-      description:
-        "A compact guide to matching chart types with analytical questions.",
-      type: "PDF",
-      contentUrl: "https://example.com/materials/chart-selection.pdf",
-      orderIndex: 1,
-    },
-  ])
-
   const [mlQuiz] = await db
     .insert(quizzes)
     .values({
@@ -395,7 +363,7 @@ async function main() {
     },
   ])
 
-  console.log("🎯 Seeding full-year clubs, members, materials, and chat...")
+  console.log("🎯 Seeding full-year clubs, members, and chat...")
   const [roboticsClub, webBuildersClub, cultureClub] = await db
     .insert(clubs)
     .values([
@@ -463,47 +431,12 @@ async function main() {
     },
   ])
 
-  await db.insert(clubMaterials).values([
-    {
-      clubId: roboticsClub.id,
-      uploadedBy: advisorUser.id,
-      title: "Robotics starter kit",
-      description:
-        "Parts list, lab safety notes, and the first prototype checklist.",
-      type: "PDF",
-      contentUrl: "https://example.com/clubs/robotics-starter-kit.pdf",
-      isPinned: true,
-      orderIndex: 1,
-    },
-    {
-      clubId: webBuildersClub.id,
-      uploadedBy: professorUser.id,
-      title: "Deployment checklist",
-      description:
-        "A quick guide for shipping club projects to production-like environments.",
-      type: "LINK",
-      contentUrl: "https://example.com/clubs/deployment-checklist",
-      isPinned: true,
-      orderIndex: 1,
-    },
-    {
-      clubId: cultureClub.id,
-      uploadedBy: johnStudent.id,
-      title: "Event proposal template",
-      description:
-        "Template for planning workshops, exhibitions, debates, and campus activities.",
-      type: "DOCUMENT",
-      contentUrl: "https://example.com/clubs/event-proposal-template",
-      orderIndex: 1,
-    },
-  ])
-
   await db.insert(clubMessages).values([
     {
       clubId: roboticsClub.id,
       authorId: advisorUser.id,
       content:
-        "Welcome to the full-year Robotics & AI Club. Start by reading the pinned starter kit.",
+        "Welcome to the full-year Robotics & AI Club. Introduce yourself and share what you want to build this year.",
       createdAt: new Date("2025-09-05T09:00:00"),
       updatedAt: new Date("2025-09-05T09:00:00"),
     },
@@ -526,7 +459,7 @@ async function main() {
       clubId: webBuildersClub.id,
       authorId: professorUser.id,
       content:
-        "Nice. Keep project links and setup notes in materials so new members can catch up quickly.",
+        "Nice. Keep project links and setup notes in the chat so new members can catch up quickly.",
       createdAt: new Date("2025-09-06T15:10:00"),
       updatedAt: new Date("2025-09-06T15:10:00"),
     },
@@ -554,7 +487,7 @@ async function main() {
     {
       title: "Robotics & AI Club is open",
       content:
-        "Students can join the new Robotics & AI Club and work with Prof. Arben Kodra as advisor.",
+        "Nice. Keep project links and setup notes in the chat so new members can catch up quickly.",
       scope: "club",
       referenceId: roboticsClub.id,
       authorId: advisorUser.id,

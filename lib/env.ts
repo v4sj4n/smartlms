@@ -33,11 +33,6 @@ function getOptionalNumberEnv(key: string, fallback: number): number {
 
 export const env = {
   DATABASE_URL: getEnv("DATABASE_URL"),
-  GEMINI_API_KEY: getEnv("GEMINI_API_KEY"),
-  GENAI_BASE_URL: getOptionalEnv(
-    "GENAI_BASE_URL",
-    "https://generativelanguage.googleapis.com/v1beta/openai/"
-  ),
   GENAI_CHAT_MODEL: getOptionalEnv("GENAI_CHAT_MODEL", "gemini-3.5-flash"),
   GENAI_QUIZ_MODEL: getOptionalEnv(
     "GENAI_QUIZ_MODEL",

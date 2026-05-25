@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth"
 import { db } from "@/db"
 import { users } from "@/db/schema"
 import { getProfileSettingsCapabilities } from "@/lib/data/profile-settings"
+import { normalizeProfileImageReference } from "@/lib/profile-image"
 
 export type UpdateProfileSettingsState = {
   success: boolean
@@ -24,21 +25,6 @@ function sanitizeText(value: FormDataEntryValue | null) {
   return value.trim()
 }
 
-function normalizeImageUrl(value: string) {
-  if (!value) return null
-
-  try {
-    const parsed = new URL(value)
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return null
-    }
-
-    return value
-  } catch {
-    return null
-  }
-}
-
 export async function updateOwnProfileSettings(
   _prevState: UpdateProfileSettingsState = initialState,
   formData: FormData
@@ -50,10 +36,10 @@ export async function updateOwnProfileSettings(
   }
 
   const role = session.user.role
-  if (role !== "STUDENT" && role !== "PROFESSOR") {
+  if (role !== "STUDENT" && role !== "PROFESSOR" && role !== "ADMIN") {
     return {
       success: false,
-      message: "Only students and professors can update these settings.",
+      message: "Only students, professors, and admins can update these settings.",
     }
   }
 
@@ -72,11 +58,11 @@ export async function updateOwnProfileSettings(
     return { success: false, message: "Bio must be 500 characters or less." }
   }
 
-  const normalizedImage = normalizeImageUrl(imageInput)
+  const normalizedImage = normalizeProfileImageReference(imageInput)
   if (imageInput && !normalizedImage) {
     return {
       success: false,
-      message: "Profile image URL must start with http:// or https://",
+      message: "Profile image must be a valid URL or uploaded file path.",
     }
   }
 

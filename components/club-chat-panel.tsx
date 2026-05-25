@@ -46,25 +46,6 @@ export function ClubChatPanel({
     el.scrollTop = el.scrollHeight
   }, [])
 
-  const loadInitialMessages = useCallback(async () => {
-    setIsLoadingInitial(true)
-    try {
-      const page = await getClubMessagesPage({ clubId, limit: 10 })
-      setMessages(page.items as ClubChatMessage[])
-      setNextCursor(page.nextCursor)
-
-      requestAnimationFrame(() => {
-        scrollToBottom()
-      })
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load messages"
-      )
-    } finally {
-      setIsLoadingInitial(false)
-    }
-  }, [clubId, scrollToBottom])
-
   const loadOlderMessages = useCallback(async () => {
     if (!hasMore || isLoadingOlder || !nextCursor) return
 
@@ -99,8 +80,36 @@ export function ClubChatPanel({
   }, [clubId, hasMore, isLoadingOlder, nextCursor])
 
   useEffect(() => {
+    let isMounted = true
+
+    const loadInitialMessages = async () => {
+      try {
+        const page = await getClubMessagesPage({ clubId, limit: 10 })
+        if (!isMounted) return
+
+        setMessages(page.items as ClubChatMessage[])
+        setNextCursor(page.nextCursor)
+
+        requestAnimationFrame(() => {
+          scrollToBottom()
+        })
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to load messages"
+        )
+      } finally {
+        if (isMounted) {
+          setIsLoadingInitial(false)
+        }
+      }
+    }
+
     void loadInitialMessages()
-  }, [loadInitialMessages])
+
+    return () => {
+      isMounted = false
+    }
+  }, [clubId, scrollToBottom])
 
   const handleScroll = useCallback(() => {
     const el = listRef.current

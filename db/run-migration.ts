@@ -48,10 +48,12 @@ async function main() {
       console.log(`⚡ Statement ${i + 1}/${statements.length}...`)
       try {
         await db.execute(sql.raw(stmt))
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage =
+          err instanceof Error ? err.message : String(err)
         console.error(`❌ Statement failed!`)
         console.error(`Query: ${stmt}`)
-        console.error(`Error:`, err.message || err)
+        console.error(`Error:`, errorMessage)
         process.exit(1)
       }
     }

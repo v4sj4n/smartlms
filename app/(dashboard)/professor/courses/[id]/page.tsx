@@ -167,7 +167,7 @@ export default async function ProfessorCourseDetailPage({
 
   const aiChatbot = course.chatbots?.[0] ?? null
   let conversationId: string | null = null
-  let initialMessages: {
+  const initialMessages: {
     id: string
     role: "user" | "assistant"
     content: string

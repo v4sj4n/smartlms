@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getUserDisplayName } from "@/lib/display-name"
 import {
   Users,
   BookOpen,
@@ -37,6 +38,8 @@ export default async function AdminDashboardPage() {
   if (!session || session.user.role !== "ADMIN") {
     redirect("/sign-in")
   }
+
+  const displayName = getUserDisplayName(session.user)
 
   const [
     { data: schoolYears },
@@ -71,8 +74,8 @@ export default async function AdminDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="mt-1 text-muted-foreground">
-            Welcome back, {session.user.name || session.user.email}. Here's
-            what's happening.
+            Welcome back, {displayName}. Here&apos;s
+            what&apos;s happening.
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -1,9 +1,11 @@
 import { client } from "@/db"
+import { resolveProfileImageUrl } from "@/lib/profile-image"
 
 export type ProfileSettingsUser = {
   name: string | null
   email: string
   image: string | null
+  imageUrl: string | null
   nickname: string | null
   bio: string | null
 }
@@ -33,6 +35,17 @@ export async function getProfileSettingsCapabilities(): Promise<ProfileSettingsC
 export async function getProfileSettingsUserById(
   userId: string
 ): Promise<ProfileSettingsUser | null> {
+  async function withResolvedImage(
+    row: Omit<ProfileSettingsUser, "imageUrl"> | undefined
+  ) {
+    if (!row) return null
+
+    return {
+      ...row,
+      imageUrl: await resolveProfileImageUrl(row.image),
+    }
+  }
+
   const { hasNickname, hasBio } = await getProfileSettingsCapabilities()
 
   if (hasNickname && hasBio) {
@@ -43,7 +56,7 @@ export async function getProfileSettingsUserById(
       limit 1
     `
 
-    return rows[0] ?? null
+    return withResolvedImage(rows[0])
   }
 
   if (hasNickname && !hasBio) {
@@ -54,7 +67,7 @@ export async function getProfileSettingsUserById(
       limit 1
     `
 
-    return rows[0] ?? null
+    return withResolvedImage(rows[0])
   }
 
   if (!hasNickname && hasBio) {
@@ -65,7 +78,7 @@ export async function getProfileSettingsUserById(
       limit 1
     `
 
-    return rows[0] ?? null
+    return withResolvedImage(rows[0])
   }
 
   const rows = await client<ProfileSettingsUser[]>`
@@ -75,5 +88,5 @@ export async function getProfileSettingsUserById(
     limit 1
   `
 
-  return rows[0] ?? null
+  return withResolvedImage(rows[0])
 }
