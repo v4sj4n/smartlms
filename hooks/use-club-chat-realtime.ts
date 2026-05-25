@@ -24,9 +24,7 @@ export function useClubChatRealtime(
       config: { presence: { key: crypto.randomUUID() } },
     })
 
-      const realtimeChannel = channel
-
-    realtimeChannel
+    channel
       .on(
         "postgres_changes",
         {
@@ -35,7 +33,9 @@ export function useClubChatRealtime(
           table: "club_messages",
           filter: `club_id=eq.${clubId}`,
         },
-        handlers.onMessageInserted
+        (payload) => {
+          handlers.onMessageInserted?.(payload)
+        }
       )
       .on(
         "postgres_changes",
@@ -45,7 +45,9 @@ export function useClubChatRealtime(
           table: "club_messages",
           filter: `club_id=eq.${clubId}`,
         },
-        handlers.onMessageUpdated
+        (payload) => {
+          handlers.onMessageUpdated?.(payload)
+        }
       )
       .on(
         "postgres_changes",
@@ -54,7 +56,9 @@ export function useClubChatRealtime(
           schema: "public",
           table: "club_message_reactions",
         },
-        handlers.onReactionChanged
+        (payload) => {
+          handlers.onReactionChanged?.(payload)
+        }
       )
       .on(
         "postgres_changes",
@@ -63,7 +67,9 @@ export function useClubChatRealtime(
           schema: "public",
           table: "club_message_reads",
         },
-        handlers.onReadChanged
+        (payload) => {
+          handlers.onReadChanged?.(payload)
+        }
       )
       .on("broadcast", { event: "typing" }, ({ payload }: { payload: unknown }) => {
         const typed = payload as { userId?: string; isTyping?: boolean }
