@@ -8,7 +8,12 @@ import { users, userAuth } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { resolveProfileImageUrl } from "@/lib/profile-image"
 
-type AuthUser = { id: string; role?: string | null; image?: string | null; nickname?: string | null }
+type AuthUser = {
+  id: string
+  role?: string | null
+  image?: string | null
+  nickname?: string | null
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: DrizzleAdapter(db) as unknown as Adapter,

@@ -49,8 +49,7 @@ async function main() {
       try {
         await db.execute(sql.raw(stmt))
       } catch (err: unknown) {
-        const errorMessage =
-          err instanceof Error ? err.message : String(err)
+        const errorMessage = err instanceof Error ? err.message : String(err)
         console.error(`❌ Statement failed!`)
         console.error(`Query: ${stmt}`)
         console.error(`Error:`, errorMessage)

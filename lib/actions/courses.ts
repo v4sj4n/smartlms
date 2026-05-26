@@ -229,7 +229,22 @@ export async function getCourseById(id: string) {
           orderBy: [asc(courseWeeks.weekNumber)],
           with: {
             ...(lectureMaterialsTableExists ? { materials: true } : {}),
-            ...(quizzesSchemaCompatible ? { quizzes: true } : {}),
+            ...(quizzesSchemaCompatible
+              ? {
+                  quizzes: {
+                    with: {
+                      questions: {
+                        with: {
+                          options: true,
+                        },
+                        orderBy: (questions, { asc }) => [
+                          asc(questions.orderIndex),
+                        ],
+                      },
+                    },
+                  },
+                }
+              : {}),
             ...(flashcardsSchemaCompatible ? { flashcards: true } : {}),
           },
         },

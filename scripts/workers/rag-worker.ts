@@ -17,11 +17,11 @@ async function start() {
   await boss.work("file.ingest", async (job: unknown) => {
     const payload = Array.isArray(job)
       ? (job as Array<Record<string, unknown>>)[0]?.data
-      : (job as Record<string, unknown>)['data']
+      : (job as Record<string, unknown>)["data"]
 
     const fileId =
-      typeof payload === 'object' && payload !== null && 'fileId' in payload
-        ? (payload as Record<string, unknown>)['fileId'] as string | undefined
+      typeof payload === "object" && payload !== null && "fileId" in payload
+        ? ((payload as Record<string, unknown>)["fileId"] as string | undefined)
         : undefined
 
     if (!fileId) throw new Error("Missing fileId in job payload")

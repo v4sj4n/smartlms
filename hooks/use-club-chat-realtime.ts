@@ -71,12 +71,16 @@ export function useClubChatRealtime(
           handlers.onReadChanged?.(payload)
         }
       )
-      .on("broadcast", { event: "typing" }, ({ payload }: { payload: unknown }) => {
-        const typed = payload as { userId?: string; isTyping?: boolean }
-        if (typed.userId && typeof typed.isTyping === "boolean") {
-          handlers.onTyping?.(typed.userId, typed.isTyping)
+      .on(
+        "broadcast",
+        { event: "typing" },
+        ({ payload }: { payload: unknown }) => {
+          const typed = payload as { userId?: string; isTyping?: boolean }
+          if (typed.userId && typeof typed.isTyping === "boolean") {
+            handlers.onTyping?.(typed.userId, typed.isTyping)
+          }
         }
-      })
+      )
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState<{ userId: string }>()
         const onlineUserIds = Object.values(state)

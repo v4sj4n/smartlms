@@ -91,7 +91,11 @@ export async function createSignedUpload(input: unknown) {
   const stamp = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`
   const path = [
     data.profileImage ? "profile-images" : (data.subjectId ?? "unscoped"),
-    data.profileImage ? user.id : (data.weekNumber ? `week-${data.weekNumber}` : "week-none"),
+    data.profileImage
+      ? user.id
+      : data.weekNumber
+        ? `week-${data.weekNumber}`
+        : "week-none",
     data.profileImage ? stamp : (data.clubId ?? "club-none"),
     user.id,
     stamp,

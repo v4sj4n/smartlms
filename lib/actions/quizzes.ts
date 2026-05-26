@@ -8,8 +8,10 @@ import {
   submissions,
   flashcards,
   courseWeeks,
+  quizAttempts,
+  quizAnswers,
 } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { requireAuth } from "@/lib/auth-guard"
 
@@ -222,6 +224,160 @@ export async function submitQuiz(data: {
   } catch (error) {
     console.error("Failed to submit quiz:", error)
     return { success: false, error: "Failed to submit quiz" }
+  }
+}
+
+export async function submitQuizAttempt(input: {
+  quizId: string
+  answers: Record<string, string>
+}) {
+  try {
+    const user = await requireAuth()
+    if (user.role !== "STUDENT") {
+      return { success: false, error: "Forbidden" }
+    }
+
+    const quiz = await db.query.quizzes.findFirst({
+      where: eq(quizzes.id, input.quizId),
+      with: {
+        week: {
+          with: {
+            course: {
+              with: {
+                enrollments: true,
+              },
+            },
+          },
+        },
+        questions: {
+          with: {
+            options: true,
+          },
+          orderBy: (questions, { asc }) => [asc(questions.orderIndex)],
+        },
+      },
+    })
+
+    if (!quiz || !quiz.week?.course) {
+      return { success: false, error: "Quiz not found" }
+    }
+
+    const isEnrolled =
+      quiz.week.course.enrollments?.some(
+        (enrollment: { studentId: string }) => enrollment.studentId === user.id
+      ) ?? false
+
+    if (!isEnrolled) {
+      return { success: false, error: "Forbidden" }
+    }
+
+    const existingAttempt = await db.query.quizAttempts.findFirst({
+      where: and(
+        eq(quizAttempts.userId, user.id),
+        eq(quizAttempts.quizId, quiz.id)
+      ),
+    })
+
+    if (existingAttempt) {
+      return {
+        success: true,
+        data: {
+          attempt: existingAttempt,
+          score: existingAttempt.score,
+          maxScore: quiz.questions.reduce(
+            (total, question) => total + question.points,
+            0
+          ),
+        },
+      }
+    }
+
+    const scoredQuestions = quiz.questions.map((question) => {
+      const rawAnswer = input.answers[question.id]?.trim() ?? ""
+
+      if (question.options.length === 0) {
+        return {
+          questionId: question.id,
+          selectedOptionId: null,
+          isCorrect: false,
+          points: question.points,
+        }
+      }
+
+      const selectedOption = question.options.find(
+        (option) => option.id === rawAnswer
+      )
+      const correctOption = question.options.find((option) => option.isCorrect)
+      const isCorrect = Boolean(
+        selectedOption &&
+        correctOption &&
+        selectedOption.id === correctOption.id
+      )
+
+      return {
+        questionId: question.id,
+        selectedOptionId: selectedOption?.id ?? null,
+        isCorrect,
+        points: question.points,
+      }
+    })
+
+    const score = scoredQuestions.reduce(
+      (total, question) => total + (question.isCorrect ? question.points : 0),
+      0
+    )
+
+    const attempt = await db.transaction(async (tx) => {
+      const [createdAttempt] = await tx
+        .insert(quizAttempts)
+        .values({
+          userId: user.id,
+          quizId: quiz.id,
+          score,
+          completedAt: new Date(),
+        })
+        .returning()
+
+      const answerRows = scoredQuestions
+        .filter((question) => Boolean(question.selectedOptionId))
+        .map((question) => ({
+          attemptId: createdAttempt.id,
+          questionId: question.questionId,
+          selectedOptionId: question.selectedOptionId as string,
+          isCorrect: question.isCorrect,
+        }))
+
+      if (answerRows.length > 0) {
+        await tx.insert(quizAnswers).values(answerRows)
+      }
+
+      return createdAttempt
+    })
+
+    revalidatePath(`/student/courses/${quiz.week.course.id}/quizzes/${quiz.id}`)
+    revalidatePath(`/student/courses/${quiz.week.course.id}/quizzes`)
+    revalidatePath(`/student/courses/${quiz.week.course.id}`)
+
+    return {
+      success: true,
+      data: {
+        attempt,
+        score,
+        maxScore: quiz.questions.reduce(
+          (total, question) => total + question.points,
+          0
+        ),
+      },
+    }
+  } catch (error) {
+    console.error("Failed to submit quiz attempt:", error)
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to submit quiz attempt",
+    }
   }
 }
 

@@ -64,8 +64,7 @@ export default async function ProfessorDashboardPage() {
             Professor Dashboard
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Welcome back, {displayName}. Manage your
-            courses and students.
+            Welcome back, {displayName}. Manage your courses and students.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -198,8 +197,8 @@ export default async function ProfessorDashboardPage() {
                 <BookOpen className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Courses Assigned</h3>
                 <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  You haven&apos;t been assigned to any courses yet. Contact your
-                  administrator.
+                  You haven&apos;t been assigned to any courses yet. Contact
+                  your administrator.
                 </p>
               </CardContent>
             </Card>
@@ -279,8 +278,8 @@ export default async function ProfessorDashboardPage() {
                   Schedule Coming Soon
                 </h3>
                 <p className="mt-2 max-w-sm text-center text-muted-foreground">
-                  The scheduling feature is currently in development. You&apos;ll be
-                  able to view your teaching schedule here soon.
+                  The scheduling feature is currently in development.
+                  You&apos;ll be able to view your teaching schedule here soon.
                 </p>
               </div>
             </CardContent>

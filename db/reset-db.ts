@@ -14,6 +14,8 @@ async function main() {
       "club_materials",
       "lecture_materials",
       "submissions", 
+      "quiz_answers",
+      "quiz_attempts",
       "assignments", 
       "flashcards", 
       "flashcard_decks", 
@@ -48,7 +50,10 @@ async function main() {
       "semester",
       "question_type", 
       "quiz_type", 
-      "user_role" 
+      "user_role",
+      "content_status",
+      "generation_origin",
+      "difficulty"
     CASCADE;
   `)
 

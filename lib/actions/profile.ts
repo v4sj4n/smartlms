@@ -39,7 +39,8 @@ export async function updateOwnProfileSettings(
   if (role !== "STUDENT" && role !== "PROFESSOR" && role !== "ADMIN") {
     return {
       success: false,
-      message: "Only students, professors, and admins can update these settings.",
+      message:
+        "Only students, professors, and admins can update these settings.",
     }
   }
 

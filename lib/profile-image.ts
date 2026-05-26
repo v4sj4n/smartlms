@@ -12,7 +12,9 @@ function isHttpUrl(value: string) {
 }
 
 function isStoragePath(value: string) {
-  return /^[A-Za-z0-9/_-]+(?:\.[A-Za-z0-9]+)?$/.test(value) && !value.startsWith("/")
+  return (
+    /^[A-Za-z0-9/_-]+(?:\.[A-Za-z0-9]+)?$/.test(value) && !value.startsWith("/")
+  )
 }
 
 export function normalizeProfileImageReference(value: string) {

@@ -219,6 +219,50 @@ export const questionOptions = pgTable("question_options", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
+export const quizAttempts = pgTable(
+  "quiz_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    quizId: uuid("quiz_id")
+      .references(() => quizzes.id, { onDelete: "cascade" })
+      .notNull(),
+    score: integer("score").default(0).notNull(),
+    completedAt: timestamp("completed_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("quiz_attempts_user_quiz_idx").on(t.userId, t.quizId),
+    index("quiz_attempts_completed_at_idx").on(t.completedAt),
+  ]
+)
+
+export const quizAnswers = pgTable(
+  "quiz_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id")
+      .references(() => quizAttempts.id, { onDelete: "cascade" })
+      .notNull(),
+    questionId: uuid("question_id")
+      .references(() => questions.id, { onDelete: "cascade" })
+      .notNull(),
+    selectedOptionId: uuid("selected_option_id")
+      .references(() => questionOptions.id, { onDelete: "cascade" })
+      .notNull(),
+    isCorrect: boolean("is_correct").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_quiz_answer_attempt_question").on(
+      t.attemptId,
+      t.questionId
+    ),
+  ]
+)
+
 /* ==========================================================================
    4. FLASHCARDS DOMAIN
    ========================================================================== */
@@ -733,6 +777,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   announcements: many(announcements),
   submissions: many(submissions, { relationName: "studentSubmissions" }),
   gradedSubmissions: many(submissions, { relationName: "gradedSubmissions" }),
+  quizAttempts: many(quizAttempts),
   uploadedFiles: many(files),
   clubMessageReactions: many(clubMessageReactions),
   clubMessageReads: many(clubMessageReads),
@@ -802,6 +847,7 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   }),
   questions: many(questions),
   aiQuestions: many(quizQuestions),
+  attempts: many(quizAttempts),
 }))
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -821,6 +867,36 @@ export const questionOptionsRelations = relations(
     }),
   })
 )
+
+export const quizAttemptsRelations = relations(
+  quizAttempts,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [quizAttempts.userId],
+      references: [users.id],
+    }),
+    quiz: one(quizzes, {
+      fields: [quizAttempts.quizId],
+      references: [quizzes.id],
+    }),
+    answers: many(quizAnswers),
+  })
+)
+
+export const quizAnswersRelations = relations(quizAnswers, ({ one }) => ({
+  attempt: one(quizAttempts, {
+    fields: [quizAnswers.attemptId],
+    references: [quizAttempts.id],
+  }),
+  question: one(questions, {
+    fields: [quizAnswers.questionId],
+    references: [questions.id],
+  }),
+  selectedOption: one(questionOptions, {
+    fields: [quizAnswers.selectedOptionId],
+    references: [questionOptions.id],
+  }),
+}))
 
 export const flashcardsRelations = relations(flashcards, ({ one }) => ({
   week: one(courseWeeks, {

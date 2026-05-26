@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
 import {
   ArrowLeft,
   BookOpen,
@@ -23,10 +24,12 @@ import {
   FileText,
   HelpCircle,
   Layers,
+  ArrowRight,
   Users,
 } from "lucide-react"
 import Link from "next/link"
 import { CourseAiOverlay } from "@/components/course-ai-overlay"
+import { BreadcrumbLabels } from "@/components/breadcrumb-labels"
 
 type SemesterWeekSlot = {
   weekNumber: number
@@ -91,10 +94,14 @@ function buildSemesterWeekSlots(
 
 export default async function StudentCourseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ weekId?: string }>
 }) {
   const { id } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const focusedWeekId = resolvedSearchParams?.weekId ?? null
 
   const session = await getServerSession(authOptions)
 
@@ -178,6 +185,9 @@ export default async function StudentCourseDetailPage({
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
+      <BreadcrumbLabels
+        labels={{ [`/student/courses/${course.id}`]: course.title }}
+      />
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
@@ -203,31 +213,6 @@ export default async function StudentCourseDetailPage({
               )}
             </div>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Badge
-            variant="secondary"
-            className="rounded-full px-3 py-1 tracking-wide uppercase"
-          >
-            {course.isPublished ? "Published" : "Draft"}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="rounded-full px-3 py-1 tracking-wide uppercase"
-          >
-            Enrolled
-          </Badge>
-          <Link href={`/student/courses/${course.id}/quizzes`}>
-            <Button variant="outline" size="sm" className="rounded-full">
-              Quizzes
-            </Button>
-          </Link>
-          <Link href={`/student/courses/${course.id}/flashcards`}>
-            <Button variant="outline" size="sm" className="rounded-full">
-              Flashcards
-            </Button>
-          </Link>
         </div>
       </div>
 
@@ -286,6 +271,8 @@ export default async function StudentCourseDetailPage({
           <TabsTrigger value="weeks">Course Weeks</TabsTrigger>
           <TabsTrigger value="people">Classmates</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+          <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weeks" className="space-y-4">
@@ -300,7 +287,11 @@ export default async function StudentCourseDetailPage({
                 return (
                   <Card
                     key={cardKey}
-                    className="rounded-2xl border-border/40 shadow-sm"
+                    className={cn(
+                      "rounded-2xl border-border/40 shadow-sm",
+                      focusedWeekId === week?.id &&
+                        "border-primary/30 ring-2 ring-primary/15"
+                    )}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between gap-4">
@@ -325,6 +316,11 @@ export default async function StudentCourseDetailPage({
                             {!week && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 No content has been posted for this week yet.
+                              </p>
+                            )}
+                            {focusedWeekId === week?.id && (
+                              <p className="mt-2 inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                                Resumed week context
                               </p>
                             )}
                           </div>
@@ -426,15 +422,29 @@ export default async function StudentCourseDetailPage({
                               week.quizzes.map((quiz) => (
                                 <div
                                   key={quiz.id}
-                                  className="rounded-lg border border-border/50 px-3 py-2 text-sm"
+                                  className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                                 >
-                                  <p className="font-medium">{quiz.title}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {quiz.type}
-                                    {quiz.timeLimitMinutes
-                                      ? ` • ${quiz.timeLimitMinutes} min`
-                                      : ""}
-                                  </p>
+                                  <div className="space-y-1">
+                                    <p className="font-medium">{quiz.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {quiz.type}
+                                      {quiz.timeLimitMinutes
+                                        ? ` • ${quiz.timeLimitMinutes} min`
+                                        : ""}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    className="rounded-full"
+                                  >
+                                    <Link
+                                      href={`/student/courses/${course.id}/quizzes/${quiz.id}?weekId=${week.id}`}
+                                    >
+                                      Open quiz
+                                      <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                                    </Link>
+                                  </Button>
                                 </div>
                               ))
                             ) : (
@@ -446,19 +456,29 @@ export default async function StudentCourseDetailPage({
 
                           <TabsContent value="flashcards" className="space-y-2">
                             {week.flashcards?.length ? (
-                              week.flashcards.map((flashcard) => (
-                                <div
-                                  key={flashcard.id}
-                                  className="rounded-lg border border-border/50 px-3 py-2 text-sm"
-                                >
+                              <div className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-3 text-sm sm:flex sm:items-center sm:justify-between">
+                                <div className="space-y-1">
                                   <p className="font-medium">
-                                    Front: {flashcard.frontContent}
+                                    Study flashcards
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    Back: {flashcard.backContent}
+                                    {week.flashcards.length} cards in this
+                                    week’s deck.
                                   </p>
                                 </div>
-                              ))
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  className="rounded-full"
+                                >
+                                  <Link
+                                    href={`/student/courses/${course.id}/flashcards/${week.id}`}
+                                  >
+                                    Open deck
+                                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                              </div>
                             ) : (
                               <p className="text-sm text-muted-foreground">
                                 No flashcards yet.
@@ -568,6 +588,55 @@ export default async function StudentCourseDetailPage({
                 </p>
                 <p className="mt-1 font-medium">{enrollments.length}</p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quizzes" className="space-y-4">
+          <Card className="rounded-2xl border-border/40 shadow-sm">
+            <CardHeader>
+              <CardTitle>Quizzes</CardTitle>
+              <CardDescription>
+                Open the quiz list for this course and continue into a session.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {totalQuizzes} quizzes are available across the course weeks.
+                </p>
+              </div>
+              <Button asChild className="rounded-full">
+                <Link href={`/student/courses/${course.id}/quizzes`}>
+                  Open quizzes
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="flashcards" className="space-y-4">
+          <Card className="rounded-2xl border-border/40 shadow-sm">
+            <CardHeader>
+              <CardTitle>Flashcards</CardTitle>
+              <CardDescription>
+                Open the flashcard decks for each week in this course.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {totalFlashcards} flashcards are available across the course
+                  weeks.
+                </p>
+              </div>
+              <Button asChild className="rounded-full">
+                <Link href={`/student/courses/${course.id}/flashcards`}>
+                  Open flashcards
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

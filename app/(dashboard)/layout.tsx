@@ -17,21 +17,74 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Bell, Moon, Search, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
+import {
+  BreadcrumbLabelsProvider,
+  useBreadcrumbLabels,
+} from "@/components/breadcrumb-labels"
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function isUuidLike(segment: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    segment
+  )
+}
+
+function toTitleCase(segment: string) {
+  return segment
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function getBreadcrumbLabel(
+  segment: string,
+  href: string,
+  breadcrumbLabels: Record<string, string>
+) {
+  const lower = segment.toLowerCase()
+
+  if (breadcrumbLabels[href]) {
+    return breadcrumbLabels[href]
+  }
+
+  const routeLabels: Record<string, string> = {
+    admin: "Admin",
+    dashboard: "Dashboard",
+    student: "Student",
+    professor: "Professor",
+    courses: "Courses",
+    clubs: "Clubs",
+    settings: "Settings",
+    academic: "Academic",
+    users: "Users",
+    quizzes: "Quizzes",
+    flashcards: "Flashcards",
+    overview: "Overview",
+    people: "Classmates",
+  }
+
+  if (routeLabels[lower]) {
+    return routeLabels[lower]
+  }
+
+  if (isUuidLike(segment)) {
+    return "Details"
+  }
+
+  return toTitleCase(segment)
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
+  const { labels: breadcrumbLabels } = useBreadcrumbLabels()
 
   // Generate breadcrumbs from current path segments
   const getBreadcrumbs = () => {
     const paths = pathname.split("/").filter((x) => x)
     return paths.map((path, index) => {
       const href = "/" + paths.slice(0, index + 1).join("/")
-      const label = path.charAt(0).toUpperCase() + path.slice(1)
+      const label = getBreadcrumbLabel(path, href, breadcrumbLabels)
       const isLast = index === paths.length - 1
       return { href, label, isLast }
     })
@@ -49,7 +102,7 @@ export default function DashboardLayout({
         <div className="flex flex-1 flex-col">
           {/* Header */}
           <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-md supports-backdrop-filter:bg-background/60 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <SidebarTrigger className="h-9 w-9 rounded-lg border border-border/40 text-foreground transition-[background-color,border-color,color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.96]" />
               <Separator
                 orientation="vertical"
@@ -57,28 +110,33 @@ export default function DashboardLayout({
               />
 
               {/* Dynamic Breadcrumbs */}
-              <Breadcrumb className="hidden md:block">
-                <BreadcrumbList className="gap-1.5 text-sm font-medium">
-                  <BreadcrumbItem>
+              <Breadcrumb className="hidden min-w-0 md:block">
+                <BreadcrumbList className="min-w-0 gap-1.5 text-sm font-medium">
+                  <BreadcrumbItem className="min-w-0">
                     <BreadcrumbLink
                       href="/dashboard"
-                      className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                      className="max-w-44 truncate text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                      title="Optimo"
                     >
                       Optimo
                     </BreadcrumbLink>
                   </BreadcrumbItem>
-                  {breadcrumbs.map((crumb, index) => (
+                  {breadcrumbs.map((crumb) => (
                     <React.Fragment key={crumb.href}>
                       <BreadcrumbSeparator className="text-muted-foreground/60" />
-                      <BreadcrumbItem>
+                      <BreadcrumbItem className="min-w-0">
                         {crumb.isLast ? (
-                          <BreadcrumbPage className="font-semibold tracking-tight text-foreground">
+                          <BreadcrumbPage
+                            className="max-w-44 truncate font-semibold tracking-tight text-foreground"
+                            title={crumb.label}
+                          >
                             {crumb.label}
                           </BreadcrumbPage>
                         ) : (
                           <BreadcrumbLink
                             href={crumb.href}
-                            className="text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                            className="max-w-44 truncate text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                            title={crumb.label}
                           >
                             {crumb.label}
                           </BreadcrumbLink>
@@ -135,5 +193,17 @@ export default function DashboardLayout({
         </div>
       </div>
     </SidebarProvider>
+  )
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <BreadcrumbLabelsProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </BreadcrumbLabelsProvider>
   )
 }

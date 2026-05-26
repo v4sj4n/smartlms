@@ -158,7 +158,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               size="lg"
               aria-label="Optimo"
-              className="justify-start gap-3 hover:bg-transparent group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-0! group-data-[collapsible=icon]:p-0!"
+              className="justify-start gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:px-0! hover:bg-transparent"
             >
               <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-xl bg-background shadow-md ring-1 ring-border/60 transition-transform duration-200 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:shadow-none">
                 <Image
@@ -234,7 +234,7 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="w-full justify-between rounded-xl p-2 transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+                  className="w-full justify-between rounded-xl p-2 transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 >
                   <div className="flex items-center gap-2 text-left group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:gap-0">
                     <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-sm group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:shadow-none">
