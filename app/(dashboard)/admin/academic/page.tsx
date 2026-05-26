@@ -34,18 +34,24 @@ export default async function AcademicPage() {
   const activeYear = schoolYears?.find((y: { isActive: boolean }) => y.isActive)
 
   return (
-    <div className="flex-1 space-y-6 p-8">
-      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
+    <div className="flex-1 space-y-6">
+      <div
+        className="reveal-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        style={{ animationDelay: "0ms" }}
+      >
         <div>
-          <h1 className="text-balance text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
             Academic Management
           </h1>
-          <p className="text-pretty mt-1 text-muted-foreground">
+          <p className="mt-1 text-pretty text-muted-foreground">
             Manage academic years, semesters, study programs, and enrollments.
           </p>
         </div>
         <Link href="/admin/academic/school-years">
-          <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
+          <Button
+            size="sm"
+            className="transition-transform duration-150 ease-out active:scale-[0.96]"
+          >
             <Plus className="mr-2 h-4 w-4" />
             New Academic Year
           </Button>
@@ -53,15 +59,23 @@ export default async function AcademicPage() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="years">Academic Years</TabsTrigger>
-          <TabsTrigger value="programs">Programs</TabsTrigger>
-        </TabsList>
+        <div
+          className="reveal-in overflow-x-auto"
+          style={{ animationDelay: "100ms" }}
+        >
+          <TabsList className="w-max min-w-full sm:w-auto">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="years">Academic Years</TabsTrigger>
+            <TabsTrigger value="programs">Programs</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           {activeYear ? (
-            <Card className="surface-elevated border-l-4 border-l-green-500">
+            <Card
+              className="reveal-in surface-elevated border-l-4 border-l-green-500"
+              style={{ animationDelay: "200ms" }}
+            >
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -78,9 +92,9 @@ export default async function AcademicPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-6 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900">
                       <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                     </div>
                     <div>
@@ -92,7 +106,7 @@ export default async function AcademicPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 dark:bg-purple-900">
                       <School className="h-5 w-5 text-purple-600 dark:text-purple-300" />
                     </div>
                     <div>
@@ -104,7 +118,7 @@ export default async function AcademicPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-orange-100 dark:bg-orange-900">
                       <BookOpen className="h-5 w-5 text-orange-600 dark:text-orange-300" />
                     </div>
                     <div>
@@ -116,7 +130,7 @@ export default async function AcademicPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-green-100 dark:bg-green-900">
                       <GraduationCap className="h-5 w-5 text-green-600 dark:text-green-300" />
                     </div>
                     <div>
@@ -152,9 +166,12 @@ export default async function AcademicPage() {
             </Card>
           )}
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div
+            className="reveal-in grid gap-6 md:grid-cols-3"
+            style={{ animationDelay: "300ms" }}
+          >
             <Link href="/admin/academic/school-years">
-              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50 hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Academic Years
@@ -173,7 +190,7 @@ export default async function AcademicPage() {
             </Link>
 
             <Link href="/admin/academic/study-programs">
-              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50 hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Study Programs
@@ -198,7 +215,7 @@ export default async function AcademicPage() {
             </Link>
 
             <Link href="/admin/academic/enrollments">
-              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50 hover:shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Enrollments
@@ -218,7 +235,9 @@ export default async function AcademicPage() {
 
         <TabsContent value="years" className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Academic Years</h2>
+            <h2 className="text-xl font-semibold text-balance">
+              Academic Years
+            </h2>
             <Link href="/admin/academic/school-years">
               <Button
                 variant="outline"
@@ -245,7 +264,7 @@ export default async function AcademicPage() {
                   key={year.id}
                   href={`/admin/academic/school-years/${year.id}`}
                 >
-                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50 hover:shadow-md">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">{year.name}</CardTitle>
@@ -274,7 +293,9 @@ export default async function AcademicPage() {
 
         <TabsContent value="programs" className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Study Programs</h2>
+            <h2 className="text-xl font-semibold text-balance">
+              Study Programs
+            </h2>
             <Link href="/admin/academic/study-programs">
               <Button
                 variant="outline"
@@ -293,7 +314,7 @@ export default async function AcademicPage() {
                   key={program.id}
                   href={`/admin/academic/study-programs/${program.id}`}
                 >
-                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50 hover:shadow-md">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">
@@ -307,7 +328,7 @@ export default async function AcademicPage() {
                     </CardHeader>
                     {program.description && (
                       <CardContent>
-                        <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                        <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                           {program.description}
                         </p>
                       </CardContent>

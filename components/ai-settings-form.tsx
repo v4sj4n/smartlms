@@ -3,29 +3,29 @@
 import { useActionState, useEffect, useState } from "react"
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import {
   Bot,
   Brain,
-  Check,
   Eye,
   EyeOff,
   Key,
   Link,
   Loader2,
-  RefreshCw,
   Settings,
+  Save,
   Sparkles,
   Thermometer,
   Type,
   Info,
 } from "lucide-react"
 
-import { updateAIConfiguration, type UpdateAISettingsState } from "@/lib/actions/ai-settings"
-import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-} from "@/components/ui/card"
+  updateAIConfiguration,
+  type UpdateAISettingsState,
+} from "@/lib/actions/ai-settings"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // AI Provider definitions with their available models
 const AI_PROVIDERS = [
@@ -50,17 +49,41 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "gpt-4o", name: "GPT-4o", description: "Latest multimodal model" },
-        { id: "gpt-4o-mini", name: "GPT-4o Mini", description: "Fast and affordable" },
+        {
+          id: "gpt-4o",
+          name: "GPT-4o",
+          description: "Latest multimodal model",
+        },
+        {
+          id: "gpt-4o-mini",
+          name: "GPT-4o Mini",
+          description: "Fast and affordable",
+        },
         { id: "gpt-4-turbo", name: "GPT-4 Turbo", description: "High quality" },
-        { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", description: "Cost effective" },
+        {
+          id: "gpt-3.5-turbo",
+          name: "GPT-3.5 Turbo",
+          description: "Cost effective",
+        },
         { id: "o3-mini", name: "o3-mini", description: "Reasoning model" },
         { id: "o1", name: "o1", description: "Advanced reasoning" },
       ],
       embedding: [
-        { id: "text-embedding-3-small", name: "text-embedding-3-small", description: "1536 dims" },
-        { id: "text-embedding-3-large", name: "text-embedding-3-large", description: "3072 dims" },
-        { id: "text-embedding-ada-002", name: "text-embedding-ada-002", description: "Legacy" },
+        {
+          id: "text-embedding-3-small",
+          name: "text-embedding-3-small",
+          description: "1536 dims",
+        },
+        {
+          id: "text-embedding-3-large",
+          name: "text-embedding-3-large",
+          description: "3072 dims",
+        },
+        {
+          id: "text-embedding-ada-002",
+          name: "text-embedding-ada-002",
+          description: "Legacy",
+        },
       ],
     },
     defaultBaseUrl: "https://api.openai.com/v1",
@@ -72,11 +95,31 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", description: "Best balance" },
-        { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", description: "Fast" },
-        { id: "claude-3-opus-20240229", name: "Claude 3 Opus", description: "Most capable" },
-        { id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet", description: "Reliable" },
-        { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", description: "Quick responses" },
+        {
+          id: "claude-3-5-sonnet-20241022",
+          name: "Claude 3.5 Sonnet",
+          description: "Best balance",
+        },
+        {
+          id: "claude-3-5-haiku-20241022",
+          name: "Claude 3.5 Haiku",
+          description: "Fast",
+        },
+        {
+          id: "claude-3-opus-20240229",
+          name: "Claude 3 Opus",
+          description: "Most capable",
+        },
+        {
+          id: "claude-3-sonnet-20240229",
+          name: "Claude 3 Sonnet",
+          description: "Reliable",
+        },
+        {
+          id: "claude-3-haiku-20240307",
+          name: "Claude 3 Haiku",
+          description: "Quick responses",
+        },
       ],
       embedding: [], // Anthropic doesn't provide embeddings
     },
@@ -90,7 +133,11 @@ const AI_PROVIDERS = [
     models: {
       chat: [
         { id: "grok-2", name: "Grok 2", description: "Latest" },
-        { id: "grok-2-vision", name: "Grok 2 Vision", description: "Vision capable" },
+        {
+          id: "grok-2-vision",
+          name: "Grok 2 Vision",
+          description: "Vision capable",
+        },
         { id: "grok-beta", name: "Grok Beta", description: "Beta version" },
       ],
       embedding: [],
@@ -104,15 +151,43 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "gemini-2.0-flash-001", name: "Gemini 2.0 Flash", description: "Fast and efficient" },
-        { id: "gemini-2.0-pro-exp-02-05", name: "Gemini 2.0 Pro", description: "Advanced reasoning" },
-        { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", description: "Fast responses" },
-        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", description: "Complex tasks" },
-        { id: "gemini-1.0-pro", name: "Gemini 1.0 Pro", description: "Reliable" },
+        {
+          id: "gemini-2.0-flash-001",
+          name: "Gemini 2.0 Flash",
+          description: "Fast and efficient",
+        },
+        {
+          id: "gemini-2.0-pro-exp-02-05",
+          name: "Gemini 2.0 Pro",
+          description: "Advanced reasoning",
+        },
+        {
+          id: "gemini-1.5-flash",
+          name: "Gemini 1.5 Flash",
+          description: "Fast responses",
+        },
+        {
+          id: "gemini-1.5-pro",
+          name: "Gemini 1.5 Pro",
+          description: "Complex tasks",
+        },
+        {
+          id: "gemini-1.0-pro",
+          name: "Gemini 1.0 Pro",
+          description: "Reliable",
+        },
       ],
       embedding: [
-        { id: "gemini-embedding-exp-03-07", name: "gemini-embedding-exp", description: "768 dims" },
-        { id: "gemini-embedding-001", name: "gemini-embedding-001", description: "768 dims" },
+        {
+          id: "gemini-embedding-exp-03-07",
+          name: "gemini-embedding-exp",
+          description: "768 dims",
+        },
+        {
+          id: "gemini-embedding-001",
+          name: "gemini-embedding-001",
+          description: "768 dims",
+        },
       ],
     },
     defaultBaseUrl: "https://generativelanguage.googleapis.com",
@@ -124,14 +199,38 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "mistral-large-latest", name: "Mistral Large", description: "Most capable" },
-        { id: "mistral-medium-latest", name: "Mistral Medium", description: "Balanced" },
-        { id: "mistral-small-latest", name: "Mistral Small", description: "Fast" },
-        { id: "codestral-latest", name: "Codestral", description: "Code generation" },
-        { id: "pixtral-large-latest", name: "Pixtral Large", description: "Vision" },
+        {
+          id: "mistral-large-latest",
+          name: "Mistral Large",
+          description: "Most capable",
+        },
+        {
+          id: "mistral-medium-latest",
+          name: "Mistral Medium",
+          description: "Balanced",
+        },
+        {
+          id: "mistral-small-latest",
+          name: "Mistral Small",
+          description: "Fast",
+        },
+        {
+          id: "codestral-latest",
+          name: "Codestral",
+          description: "Code generation",
+        },
+        {
+          id: "pixtral-large-latest",
+          name: "Pixtral Large",
+          description: "Vision",
+        },
       ],
       embedding: [
-        { id: "mistral-embed", name: "mistral-embed", description: "1024 dims" },
+        {
+          id: "mistral-embed",
+          name: "mistral-embed",
+          description: "1024 dims",
+        },
       ],
     },
     defaultBaseUrl: "https://api.mistral.ai",
@@ -143,11 +242,27 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", description: "Most capable" },
-        { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B", description: "Fast" },
-        { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B", description: "Balanced" },
+        {
+          id: "llama-3.3-70b-versatile",
+          name: "Llama 3.3 70B",
+          description: "Most capable",
+        },
+        {
+          id: "llama-3.1-8b-instant",
+          name: "Llama 3.1 8B",
+          description: "Fast",
+        },
+        {
+          id: "mixtral-8x7b-32768",
+          name: "Mixtral 8x7B",
+          description: "Balanced",
+        },
         { id: "gemma2-9b-it", name: "Gemma 2 9B", description: "Efficient" },
-        { id: "deepseek-r1-distill-llama-70b", name: "DeepSeek R1 (distilled)", description: "Reasoning" },
+        {
+          id: "deepseek-r1-distill-llama-70b",
+          name: "DeepSeek R1 (distilled)",
+          description: "Reasoning",
+        },
       ],
       embedding: [],
     },
@@ -160,9 +275,21 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "deepseek-chat", name: "DeepSeek Chat", description: "General purpose" },
-        { id: "deepseek-reasoner", name: "DeepSeek Reasoner", description: "Chain of thought" },
-        { id: "deepseek-coder", name: "DeepSeek Coder", description: "Code generation" },
+        {
+          id: "deepseek-chat",
+          name: "DeepSeek Chat",
+          description: "General purpose",
+        },
+        {
+          id: "deepseek-reasoner",
+          name: "DeepSeek Reasoner",
+          description: "Chain of thought",
+        },
+        {
+          id: "deepseek-coder",
+          name: "DeepSeek Coder",
+          description: "Code generation",
+        },
       ],
       embedding: [],
     },
@@ -181,9 +308,21 @@ const AI_PROVIDERS = [
         { id: "command-light", name: "Command Light", description: "Fast" },
       ],
       embedding: [
-        { id: "embed-english-v3", name: "embed-english-v3", description: "1024 dims" },
-        { id: "embed-english-light-v3", name: "embed-english-light-v3", description: "384 dims" },
-        { id: "embed-multilingual-v3", name: "embed-multilingual-v3", description: "1024 dims" },
+        {
+          id: "embed-english-v3",
+          name: "embed-english-v3",
+          description: "1024 dims",
+        },
+        {
+          id: "embed-english-light-v3",
+          name: "embed-english-light-v3",
+          description: "384 dims",
+        },
+        {
+          id: "embed-multilingual-v3",
+          name: "embed-multilingual-v3",
+          description: "1024 dims",
+        },
       ],
     },
     defaultBaseUrl: "https://api.cohere.com",
@@ -195,15 +334,43 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "meta-llama/Llama-3.3-70B-Instruct-Turbo", name: "Llama 3.3 70B", description: "Meta" },
-        { id: "meta-llama/Llama-3.2-3B-Instruct-Turbo", name: "Llama 3.2 3B", description: "Fast" },
-        { id: "mistralai/Mixtral-8x22B-Instruct-v0.1", name: "Mixtral 8x22B", description: "Mistral" },
-        { id: "Qwen/Qwen2.5-72B-Instruct-Turbo", name: "Qwen 2.5 72B", description: "Alibaba" },
-        { id: "databricks/dbrx-instruct", name: "DBRX", description: "Databricks" },
+        {
+          id: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          name: "Llama 3.3 70B",
+          description: "Meta",
+        },
+        {
+          id: "meta-llama/Llama-3.2-3B-Instruct-Turbo",
+          name: "Llama 3.2 3B",
+          description: "Fast",
+        },
+        {
+          id: "mistralai/Mixtral-8x22B-Instruct-v0.1",
+          name: "Mixtral 8x22B",
+          description: "Mistral",
+        },
+        {
+          id: "Qwen/Qwen2.5-72B-Instruct-Turbo",
+          name: "Qwen 2.5 72B",
+          description: "Alibaba",
+        },
+        {
+          id: "databricks/dbrx-instruct",
+          name: "DBRX",
+          description: "Databricks",
+        },
       ],
       embedding: [
-        { id: "togethercomputer/m2-bert-80M-8k-retrieval", name: "M2-BERT 80M", description: "768 dims" },
-        { id: "togethercomputer/m2-bert-80M-32k-retrieval", name: "M2-BERT 80M 32K", description: "768 dims" },
+        {
+          id: "togethercomputer/m2-bert-80M-8k-retrieval",
+          name: "M2-BERT 80M",
+          description: "768 dims",
+        },
+        {
+          id: "togethercomputer/m2-bert-80M-32k-retrieval",
+          name: "M2-BERT 80M 32K",
+          description: "768 dims",
+        },
       ],
     },
     defaultBaseUrl: "https://api.together.xyz/v1",
@@ -215,13 +382,33 @@ const AI_PROVIDERS = [
     requiresApiKey: true,
     models: {
       chat: [
-        { id: "accounts/fireworks/models/llama-v3p3-70b-instruct", name: "Llama 3.3 70B", description: "Meta" },
-        { id: "accounts/fireworks/models/llama-v3p1-8b-instruct", name: "Llama 3.1 8B", description: "Fast" },
-        { id: "accounts/fireworks/models/mixtral-8x22b-instruct", name: "Mixtral 8x22B", description: "Mistral" },
-        { id: "accounts/fireworks/models/qwen2p5-72b-instruct", name: "Qwen 2.5 72B", description: "Alibaba" },
+        {
+          id: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+          name: "Llama 3.3 70B",
+          description: "Meta",
+        },
+        {
+          id: "accounts/fireworks/models/llama-v3p1-8b-instruct",
+          name: "Llama 3.1 8B",
+          description: "Fast",
+        },
+        {
+          id: "accounts/fireworks/models/mixtral-8x22b-instruct",
+          name: "Mixtral 8x22B",
+          description: "Mistral",
+        },
+        {
+          id: "accounts/fireworks/models/qwen2p5-72b-instruct",
+          name: "Qwen 2.5 72B",
+          description: "Alibaba",
+        },
       ],
       embedding: [
-        { id: "nomic-ai/nomic-embed-text-v1.5", name: "Nomic Embed v1.5", description: "768 dims" },
+        {
+          id: "nomic-ai/nomic-embed-text-v1.5",
+          name: "Nomic Embed v1.5",
+          description: "768 dims",
+        },
       ],
     },
     defaultBaseUrl: "https://api.fireworks.ai/inference/v1",
@@ -235,8 +422,16 @@ const AI_PROVIDERS = [
       chat: [
         { id: "sonar-pro", name: "Sonar Pro", description: "Advanced search" },
         { id: "sonar", name: "Sonar", description: "Balanced" },
-        { id: "sonar-reasoning-pro", name: "Sonar Reasoning Pro", description: "Chain of thought" },
-        { id: "sonar-reasoning", name: "Sonar Reasoning", description: "Reasoning" },
+        {
+          id: "sonar-reasoning-pro",
+          name: "Sonar Reasoning Pro",
+          description: "Chain of thought",
+        },
+        {
+          id: "sonar-reasoning",
+          name: "Sonar Reasoning",
+          description: "Reasoning",
+        },
       ],
       embedding: [],
     },
@@ -260,9 +455,21 @@ const AI_PROVIDERS = [
         { id: "custom", name: "Custom Model", description: "Enter model name" },
       ],
       embedding: [
-        { id: "nomic-embed-text", name: "Nomic Embed", description: "768 dims" },
-        { id: "mxbai-embed-large", name: "MXBAI Embed Large", description: "1024 dims" },
-        { id: "snowflake-arctic-embed", name: "Snowflake Arctic", description: "Various dims" },
+        {
+          id: "nomic-embed-text",
+          name: "Nomic Embed",
+          description: "768 dims",
+        },
+        {
+          id: "mxbai-embed-large",
+          name: "MXBAI Embed Large",
+          description: "1024 dims",
+        },
+        {
+          id: "snowflake-arctic-embed",
+          name: "Snowflake Arctic",
+          description: "Various dims",
+        },
         { id: "custom", name: "Custom Model", description: "Enter model name" },
       ],
     },
@@ -311,25 +518,51 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
   const [chatModelId, setChatModelId] = useState(settings.chatModelId)
   const [chatApiKey, setChatApiKey] = useState(settings.chatApiKey || "")
   const [chatBaseUrl, setChatBaseUrl] = useState(settings.chatBaseUrl || "")
-  const [chatTemperature, setChatTemperature] = useState(parseFloat(settings.chatTemperature))
+  const [chatTemperature, setChatTemperature] = useState(
+    parseFloat(settings.chatTemperature)
+  )
   const [chatMaxTokens, setChatMaxTokens] = useState(settings.chatMaxTokens)
   const [showChatApiKey, setShowChatApiKey] = useState(false)
   const [chatApiKeyModified, setChatApiKeyModified] = useState(false)
 
-  const [embeddingProvider, setEmbeddingProvider] = useState(settings.embeddingProvider)
-  const [embeddingModelId, setEmbeddingModelId] = useState(settings.embeddingModelId)
-  const [embeddingApiKey, setEmbeddingApiKey] = useState(settings.embeddingApiKey || "")
-  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState(settings.embeddingBaseUrl || "")
-  const [embeddingDimensions, setEmbeddingDimensions] = useState(settings.embeddingDimensions)
+  const [embeddingProvider, setEmbeddingProvider] = useState(
+    settings.embeddingProvider
+  )
+  const [embeddingModelId, setEmbeddingModelId] = useState(
+    settings.embeddingModelId
+  )
+  const [embeddingApiKey, setEmbeddingApiKey] = useState(
+    settings.embeddingApiKey || ""
+  )
+  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState(
+    settings.embeddingBaseUrl || ""
+  )
+  const [embeddingDimensions, setEmbeddingDimensions] = useState(
+    settings.embeddingDimensions
+  )
   const [showEmbeddingApiKey, setShowEmbeddingApiKey] = useState(false)
   const [embeddingApiKeyModified, setEmbeddingApiKeyModified] = useState(false)
 
   const [isEnabled, setIsEnabled] = useState(settings.isEnabled)
-  const [allowFileUploads, setAllowFileUploads] = useState(settings.allowFileUploads)
+  const [allowFileUploads, setAllowFileUploads] = useState(
+    settings.allowFileUploads
+  )
+
+  useEffect(() => {
+    if (!state.message) return
+
+    if (state.success) {
+      toast.success(state.message)
+    } else {
+      toast.error(state.message)
+    }
+  }, [state])
 
   // Get provider details
   const chatProviderInfo = AI_PROVIDERS.find((p) => p.id === chatProvider)
-  const embeddingProviderInfo = AI_PROVIDERS.find((p) => p.id === embeddingProvider)
+  const embeddingProviderInfo = AI_PROVIDERS.find(
+    (p) => p.id === embeddingProvider
+  )
 
   // Get available models for current providers
   const chatModels = chatProviderInfo?.models.chat || []
@@ -379,9 +612,21 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
       <input type="hidden" name="chatModelId" value={chatModelId} />
       <input type="hidden" name="embeddingProvider" value={embeddingProvider} />
       <input type="hidden" name="embeddingModelId" value={embeddingModelId} />
-      <input type="hidden" name="chatTemperature" value={chatTemperature.toString()} />
-      <input type="hidden" name="chatMaxTokens" value={chatMaxTokens.toString()} />
-      <input type="hidden" name="embeddingDimensions" value={embeddingDimensions.toString()} />
+      <input
+        type="hidden"
+        name="chatTemperature"
+        value={chatTemperature.toString()}
+      />
+      <input
+        type="hidden"
+        name="chatMaxTokens"
+        value={chatMaxTokens.toString()}
+      />
+      <input
+        type="hidden"
+        name="embeddingDimensions"
+        value={embeddingDimensions.toString()}
+      />
 
       {/* Page Header */}
       <div className="space-y-2">
@@ -389,22 +634,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
           AI Configuration
         </h1>
         <p className="text-sm text-muted-foreground">
-          Configure AI providers, models, and feature settings for your workspace.
+          Configure AI providers, models, and feature settings for your
+          workspace.
         </p>
       </div>
-
-      {/* Status Alert */}
-      {state.message && (
-        <Alert 
-          variant={state.success ? "default" : "destructive"}
-          className="rounded-xl border-0 shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_2px_-1px_rgba(0,0,0,0.06),0px_2px_4px_0px_rgba(0,0,0,0.04)]"
-        >
-          <AlertDescription className="flex items-center gap-2 text-sm">
-            {state.success && <Check className="h-4 w-4" />}
-            {state.message}
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Feature Settings Card */}
       <section className="space-y-4">
@@ -412,7 +645,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
             <Settings className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
             Feature Settings
           </h2>
         </div>
@@ -429,8 +662,9 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   <Label htmlFor="isEnabled" className="text-sm font-medium">
                     Enable AI Features
                   </Label>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Turn off to disable all AI-powered features across the platform
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Turn off to disable all AI-powered features across the
+                    platform
                   </p>
                 </div>
               </div>
@@ -450,10 +684,13 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   <Sparkles className="h-4 w-4 text-secondary-foreground" />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="allowFileUploads" className="text-sm font-medium">
+                  <Label
+                    htmlFor="allowFileUploads"
+                    className="text-sm font-medium"
+                  >
                     Allow File Uploads
                   </Label>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
                     Let users upload files for AI processing and chat
                   </p>
                 </div>
@@ -476,7 +713,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
             <Bot className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
             Chat Model
           </h2>
         </div>
@@ -487,12 +724,18 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Provider Selection - 1 column */}
               <div className="space-y-2.5">
-                <Label htmlFor="chatProviderSelect" className="text-sm font-medium">
+                <Label
+                  htmlFor="chatProviderSelect"
+                  className="text-sm font-medium"
+                >
                   Provider
                 </Label>
-                <Select value={chatProvider} onValueChange={handleChatProviderChange}>
-                  <SelectTrigger 
-                    id="chatProviderSelect" 
+                <Select
+                  value={chatProvider}
+                  onValueChange={handleChatProviderChange}
+                >
+                  <SelectTrigger
+                    id="chatProviderSelect"
                     className="w-full rounded-lg border-border/40 bg-background/50"
                     style={{ height: "2.5rem" }}
                   >
@@ -515,12 +758,15 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
 
               {/* Model Selection - 2 columns */}
               <div className="space-y-2.5 sm:col-span-2">
-                <Label htmlFor="chatModelSelect" className="text-sm font-medium">
+                <Label
+                  htmlFor="chatModelSelect"
+                  className="text-sm font-medium"
+                >
                   Model
                 </Label>
                 <Select value={chatModelId} onValueChange={setChatModelId}>
-                  <SelectTrigger 
-                    id="chatModelSelect" 
+                  <SelectTrigger
+                    id="chatModelSelect"
                     className="w-full rounded-lg border-border/40 bg-background/50"
                     style={{ height: "2.5rem" }}
                   >
@@ -531,14 +777,19 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                       <SelectItem key={model.id} value={model.id}>
                         <div className="flex items-center gap-2 py-1">
                           <span className="font-medium">{model.name}</span>
-                          <Badge variant="secondary" className="text-[10px] font-normal">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-normal"
+                          >
                             {model.description}
                           </Badge>
                         </div>
                       </SelectItem>
                     ))}
                     {chatModels.length === 0 && (
-                      <SelectItem value="custom">Custom model (enter manually)</SelectItem>
+                      <SelectItem value="custom">
+                        Custom model (enter manually)
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -556,7 +807,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             {/* API Key */}
             {chatProviderInfo?.requiresApiKey && (
               <div className="space-y-2.5">
-                <Label htmlFor="chatApiKey" className="flex items-center gap-2 text-sm font-medium">
+                <Label
+                  htmlFor="chatApiKey"
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
                   <Key className="h-3.5 w-3.5 text-muted-foreground" />
                   API Key
                 </Label>
@@ -565,7 +819,11 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                     id="chatApiKey"
                     name="chatApiKey"
                     type={showChatApiKey ? "text" : "password"}
-                    placeholder={settings.chatApiKey ? maskApiKey(settings.chatApiKey) : "Enter API key"}
+                    placeholder={
+                      settings.chatApiKey
+                        ? maskApiKey(settings.chatApiKey)
+                        : "Enter API key"
+                    }
                     value={chatApiKeyModified ? chatApiKey : ""}
                     onChange={(e) => {
                       setChatApiKey(e.target.value)
@@ -576,7 +834,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    className="absolute top-1/2 right-2 -translate-y-1/2 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                     onClick={() => setShowChatApiKey(!showChatApiKey)}
                   >
                     {showChatApiKey ? (
@@ -597,7 +855,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             {/* Base URL (for local/custom) */}
             {chatProvider === "local" && (
               <div className="space-y-2.5">
-                <Label htmlFor="chatBaseUrl" className="flex items-center gap-2 text-sm font-medium">
+                <Label
+                  htmlFor="chatBaseUrl"
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
                   <Link className="h-3.5 w-3.5 text-muted-foreground" />
                   Base URL
                 </Label>
@@ -621,7 +882,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             {/* Temperature */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="chatTemperature" className="flex items-center gap-2 text-sm font-medium">
+                <Label
+                  htmlFor="chatTemperature"
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
                   <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
                   Temperature
                 </Label>
@@ -646,7 +910,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
 
             {/* Max Tokens */}
             <div className="space-y-2.5">
-              <Label htmlFor="chatMaxTokens" className="flex items-center gap-2 text-sm font-medium">
+              <Label
+                htmlFor="chatMaxTokens"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 <Type className="h-3.5 w-3.5 text-muted-foreground" />
                 Max Tokens
               </Label>
@@ -658,7 +925,9 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   max={8192}
                   step={256}
                   value={chatMaxTokens}
-                  onChange={(e) => setChatMaxTokens(parseInt(e.target.value) || 4096)}
+                  onChange={(e) =>
+                    setChatMaxTokens(parseInt(e.target.value) || 4096)
+                  }
                   className="w-32 rounded-lg border-border/40 bg-background/50 text-sm tabular-nums"
                   style={{ height: "2.5rem" }}
                 />
@@ -677,7 +946,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
             <Brain className="h-3.5 w-3.5 text-primary" />
           </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
             Embedding Model
           </h2>
         </div>
@@ -690,8 +959,8 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
               <div className="space-y-1">
                 <p className="text-sm font-medium">About Embeddings</p>
                 <p className="text-xs text-muted-foreground">
-                  Embedding models convert text to vectors for RAG and semantic search. 
-                  Changing this requires re-indexing all documents.
+                  Embedding models convert text to vectors for RAG and semantic
+                  search. Changing this requires re-indexing all documents.
                 </p>
               </div>
             </div>
@@ -700,45 +969,54 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Provider Selection - 1 column */}
               <div className="space-y-2.5">
-                <Label htmlFor="embeddingProviderSelect" className="text-sm font-medium">
+                <Label
+                  htmlFor="embeddingProviderSelect"
+                  className="text-sm font-medium"
+                >
                   Provider
                 </Label>
                 <Select
                   value={embeddingProvider}
                   onValueChange={handleEmbeddingProviderChange}
                 >
-                  <SelectTrigger 
-                    id="embeddingProviderSelect" 
+                  <SelectTrigger
+                    id="embeddingProviderSelect"
                     className="w-full rounded-lg border-border/40 bg-background/50"
                     style={{ height: "2.5rem" }}
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="max-h-80 rounded-lg">
-                    {AI_PROVIDERS.filter((p) => p.models.embedding.length > 0 || p.id === "local").map(
-                      (provider) => (
-                        <SelectItem key={provider.id} value={provider.id}>
-                          <div className="flex flex-col items-start py-1">
-                            <span className="font-medium">{provider.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {provider.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      )
-                    )}
+                    {AI_PROVIDERS.filter(
+                      (p) => p.models.embedding.length > 0 || p.id === "local"
+                    ).map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        <div className="flex flex-col items-start py-1">
+                          <span className="font-medium">{provider.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {provider.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Model Selection - 2 columns */}
               <div className="space-y-2.5 sm:col-span-2">
-                <Label htmlFor="embeddingModelSelect" className="text-sm font-medium">
+                <Label
+                  htmlFor="embeddingModelSelect"
+                  className="text-sm font-medium"
+                >
                   Model
                 </Label>
-                <Select value={embeddingModelId} onValueChange={setEmbeddingModelId}>
-                  <SelectTrigger 
-                    id="embeddingModelSelect" 
+                <Select
+                  value={embeddingModelId}
+                  onValueChange={setEmbeddingModelId}
+                >
+                  <SelectTrigger
+                    id="embeddingModelSelect"
                     className="w-full rounded-lg border-border/40 bg-background/50"
                     style={{ height: "2.5rem" }}
                   >
@@ -749,21 +1027,29 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                       <SelectItem key={model.id} value={model.id}>
                         <div className="flex items-center gap-2 py-1">
                           <span className="font-medium">{model.name}</span>
-                          <Badge variant="secondary" className="text-[10px] font-normal">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-normal"
+                          >
                             {model.description}
                           </Badge>
                         </div>
                       </SelectItem>
                     ))}
                     {embeddingModels.length === 0 && (
-                      <SelectItem value="custom">Custom model (enter manually)</SelectItem>
+                      <SelectItem value="custom">
+                        Custom model (enter manually)
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
-                {embeddingModels.length === 0 || embeddingModelId === "custom" ? (
+                {embeddingModels.length === 0 ||
+                embeddingModelId === "custom" ? (
                   <Input
                     placeholder="Enter embedding model ID"
-                    value={embeddingModelId === "custom" ? "" : embeddingModelId}
+                    value={
+                      embeddingModelId === "custom" ? "" : embeddingModelId
+                    }
                     onChange={(e) => setEmbeddingModelId(e.target.value)}
                     className="h-12 w-full rounded-lg border-border/40 bg-background/50"
                   />
@@ -775,7 +1061,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             {embeddingProviderInfo?.requiresApiKey && (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="embeddingApiKey" className="flex items-center gap-2 text-sm font-medium">
+                  <Label
+                    htmlFor="embeddingApiKey"
+                    className="flex items-center gap-2 text-sm font-medium"
+                  >
                     <Key className="h-3.5 w-3.5 text-muted-foreground" />
                     API Key
                   </Label>
@@ -803,7 +1092,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    className="absolute top-1/2 right-2 -translate-y-1/2 p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                     onClick={() => setShowEmbeddingApiKey(!showEmbeddingApiKey)}
                   >
                     {showEmbeddingApiKey ? (
@@ -815,7 +1104,8 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                 </div>
                 {!embeddingApiKeyModified && settings.embeddingApiKey && (
                   <p className="text-xs text-muted-foreground">
-                    Key is saved (hidden). Leave empty to use the same provider with chat API key.
+                    Key is saved (hidden). Leave empty to use the same provider
+                    with chat API key.
                   </p>
                 )}
               </div>
@@ -824,7 +1114,10 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             {/* Base URL (for local/custom) */}
             {embeddingProvider === "local" && (
               <div className="space-y-2.5">
-                <Label htmlFor="embeddingBaseUrl" className="flex items-center gap-2 text-sm font-medium">
+                <Label
+                  htmlFor="embeddingBaseUrl"
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
                   <Link className="h-3.5 w-3.5 text-muted-foreground" />
                   Base URL
                 </Label>
@@ -844,14 +1137,17 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
 
             {/* Embedding Dimensions */}
             <div className="space-y-2.5">
-              <Label htmlFor="embeddingDimensions" className="text-sm font-medium">
+              <Label
+                htmlFor="embeddingDimensions"
+                className="text-sm font-medium"
+              >
                 Embedding Dimensions
               </Label>
               <Select
                 value={embeddingDimensions.toString()}
                 onValueChange={(v) => setEmbeddingDimensions(parseInt(v))}
               >
-                <SelectTrigger 
+                <SelectTrigger
                   id="embeddingDimensions"
                   className="w-full rounded-lg border-border/40 bg-background/50"
                   style={{ height: "2.5rem" }}
@@ -859,17 +1155,29 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-lg">
-                  <SelectItem value="384">384 dimensions (Cohere Light)</SelectItem>
-                  <SelectItem value="768">768 dimensions (Google, Nomic)</SelectItem>
-                  <SelectItem value="1024">1024 dimensions (Mistral, Cohere)</SelectItem>
+                  <SelectItem value="384">
+                    384 dimensions (Cohere Light)
+                  </SelectItem>
+                  <SelectItem value="768">
+                    768 dimensions (Google, Nomic)
+                  </SelectItem>
+                  <SelectItem value="1024">
+                    1024 dimensions (Mistral, Cohere)
+                  </SelectItem>
                   <SelectItem value="1536">1536 dimensions (OpenAI)</SelectItem>
-                  <SelectItem value="3072">3072 dimensions (OpenAI Large)</SelectItem>
+                  <SelectItem value="3072">
+                    3072 dimensions (OpenAI Large)
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 Higher dimensions offer better accuracy but use more storage
               </p>
-              <input type="hidden" name="embeddingDimensions" value={embeddingDimensions} />
+              <input
+                type="hidden"
+                name="embeddingDimensions"
+                value={embeddingDimensions}
+              />
             </div>
           </CardContent>
         </Card>
@@ -885,20 +1193,14 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
             <div className="hidden sm:block">
               <p className="text-sm font-medium">AI Configuration</p>
               <p className="text-xs text-muted-foreground">
-                {state.success ? "Settings saved successfully" : "Unsaved changes"}
+                Save to apply changes.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {state.success && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Saved</span>
-              </span>
-            )}
-            <Button 
-              type="submit" 
-              disabled={isPending} 
+            <Button
+              type="submit"
+              disabled={isPending}
               className="h-10 gap-2 rounded-lg px-5 transition-transform active:scale-[0.96]"
             >
               {isPending ? (
@@ -908,7 +1210,7 @@ export function AISettingsForm({ settings }: AISettingsFormProps) {
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4" />
+                  <Save className="h-4 w-4" />
                   Save Changes
                 </>
               )}

@@ -19,7 +19,7 @@ async function getCachedAISettings(): Promise<AISettings | null> {
   if (cachedSettings && cacheExpiry > now) {
     return cachedSettings
   }
-  
+
   const settings = await getAISettings()
   if (settings) {
     cachedSettings = settings
@@ -35,7 +35,8 @@ export function invalidateAISettingsCache(): void {
 
 // Provider factory functions
 function createChatProvider(settings: AISettings) {
-  const apiKey = settings.chatApiKey || getEnvKeyForProvider(settings.chatProvider)
+  const apiKey =
+    settings.chatApiKey || getEnvKeyForProvider(settings.chatProvider)
   const baseURL = settings.chatBaseUrl || undefined
 
   switch (settings.chatProvider) {
@@ -68,7 +69,10 @@ function createChatProvider(settings: AISettings) {
 }
 
 function createEmbeddingProvider(settings: AISettings) {
-  const apiKey = settings.embeddingApiKey || settings.chatApiKey || getEnvKeyForProvider(settings.embeddingProvider)
+  const apiKey =
+    settings.embeddingApiKey ||
+    settings.chatApiKey ||
+    getEnvKeyForProvider(settings.embeddingProvider)
   const baseURL = settings.embeddingBaseUrl || settings.chatBaseUrl || undefined
 
   switch (settings.embeddingProvider) {
@@ -127,7 +131,7 @@ export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
  */
 export async function getChatModel(): Promise<LanguageModel> {
   const settings = await getCachedAISettings()
-  
+
   if (!settings || !settings.isEnabled) {
     // Fallback to Google
     const google = createGoogleGenerativeAI({
@@ -137,7 +141,7 @@ export async function getChatModel(): Promise<LanguageModel> {
   }
 
   const provider = createChatProvider(settings)
-  
+
   // Handle provider-specific model creation
   switch (settings.chatProvider) {
     case "openai":
@@ -147,21 +151,31 @@ export async function getChatModel(): Promise<LanguageModel> {
     case "local":
       return (provider as ReturnType<typeof createOpenAI>)(settings.chatModelId)
     case "anthropic":
-      return (provider as ReturnType<typeof createAnthropic>)(settings.chatModelId)
+      return (provider as ReturnType<typeof createAnthropic>)(
+        settings.chatModelId
+      )
     case "google":
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(settings.chatModelId)
+      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(
+        settings.chatModelId
+      )
     case "mistral":
-      return (provider as ReturnType<typeof createMistral>)(settings.chatModelId)
+      return (provider as ReturnType<typeof createMistral>)(
+        settings.chatModelId
+      )
     case "xai":
       return (provider as ReturnType<typeof createXai>)(settings.chatModelId)
     case "cohere":
       return (provider as ReturnType<typeof createCohere>)(settings.chatModelId)
     case "deepseek":
-      return (provider as ReturnType<typeof createDeepSeek>)(settings.chatModelId)
+      return (provider as ReturnType<typeof createDeepSeek>)(
+        settings.chatModelId
+      )
     case "groq":
       return (provider as ReturnType<typeof createGroq>)(settings.chatModelId)
     default:
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(settings.chatModelId)
+      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(
+        settings.chatModelId
+      )
   }
 }
 
@@ -171,7 +185,7 @@ export async function getChatModel(): Promise<LanguageModel> {
  */
 export async function getEmbeddingModel(): Promise<EmbeddingModel> {
   const settings = await getCachedAISettings()
-  
+
   if (!settings) {
     // Fallback to Google
     const google = createGoogleGenerativeAI({
@@ -181,20 +195,32 @@ export async function getEmbeddingModel(): Promise<EmbeddingModel> {
   }
 
   const provider = createEmbeddingProvider(settings)
-  
+
   switch (settings.embeddingProvider) {
     case "openai":
-      return (provider as ReturnType<typeof createOpenAI>).textEmbeddingModel(settings.embeddingModelId)
+      return (provider as ReturnType<typeof createOpenAI>).textEmbeddingModel(
+        settings.embeddingModelId
+      )
     case "google":
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>).textEmbeddingModel(settings.embeddingModelId)
+      return (
+        provider as ReturnType<typeof createGoogleGenerativeAI>
+      ).textEmbeddingModel(settings.embeddingModelId)
     case "mistral":
-      return (provider as ReturnType<typeof createMistral>).textEmbeddingModel(settings.embeddingModelId)
+      return (provider as ReturnType<typeof createMistral>).textEmbeddingModel(
+        settings.embeddingModelId
+      )
     case "cohere":
-      return (provider as ReturnType<typeof createCohere>).textEmbeddingModel(settings.embeddingModelId)
+      return (provider as ReturnType<typeof createCohere>).textEmbeddingModel(
+        settings.embeddingModelId
+      )
     case "local":
-      return (provider as ReturnType<typeof createOpenAI>).textEmbeddingModel(settings.embeddingModelId)
+      return (provider as ReturnType<typeof createOpenAI>).textEmbeddingModel(
+        settings.embeddingModelId
+      )
     default:
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>).textEmbeddingModel(DEFAULT_EMBEDDING_MODEL)
+      return (
+        provider as ReturnType<typeof createGoogleGenerativeAI>
+      ).textEmbeddingModel(DEFAULT_EMBEDDING_MODEL)
   }
 }
 
@@ -204,9 +230,12 @@ export async function getEmbeddingModel(): Promise<EmbeddingModel> {
  */
 export async function chatModel(modelId?: string): Promise<LanguageModel> {
   const settings = await getCachedAISettings()
-  const overrideSettings = modelId && settings ? { ...settings, chatModelId: modelId } : settings
+  const overrideSettings =
+    modelId && settings ? { ...settings, chatModelId: modelId } : settings
   if (!overrideSettings) {
-    const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
+    const google = createGoogleGenerativeAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    })
     return google(modelId ?? "gemini-2.0-flash-001")
   }
   const provider = createChatProvider(overrideSettings)
@@ -216,23 +245,41 @@ export async function chatModel(modelId?: string): Promise<LanguageModel> {
     case "togetherai":
     case "perplexity":
     case "local":
-      return (provider as ReturnType<typeof createOpenAI>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createOpenAI>)(
+        overrideSettings.chatModelId
+      )
     case "anthropic":
-      return (provider as ReturnType<typeof createAnthropic>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createAnthropic>)(
+        overrideSettings.chatModelId
+      )
     case "google":
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(
+        overrideSettings.chatModelId
+      )
     case "mistral":
-      return (provider as ReturnType<typeof createMistral>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createMistral>)(
+        overrideSettings.chatModelId
+      )
     case "xai":
-      return (provider as ReturnType<typeof createXai>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createXai>)(
+        overrideSettings.chatModelId
+      )
     case "cohere":
-      return (provider as ReturnType<typeof createCohere>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createCohere>)(
+        overrideSettings.chatModelId
+      )
     case "deepseek":
-      return (provider as ReturnType<typeof createDeepSeek>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createDeepSeek>)(
+        overrideSettings.chatModelId
+      )
     case "groq":
-      return (provider as ReturnType<typeof createGroq>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createGroq>)(
+        overrideSettings.chatModelId
+      )
     default:
-      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(overrideSettings.chatModelId)
+      return (provider as ReturnType<typeof createGoogleGenerativeAI>)(
+        overrideSettings.chatModelId
+      )
   }
 }
 

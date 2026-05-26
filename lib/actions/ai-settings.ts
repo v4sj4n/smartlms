@@ -52,8 +52,10 @@ function sanitizeFloat(value: FormDataEntryValue | null): string {
   return Math.max(0, Math.min(2, num)).toString()
 }
 
-function isValidProvider(provider: string): provider is typeof VALID_PROVIDERS[number] {
-  return VALID_PROVIDERS.includes(provider as typeof VALID_PROVIDERS[number])
+function isValidProvider(
+  provider: string
+): provider is (typeof VALID_PROVIDERS)[number] {
+  return VALID_PROVIDERS.includes(provider as (typeof VALID_PROVIDERS)[number])
 }
 
 export async function updateAIConfiguration(
@@ -63,7 +65,10 @@ export async function updateAIConfiguration(
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id || session.user.role !== "ADMIN") {
-    return { success: false, message: "Unauthorized. Only admins can update AI settings." }
+    return {
+      success: false,
+      message: "Unauthorized. Only admins can update AI settings.",
+    }
   }
 
   const chatProvider = sanitizeText(formData.get("chatProvider"))
@@ -77,7 +82,8 @@ export async function updateAIConfiguration(
   const embeddingModelId = sanitizeText(formData.get("embeddingModelId"))
   const embeddingApiKey = sanitizeText(formData.get("embeddingApiKey"))
   const embeddingBaseUrl = sanitizeText(formData.get("embeddingBaseUrl"))
-  const embeddingDimensions = sanitizeNumber(formData.get("embeddingDimensions")) ?? 1536
+  const embeddingDimensions =
+    sanitizeNumber(formData.get("embeddingDimensions")) ?? 1536
 
   const isEnabled = formData.get("isEnabled") === "on"
   const allowFileUploads = formData.get("allowFileUploads") === "on"
@@ -88,7 +94,10 @@ export async function updateAIConfiguration(
   }
 
   if (!chatModelId || chatModelId.length > 128) {
-    return { success: false, message: "Chat model ID is required and must be 128 characters or less." }
+    return {
+      success: false,
+      message: "Chat model ID is required and must be 128 characters or less.",
+    }
   }
 
   if (!embeddingProvider || !isValidProvider(embeddingProvider)) {
@@ -96,16 +105,26 @@ export async function updateAIConfiguration(
   }
 
   if (!embeddingModelId || embeddingModelId.length > 128) {
-    return { success: false, message: "Embedding model ID is required and must be 128 characters or less." }
+    return {
+      success: false,
+      message:
+        "Embedding model ID is required and must be 128 characters or less.",
+    }
   }
 
   // Local provider requires base URL
   if (chatProvider === "local" && !chatBaseUrl) {
-    return { success: false, message: "Local provider requires a base URL endpoint." }
+    return {
+      success: false,
+      message: "Local provider requires a base URL endpoint.",
+    }
   }
 
   if (embeddingProvider === "local" && !embeddingBaseUrl) {
-    return { success: false, message: "Local embedding provider requires a base URL endpoint." }
+    return {
+      success: false,
+      message: "Local embedding provider requires a base URL endpoint.",
+    }
   }
 
   try {
@@ -127,7 +146,10 @@ export async function updateAIConfiguration(
     })
 
     if (!success) {
-      return { success: false, message: "Failed to save AI settings. Please try again." }
+      return {
+        success: false,
+        message: "Failed to save AI settings. Please try again.",
+      }
     }
 
     revalidatePath("/admin/settings")
@@ -143,6 +165,9 @@ export async function updateAIConfiguration(
     }
   } catch (error) {
     console.error("Failed to update AI settings:", error)
-    return { success: false, message: "An unexpected error occurred. Please try again." }
+    return {
+      success: false,
+      message: "An unexpected error occurred. Please try again.",
+    }
   }
 }

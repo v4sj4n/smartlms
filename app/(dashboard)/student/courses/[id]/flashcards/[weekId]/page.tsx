@@ -56,7 +56,9 @@ export default async function StudentCourseFlashcardSessionPage({
         weekId={week.id}
         weekTitle={`Week ${week.weekNumber}: ${week.title}`}
         backHref={`/student/courses/${course.id}?weekId=${week.id}`}
-        flashcards={week.flashcards || []}
+        flashcards={(week.flashcards || []).filter(
+          (f) => f.status === "PUBLISHED"
+        )}
         userId={session.user.id}
       />
     </>

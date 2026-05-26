@@ -22,7 +22,12 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 
   const providerOptions =
     provider === "google"
-      ? { google: { outputDimensionality: dimensions, taskType: "RETRIEVAL_DOCUMENT" } }
+      ? {
+          google: {
+            outputDimensionality: dimensions,
+            taskType: "RETRIEVAL_DOCUMENT",
+          },
+        }
       : undefined
 
   const response = await embedMany({
@@ -41,7 +46,12 @@ export async function embedQuery(text: string): Promise<number[]> {
 
   const providerOptions =
     provider === "google"
-      ? { google: { outputDimensionality: dimensions, taskType: "RETRIEVAL_QUERY" } }
+      ? {
+          google: {
+            outputDimensionality: dimensions,
+            taskType: "RETRIEVAL_QUERY",
+          },
+        }
       : undefined
 
   const response = await embed({

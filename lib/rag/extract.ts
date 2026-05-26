@@ -29,35 +29,29 @@ export async function extractTextByMimeType(input: {
     return new Promise((resolve, reject) => {
       const pdfParser = new PDFParser()
       let text = ""
-      
+
       pdfParser.on("pdfParser_dataError", (errData: PDFErrorData) => {
         const error = errData instanceof Error ? errData : errData.parserError
         reject(error)
       })
-      
+
       pdfParser.on("pdfParser_dataReady", (pdfData: PDFData) => {
         if (pdfData.Pages) {
-          text = pdfData.Pages
-            .map((page: PDFPage) => {
-              if (page.Texts) {
-                return page.Texts
-                  .map((textItem: PDFText) => {
-                    if (textItem.R && textItem.R.length > 0) {
-                      return textItem.R
-                        .map((r: PDFTextItem) => r.T || "")
-                        .join(" ")
-                    }
-                    return ""
-                  })
-                  .join(" ")
-              }
-              return ""
-            })
-            .join("\n")
+          text = pdfData.Pages.map((page: PDFPage) => {
+            if (page.Texts) {
+              return page.Texts.map((textItem: PDFText) => {
+                if (textItem.R && textItem.R.length > 0) {
+                  return textItem.R.map((r: PDFTextItem) => r.T || "").join(" ")
+                }
+                return ""
+              }).join(" ")
+            }
+            return ""
+          }).join("\n")
         }
         resolve(text || "")
       })
-      
+
       pdfParser.parseBuffer(data)
     })
   }

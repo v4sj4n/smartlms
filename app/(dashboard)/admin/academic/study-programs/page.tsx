@@ -9,7 +9,6 @@ import {
   CardDescription,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -315,7 +314,7 @@ export default function StudyProgramsPage() {
             icon: BookOpen,
           },
           { label: "Active Year", value: "2025–2026", icon: null },
-        ].map(({ label, value, icon: Icon }) => (
+        ].map(({ label, value }) => (
           <Card
             key={label}
             className="rounded-2xl border border-border/40 shadow-sm"

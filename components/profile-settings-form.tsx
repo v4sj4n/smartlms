@@ -9,7 +9,7 @@ import {
 } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Image as ImageIcon, Loader2, UploadCloud } from "lucide-react"
+import { Image as ImageIcon, Loader2, Save, UploadCloud } from "lucide-react"
 
 import {
   updateOwnProfileSettings,
@@ -175,7 +175,7 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
 
           <div className="space-y-3">
             <Label htmlFor="profile-image">Profile Image</Label>
-            <div className="flex w-full flex-row items-center gap-4 rounded-2xl bg-muted/20 p-4 shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_2px_-1px_rgba(0,0,0,0.06)]">  
+            <div className="flex w-full flex-row items-center gap-4 rounded-2xl bg-muted/20 p-4 shadow-[0px_0px_0px_1px_rgba(0,0,0,0.06),0px_1px_2px_-1px_rgba(0,0,0,0.06)]">
               <Avatar className="h-20 w-20 shrink-0 border border-border/60 shadow-sm">
                 <AvatarImage
                   src={previewUrl ?? undefined}
@@ -288,8 +288,19 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
             </p>
           ) : null}
 
-          <Button type="submit" disabled={isPending} className="transition-transform active:scale-[0.96]">
-            {isPending ? "Saving..." : "Save settings"}
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="transition-transform active:scale-[0.96]"
+          >
+            {isPending ? (
+              "Saving..."
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Save settings
+              </>
+            )}
           </Button>
         </form>
       </CardContent>

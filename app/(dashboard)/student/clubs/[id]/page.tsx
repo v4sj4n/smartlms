@@ -51,15 +51,17 @@ export default async function StudentClubDetailPage({
 
   return (
     <div className="flex flex-col gap-6 p-6 sm:p-8">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{club.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-balance">
+            {club.name}
+          </h1>
+          <p className="mt-1 text-sm text-pretty text-muted-foreground">
             {club.description || "Club space for materials and conversations."}
           </p>
         </div>
-        <Link href="/student/clubs">
-          <Button variant="outline" className="rounded-xl">
+        <Link href="/student/clubs" className="self-start sm:self-auto">
+          <Button variant="outline" size="sm" className="rounded-xl">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Clubs
           </Button>

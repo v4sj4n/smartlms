@@ -12,6 +12,7 @@ import {
 import { stepCountIs, streamText, tool } from "ai"
 import { chatModel } from "@/lib/ai/models"
 import { z } from "zod"
+import { getUserAIPersonalizationPrompt } from "@/lib/data/profile-settings"
 
 type ChatBody = {
   conversationId: string
@@ -93,12 +94,15 @@ export async function POST(req: NextRequest) {
     limit: 12,
   })
 
-  const model = body.model?.trim() || env.GENAI_CHAT_MODEL
+  const aiPersonalizationPrompt = await getUserAIPersonalizationPrompt(
+    session.user.id
+  )
 
   // Combine the routing agent instructions with any chatbot-specific prompt
   // and optional per-request system instructions (e.g. week context).
   const systemPrompt = [
     ROUTING_AGENT_INSTRUCTIONS,
+    aiPersonalizationPrompt,
     conversation.chatbot.systemPrompt,
     body.systemInstructions?.trim(),
   ]

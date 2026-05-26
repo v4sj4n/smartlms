@@ -13,12 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { AddContentDropdown } from "@/components/add-content-dropdown"
 import {
   Accordion,
   AccordionContent,
@@ -33,9 +28,13 @@ import {
   FileText,
   HelpCircle,
   Layers,
+  Sparkles,
 } from "lucide-react"
 import Link from "next/link"
 import { CourseAiOverlay } from "@/components/course-ai-overlay"
+import { BreadcrumbLabels } from "@/components/breadcrumb-labels"
+import { WeekContentTable } from "@/components/week-content-table"
+import { AIContentGeneratorDialog } from "@/components/ai-content-generator-dialog"
 
 type SemesterWeekSlot = {
   weekNumber: number
@@ -183,17 +182,24 @@ export default async function ProfessorCourseDetailPage({
   }
 
   return (
-    <div className="flex-1 space-y-6 p-8">
+    <div className="flex flex-col gap-8 p-6 sm:p-8">
+      <BreadcrumbLabels
+        labels={{ [`/professor/courses/${course.id}`]: course.title }}
+      />
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <Link href="/professor/courses">
-            <Button variant="ghost" size="icon">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mt-0.5 shrink-0 rounded-xl"
+            >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
               {course.title}
             </h1>
             <p className="mt-1 text-muted-foreground">
@@ -209,9 +215,9 @@ export default async function ProfessorCourseDetailPage({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
           <Link href={`/professor/courses/${course.id}/folders/new`}>
-            <Button>
+            <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
               Add Folder
             </Button>
@@ -220,7 +226,7 @@ export default async function ProfessorCourseDetailPage({
       </div>
 
       {/* Course Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
@@ -271,11 +277,13 @@ export default async function ProfessorCourseDetailPage({
 
       {/* Course Content Tabs */}
       <Tabs defaultValue="weeks" className="space-y-4 pt-2">
-        <TabsList>
-          <TabsTrigger value="weeks">Course Folders</TabsTrigger>
-          <TabsTrigger value="students">Enrolled Students</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="w-max min-w-full sm:w-auto">
+            <TabsTrigger value="weeks">Course Folders</TabsTrigger>
+            <TabsTrigger value="students">Enrolled Students</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="weeks" className="space-y-4">
           {timelineWeeks.length > 0 ? (
@@ -285,6 +293,48 @@ export default async function ProfessorCourseDetailPage({
                 const itemKey = week
                   ? week.id
                   : `slot-${timelineWeek.weekNumber}`
+                const contentItems = week
+                  ? [
+                      ...(week.materials ?? []).map((material) => ({
+                        id: material.id,
+                        kind: "material" as const,
+                        title: material.title,
+                        detail: material.type,
+                        isPublished: material.isPublished,
+                      })),
+                      ...(week.quizzes ?? []).map((quiz) => ({
+                        id: quiz.id,
+                        kind: "quiz" as const,
+                        title: quiz.title,
+                        detail: quiz.timeLimitMinutes
+                          ? `${quiz.type} • ${quiz.timeLimitMinutes} min`
+                          : quiz.type,
+                        isPublished: quiz.status === "PUBLISHED",
+                      })),
+                      ...(week.flashcards && week.flashcards.length > 0
+                        ? [
+                            {
+                              id: `flashcards-${week.id}`,
+                              kind: "flashcardSet" as const,
+                              title: "Flashcard Set",
+                              detail: `${week.flashcards.length} flashcards`,
+                              isPublished: week.flashcards.every(
+                                (flashcard) => flashcard.status === "PUBLISHED"
+                              ),
+                              memberIds: week.flashcards.map(
+                                (flashcard) => flashcard.id
+                              ),
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []
+                const contentItemsKey = contentItems
+                  .map(
+                    (contentItem) =>
+                      `${contentItem.kind}:${contentItem.id}:${contentItem.isPublished ? "1" : "0"}`
+                  )
+                  .join("|")
 
                 return (
                   <AccordionItem key={itemKey} value={`folder-${itemKey}`}>
@@ -350,46 +400,52 @@ export default async function ProfessorCourseDetailPage({
                             </div>
                           </div>
 
+                          {week && (
+                            <WeekContentTable
+                              key={contentItemsKey}
+                              weekId={week.id}
+                              items={contentItems}
+                            />
+                          )}
+
+                          {week && (week.quizzes?.length || 0) === 0 && (
+                            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-primary">
+                                    No quizzes yet
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Generate a quiz and flashcards instantly
+                                    with AI from your folder materials.
+                                  </p>
+                                </div>
+                                <AIContentGeneratorDialog
+                                  weekId={week.id}
+                                  weekTitle={week.title}
+                                  trigger={
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="shrink-0 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+                                    >
+                                      <Sparkles className="mr-2 h-4 w-4" />
+                                      Create with AI
+                                    </Button>
+                                  }
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2">
                             {week ? (
                               <>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button size="sm" variant="outline">
-                                      <Plus className="mr-2 h-4 w-4" />
-                                      Add Content
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start">
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/professor/courses/${course.id}/files/new`}
-                                        className="flex cursor-pointer items-center"
-                                      >
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Materials
-                                      </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/professor/courses/${course.id}/quizzes/new`}
-                                        className="flex cursor-pointer items-center"
-                                      >
-                                        <HelpCircle className="mr-2 h-4 w-4" />
-                                        Quizzes
-                                      </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                      <Link
-                                        href={`/professor/courses/${course.id}/flashcards/new`}
-                                        className="flex cursor-pointer items-center"
-                                      >
-                                        <Layers className="mr-2 h-4 w-4" />
-                                        Flashcards
-                                      </Link>
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <AddContentDropdown
+                                  courseId={course.id}
+                                  weekId={week.id}
+                                  weekTitle={week.title}
+                                />
 
                                 <Link
                                   href={`/professor/courses/${course.id}/folders/${week.id}`}

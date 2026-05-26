@@ -36,6 +36,16 @@ export const userRoleEnum = pgEnum("user_role", [
   "STUDENT",
 ])
 
+export const userAiToneEnum = pgEnum("user_ai_tone", [
+  "Default",
+  "Professional",
+  "Friendly",
+  "Candid",
+  "Quirky",
+  "Efficient",
+  "Cynical",
+])
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name"),
@@ -44,6 +54,8 @@ export const users = pgTable("users", {
   image: text("image"),
   nickname: varchar("nickname", { length: 64 }),
   bio: text("bio"),
+  aiTone: userAiToneEnum("ai_tone").notNull().default("Default"),
+  aiCustomInstructions: text("ai_custom_instructions"),
   role: userRoleEnum("role").notNull().default("STUDENT"),
   fullName: text("full_name"),
   phone: varchar("phone", { length: 256 }),
@@ -772,7 +784,6 @@ export const aiProviderEnum = pgEnum("ai_provider", [
   "fireworks",
   "togetherai",
   "perplexity",
-  "groq",
   "local",
 ])
 
@@ -780,14 +791,20 @@ export const aiSettings = pgTable("ai_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
   // Chat Model Configuration
   chatProvider: aiProviderEnum("chat_provider").default("google").notNull(),
-  chatModelId: varchar("chat_model_id", { length: 128 }).default("gemini-2.0-flash-001").notNull(),
+  chatModelId: varchar("chat_model_id", { length: 128 })
+    .default("gemini-2.0-flash-001")
+    .notNull(),
   chatApiKey: text("chat_api_key"),
   chatBaseUrl: text("chat_base_url"), // For local/custom endpoints
   chatTemperature: varchar("chat_temperature", { length: 10 }).default("0.7"),
   chatMaxTokens: integer("chat_max_tokens").default(4096),
   // Embedding Model Configuration
-  embeddingProvider: aiProviderEnum("embedding_provider").default("google").notNull(),
-  embeddingModelId: varchar("embedding_model_id", { length: 128 }).default("gemini-embedding-001").notNull(),
+  embeddingProvider: aiProviderEnum("embedding_provider")
+    .default("google")
+    .notNull(),
+  embeddingModelId: varchar("embedding_model_id", { length: 128 })
+    .default("gemini-embedding-001")
+    .notNull(),
   embeddingApiKey: text("embedding_api_key"),
   embeddingBaseUrl: text("embedding_base_url"), // For local/custom endpoints
   embeddingDimensions: integer("embedding_dimensions").default(1024),
@@ -796,7 +813,9 @@ export const aiSettings = pgTable("ai_settings", {
   allowFileUploads: boolean("allow_file_uploads").default(true).notNull(),
   // Audit
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedBy: uuid("updated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 })
 
 /* ==========================================================================

@@ -4,14 +4,9 @@ import * as React from "react"
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -27,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Users, Search, GraduationCap, X, CheckCircle2 } from "lucide-react"
+import { Search, GraduationCap, X, CheckCircle2 } from "lucide-react"
 
 type Student = {
   id: number

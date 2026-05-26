@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import { useMemo } from "react"
+import { useBreadcrumbLabels } from "@/components/breadcrumb-labels"
 import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
@@ -144,6 +146,43 @@ export function AppSidebar() {
 
   const navItems = getNavItems()
 
+  const { labels: breadcrumbLabels } = useBreadcrumbLabels()
+
+  const { courseTitle, weekTitle } = useMemo(() => {
+    const pathnameVal = pathname || ""
+    const match =
+      pathnameVal.match(
+        /\/professor\/courses\/([^\/]+)(?:\/folders\/([^\/]+))?/
+      ) || undefined
+    const courseId = match?.[1]
+    const folderIdFromPath = match?.[2]
+    const folderIdFromQuery =
+      typeof window !== "undefined"
+        ? new URL(window.location.href).searchParams.get("folderId")
+        : null
+    const folderId = folderIdFromPath || folderIdFromQuery
+
+    if (!courseId) return { courseTitle: null, weekTitle: null }
+
+    const courseKey = `/professor/courses/${courseId}`
+    const folderKey = folderId
+      ? `/professor/courses/${courseId}/folders/${folderId}`
+      : null
+
+    if (folderKey && breadcrumbLabels[folderKey]) {
+      return {
+        courseTitle: breadcrumbLabels[courseKey] ?? null,
+        weekTitle: breadcrumbLabels[folderKey],
+      }
+    }
+
+    if (breadcrumbLabels[courseKey]) {
+      return { courseTitle: breadcrumbLabels[courseKey], weekTitle: null }
+    }
+
+    return { courseTitle: null, weekTitle: null }
+  }, [pathname, breadcrumbLabels])
+
   // Format display role text
   const getRoleLabel = (roleStr: string) => {
     if (roleStr === "ADMIN") return "Admin Portal"
@@ -176,12 +215,25 @@ export function AppSidebar() {
                 />
               </div>
               <div className="ml-2 grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="font-heading text-lg font-bold tracking-tight text-foreground">
-                  Optimo
-                </span>
-                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                  {getRoleLabel(role)}
-                </span>
+                {courseTitle ? (
+                  <>
+                    <span className="truncate font-heading text-lg font-bold tracking-tight text-foreground">
+                      {courseTitle}
+                    </span>
+                    <span className="truncate text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      {weekTitle ?? getRoleLabel(role)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-heading text-lg font-bold tracking-tight text-foreground">
+                      Optimo
+                    </span>
+                    <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      {getRoleLabel(role)}
+                    </span>
+                  </>
+                )}
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

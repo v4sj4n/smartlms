@@ -22,9 +22,6 @@ import {
   School,
   Calendar,
   Megaphone,
-  TrendingUp,
-  Activity,
-  MoreHorizontal,
   Plus,
   ArrowRight,
   GraduationCap,
@@ -68,19 +65,25 @@ export default async function AdminDashboardPage() {
     ) || 0
 
   return (
-    <div className="flex-1 space-y-6 p-8">
+    <div className="flex-1 space-y-6">
       {/* Header */}
-      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
+      <div
+        className="reveal-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        style={{ animationDelay: "0ms" }}
+      >
         <div>
-          <h1 className="text-balance text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-pretty mt-1 text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+            Admin Dashboard
+          </h1>
+          <p className="mt-1 text-pretty text-muted-foreground">
             Welcome back, {displayName}. Here&apos;s what&apos;s happening.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/admin/academic/school-years/new">
             <Button
               variant="outline"
+              size="sm"
               className="transition-transform duration-150 ease-out active:scale-[0.96]"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -88,7 +91,10 @@ export default async function AdminDashboardPage() {
             </Button>
           </Link>
           <Link href="/admin/courses/new">
-            <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
+            <Button
+              size="sm"
+              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+            >
               <Plus className="mr-2 h-4 w-4" />
               New Course
             </Button>
@@ -97,8 +103,11 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="surface-elevated reveal-in" style={{ animationDelay: "80ms" }}>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Card
+          className="surface-elevated reveal-in"
+          style={{ animationDelay: "80ms" }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Active Academic Year
@@ -117,7 +126,10 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="surface-elevated reveal-in" style={{ animationDelay: "140ms" }}>
+        <Card
+          className="surface-elevated reveal-in"
+          style={{ animationDelay: "140ms" }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Study Programs
@@ -125,14 +137,19 @@ export default async function AdminDashboardPage() {
             <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{totalPrograms}</div>
+            <div className="text-2xl font-bold tabular-nums">
+              {totalPrograms}
+            </div>
             <p className="text-xs text-muted-foreground">
               Across {schoolYears?.length || 0} academic years
             </p>
           </CardContent>
         </Card>
 
-        <Card className="surface-elevated reveal-in" style={{ animationDelay: "200ms" }}>
+        <Card
+          className="surface-elevated reveal-in"
+          style={{ animationDelay: "200ms" }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Active Courses
@@ -150,7 +167,10 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="surface-elevated reveal-in" style={{ animationDelay: "260ms" }}>
+        <Card
+          className="surface-elevated reveal-in"
+          style={{ animationDelay: "260ms" }}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Student Enrollments
@@ -158,7 +178,9 @@ export default async function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{totalEnrollments}</div>
+            <div className="text-2xl font-bold tabular-nums">
+              {totalEnrollments}
+            </div>
             <p className="text-xs text-muted-foreground">
               Across all active courses
             </p>
@@ -168,7 +190,7 @@ export default async function AdminDashboardPage() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="announcements" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto sm:w-auto">
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="courses">Recent Courses</TabsTrigger>
           <TabsTrigger value="clubs">Student Clubs</TabsTrigger>
@@ -226,7 +248,7 @@ export default async function AdminDashboardPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {announcement.content}
                     </p>
                   </CardContent>
@@ -283,7 +305,7 @@ export default async function AdminDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty mb-4 line-clamp-2 text-sm text-muted-foreground">
+                    <p className="mb-4 line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {course.description || "No description available"}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -344,7 +366,7 @@ export default async function AdminDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {club.description || "No description available"}
                     </p>
                   </CardContent>
@@ -376,63 +398,60 @@ export default async function AdminDashboardPage() {
         <TabsContent value="activity" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
+              <CardTitle>System Summary</CardTitle>
               <CardDescription>
-                Overview of recent actions in the system.
+                Current state of the platform based on live data.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-                    <School className="h-4 w-4 text-blue-600 dark:text-blue-300" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <School className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      New Academic Year Created
-                    </p>
+                    <p className="text-sm font-medium">Active Academic Year</p>
                     <p className="text-sm text-muted-foreground">
-                      {activeYear?.name || "No active year"} was created and set
-                      as active.
+                      {activeYear
+                        ? `${activeYear.name} — ${new Date(activeYear.startDate).toLocaleDateString()} to ${new Date(activeYear.endDate).toLocaleDateString()}`
+                        : "No active year set. Go to Academic Management to create one."}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    Just now
-                  </span>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                    <BookOpen className="h-4 w-4 text-green-600 dark:text-green-300" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">Course Published</p>
+                    <p className="text-sm font-medium">Courses</p>
                     <p className="text-sm text-muted-foreground">
-                      {courses?.[0]?.title || "No courses yet"} was published
-                      and is now visible to students.
+                      {courses?.filter(
+                        (c: { isPublished: boolean }) => c.isPublished
+                      ).length || 0}{" "}
+                      published,{" "}
+                      {courses?.filter(
+                        (c: { isPublished: boolean }) => !c.isPublished
+                      ).length || 0}{" "}
+                      unpublished
+                      {courses?.[0] && ` — most recent: ${courses[0].title}`}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    2 hours ago
-                  </span>
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
-                    <Users className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      New Student Enrollments
-                    </p>
+                    <p className="text-sm font-medium">Student Enrollments</p>
                     <p className="text-sm text-muted-foreground">
-                      {totalEnrollments} students have enrolled in courses this
-                      semester.
+                      {totalEnrollments} total enrollment
+                      {totalEnrollments !== 1 ? "s" : ""} across{" "}
+                      {courses?.length || 0} course
+                      {(courses?.length || 0) !== 1 ? "s" : ""}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    1 day ago
-                  </span>
                 </div>
               </div>
             </CardContent>

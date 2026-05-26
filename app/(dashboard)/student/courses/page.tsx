@@ -34,13 +34,13 @@ export default async function StudentCoursesPage() {
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
-      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
+      <div className="reveal-in" style={{ animationDelay: "0ms" }}>
         <div>
-          <h1 className="text-balance flex items-center gap-3 font-heading text-3xl font-bold">
-            <BookOpen className="h-8 w-8 text-primary" />
+          <h1 className="flex items-center gap-3 font-heading text-2xl font-bold text-balance sm:text-3xl">
+            <BookOpen className="h-7 w-7 shrink-0 text-primary sm:h-8 sm:w-8" />
             My Courses
           </h1>
-          <p className="text-pretty mt-2 text-muted-foreground">
+          <p className="mt-2 text-pretty text-muted-foreground">
             View and access all the courses you are currently enrolled in.
           </p>
         </div>
@@ -69,7 +69,7 @@ export default async function StudentCoursesPage() {
                 <CardTitle className="line-clamp-2 font-heading text-xl leading-tight font-bold">
                   {course.title}
                 </CardTitle>
-                <CardDescription className="text-pretty mt-2 line-clamp-2 text-sm leading-relaxed">
+                <CardDescription className="mt-2 line-clamp-2 text-sm leading-relaxed text-pretty">
                   {course.description ||
                     "No description provided for this course."}
                 </CardDescription>
@@ -84,7 +84,7 @@ export default async function StudentCoursesPage() {
               </CardContent>
               <div className="px-6 pt-0 pb-6">
                 <Link href={`/student/courses/${course.id}`}>
-                  <Button className="w-full gap-2 rounded-xl py-5 shadow-sm transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] group-hover:bg-primary/90">
+                  <Button className="w-full gap-2 rounded-xl py-5 shadow-sm transition-[background-color,transform] duration-150 ease-out group-hover:bg-primary/90 active:scale-[0.96]">
                     Enter Course{" "}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
@@ -101,7 +101,7 @@ export default async function StudentCoursesPage() {
           <h3 className="mb-2 font-heading text-xl font-bold">
             No Courses Found
           </h3>
-          <p className="text-pretty mx-auto max-w-md text-muted-foreground">
+          <p className="mx-auto max-w-md text-pretty text-muted-foreground">
             You are not enrolled in any courses for the current semester. Please
             check back later or contact your academic advisor.
           </p>

@@ -101,9 +101,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* Dashboard Shell Content */}
         <div className="flex flex-1 flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-md supports-backdrop-filter:bg-background/60 sm:px-6 lg:px-8">
-            <div className="flex min-w-0 items-center gap-4">
-              <SidebarTrigger className="h-9 w-9 rounded-lg border border-border/40 text-foreground transition-[background-color,border-color,color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.96]" />
+          <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 px-3 backdrop-blur-md supports-backdrop-filter:bg-background/60 sm:px-5 lg:px-8">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+              <SidebarTrigger className="h-9 w-9 shrink-0 rounded-lg border border-border/40 text-foreground transition-[background-color,border-color,color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.96]" />
               <Separator
                 orientation="vertical"
                 className="hidden h-6 bg-border/50 md:block"
@@ -149,7 +149,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Header Right Interactions */}
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
               {/* Search Box */}
               <div className="relative hidden w-48 sm:block lg:w-64">
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />

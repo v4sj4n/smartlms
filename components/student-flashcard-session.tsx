@@ -42,6 +42,9 @@ export function FlashcardStudySession({
   useEffect(() => {
     const savedState = localStorage.getItem(storageKey)
 
+    let restoredIndex = 0
+    let restoredFlipped = false
+
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState) as {
@@ -50,24 +53,25 @@ export function FlashcardStudySession({
         }
 
         if (typeof parsed.currentIndex === "number") {
-          setCurrentIndex(
-            Math.min(
-              Math.max(parsed.currentIndex, 0),
-              Math.max(flashcards.length - 1, 0)
-            )
+          restoredIndex = Math.min(
+            Math.max(parsed.currentIndex, 0),
+            Math.max(flashcards.length - 1, 0)
           )
         }
 
         if (typeof parsed.isFlipped === "boolean") {
-          setIsFlipped(parsed.isFlipped)
+          restoredFlipped = parsed.isFlipped
         }
       } catch {
         localStorage.removeItem(storageKey)
       }
     }
 
+    setCurrentIndex(restoredIndex)
+    setIsFlipped(restoredFlipped)
     setHydrated(true)
-  }, [flashcards.length, storageKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!hydrated) {

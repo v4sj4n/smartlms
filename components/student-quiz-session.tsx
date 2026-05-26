@@ -69,7 +69,7 @@ export function QuizSession({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [clockNow, setClockNow] = useState<number>(Date.now())
+  const [clockNow, setClockNow] = useState<number>(() => Date.now())
   const [status, setStatus] = useState<"ready" | "submitting" | "finished">(
     "ready"
   )
@@ -77,6 +77,10 @@ export function QuizSession({
 
   useEffect(() => {
     const savedState = localStorage.getItem(storageKey)
+
+    let restoredIndex = 0
+    let restoredAnswers: Record<string, string> = {}
+    let restoredStartedAt: number | null = null
 
     if (savedState) {
       try {
@@ -87,29 +91,30 @@ export function QuizSession({
         }
 
         if (typeof parsed.currentIndex === "number") {
-          setCurrentIndex(
-            Math.min(
-              Math.max(parsed.currentIndex, 0),
-              Math.max(safeQuestions.length - 1, 0)
-            )
+          restoredIndex = Math.min(
+            Math.max(parsed.currentIndex, 0),
+            Math.max(safeQuestions.length - 1, 0)
           )
         }
 
         if (parsed.answers && typeof parsed.answers === "object") {
-          setAnswers(parsed.answers)
+          restoredAnswers = parsed.answers
         }
 
         if (typeof parsed.startedAt === "number") {
-          setStartedAt(parsed.startedAt)
+          restoredStartedAt = parsed.startedAt
         }
       } catch {
         localStorage.removeItem(storageKey)
       }
     }
 
-    setStartedAt((previous) => previous ?? Date.now())
+    setCurrentIndex(restoredIndex)
+    setAnswers(restoredAnswers)
+    setStartedAt(restoredStartedAt ?? Date.now())
     setHydrated(true)
-  }, [safeQuestions.length, storageKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!hydrated || status === "finished" || startedAt === null) {
@@ -150,17 +155,6 @@ export function QuizSession({
       ? Math.max(timeLimitSeconds - elapsedSeconds, 0)
       : null
 
-  useEffect(() => {
-    if (
-      timeLimitSeconds !== null &&
-      remainingSeconds === 0 &&
-      status === "ready" &&
-      hydrated
-    ) {
-      void handleSubmit()
-    }
-  }, [hydrated, remainingSeconds, status, timeLimitSeconds])
-
   const formatTime = (seconds: number) => {
     const safeSeconds = Math.max(seconds, 0)
     const minutes = Math.floor(safeSeconds / 60)
@@ -188,15 +182,6 @@ export function QuizSession({
     }
 
     setCurrentIndex((previous) => previous - 1)
-  }
-
-  const goNext = () => {
-    if (currentIndex >= totalQuestions - 1) {
-      void handleSubmit()
-      return
-    }
-
-    setCurrentIndex((previous) => previous + 1)
   }
 
   async function handleSubmit() {
@@ -231,6 +216,29 @@ export function QuizSession({
       `Quiz completed: ${response.data.score}/${response.data.maxScore}`
     )
   }
+
+  const goNext = () => {
+    if (currentIndex >= totalQuestions - 1) {
+      void handleSubmit()
+      return
+    }
+
+    setCurrentIndex((previous) => previous + 1)
+  }
+
+  useEffect(() => {
+    if (
+      timeLimitSeconds !== null &&
+      remainingSeconds === 0 &&
+      status === "ready" &&
+      hydrated
+    ) {
+      void handleSubmit()
+    }
+    // handleSubmit is intentionally excluded — it's stable and including it
+    // would require useCallback, which is unnecessary here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, remainingSeconds, status, timeLimitSeconds])
 
   if (safeQuestions.length === 0) {
     return (
@@ -285,7 +293,7 @@ export function QuizSession({
                 <p className="text-sm text-muted-foreground">{weekTitle}</p>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-border/50 bg-muted/30 p-5">
                   <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground uppercase">
                     Score

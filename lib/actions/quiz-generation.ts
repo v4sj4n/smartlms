@@ -4,16 +4,18 @@ import { z } from "zod"
 import { db } from "@/db"
 import {
   fileChunks,
+  courseWeeks,
   files,
   flashcards,
   quizQuestions,
   quizzes,
 } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth-guard"
-import { env } from "@/lib/env"
 import { generateText } from "ai"
 import { chatModel } from "@/lib/ai/models"
+import { getUserAIPersonalizationPrompt } from "@/lib/data/profile-settings"
 
 const GeneratedQuestion = z.object({
   type: z.enum(["mcq", "true_false", "short_answer"]),
@@ -53,7 +55,7 @@ export async function generateQuizAndFlashcardsFromFile(input: {
   fileId: string
   quizId: string
 }) {
-  await requireRole(["ADMIN", "PROFESSOR"])
+  const user = await requireRole(["ADMIN", "PROFESSOR"])
 
   const file = await db.query.files.findFirst({
     where: and(eq(files.id, input.fileId), isNull(files.deletedAt)),
@@ -75,14 +77,19 @@ export async function generateQuizAndFlashcardsFromFile(input: {
     throw new Error("File has no indexed chunks yet")
   }
 
+  const aiPersonalizationPrompt = await getUserAIPersonalizationPrompt(user.id)
+  const aiPersonalizationSection = aiPersonalizationPrompt
+    ? `${aiPersonalizationPrompt}\n\n`
+    : ""
+
   const context = chunks
     .map((chunk) => `[chunk:${chunk.id}] ${chunk.chunkText}`)
     .join("\n\n")
 
-  const prompt = `Generate study content from these chunks.\n\nRules:\n- Output JSON only.\n- Every question/flashcard must include valid sourceChunkIds from provided chunk ids.\n- Avoid duplicates and near duplicates.\n- Keep answers concise and correct.\n\nChunks:\n${context}`
+  const prompt = `Generate study content from these chunks.\n\n${aiPersonalizationSection}Rules:\n- Output JSON only.\n- Every question/flashcard must include valid sourceChunkIds from provided chunk ids.\n- Avoid duplicates and near duplicates.\n- Keep answers concise and correct.\n\nChunks:\n${context}`
 
   const response = await generateText({
-    model: await chatModel(env.GENAI_QUIZ_MODEL),
+    model: await chatModel(),
     system: "You are an LMS assessment generator.",
     prompt,
     providerOptions: {
@@ -92,12 +99,16 @@ export async function generateQuizAndFlashcardsFromFile(input: {
     },
   })
 
-  const parsedText = response.text
+  const rawText = response.text
 
-  if (!parsedText) {
+  if (!rawText) {
     throw new Error("AI returned an empty quiz payload")
   }
 
+  const parsedText = rawText
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim()
   const parsed = GeneratedPack.parse(JSON.parse(parsedText))
 
   const questions = [...parsed.mcq, ...parsed.trueFalse, ...parsed.shortAnswer]
@@ -155,6 +166,73 @@ export async function generateQuizAndFlashcardsFromFile(input: {
     generated: {
       questions: questions.length,
       flashcards: parsed.flashcards.length,
+    },
+  }
+}
+
+export async function generateStudyPackFromFile(input: {
+  fileId: string
+  weekId: string
+  title?: string
+}) {
+  const user = await requireRole(["ADMIN", "PROFESSOR"])
+
+  const file = await db.query.files.findFirst({
+    where: and(eq(files.id, input.fileId), isNull(files.deletedAt)),
+    columns: { id: true, name: true },
+  })
+
+  if (!file) {
+    throw new Error("File not found")
+  }
+
+  const week = await db.query.courseWeeks.findFirst({
+    where: eq(courseWeeks.id, input.weekId),
+    with: {
+      course: {
+        columns: {
+          id: true,
+          teacherId: true,
+        },
+      },
+    },
+  })
+
+  if (!week || !week.course) {
+    throw new Error("Folder not found")
+  }
+
+  if (user.role !== "ADMIN" && week.course.teacherId !== user.id) {
+    throw new Error("Forbidden")
+  }
+
+  const [quiz] = await db
+    .insert(quizzes)
+    .values({
+      weekId: week.id,
+      title: input.title?.trim() || `${file.name} Study Pack`,
+      description: `AI-generated study pack based on ${file.name}`,
+      type: "graded",
+      origin: "AI" as const,
+      status: "PENDING_REVIEW" as const,
+      difficulty: "medium",
+    })
+    .returning({ id: quizzes.id })
+
+  const generated = await generateQuizAndFlashcardsFromFile({
+    fileId: file.id,
+    quizId: quiz.id,
+  })
+
+  revalidatePath(`/professor/courses/${week.course.id}`)
+  revalidatePath(`/professor/courses/${week.course.id}/folders/${week.id}`)
+  revalidatePath(`/student/courses/${week.course.id}`)
+
+  return {
+    success: true,
+    data: {
+      quizId: quiz.id,
+      ...generated.generated,
     },
   }
 }

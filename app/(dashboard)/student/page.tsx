@@ -14,21 +14,14 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import { getUserDisplayName } from "@/lib/display-name"
 import {
   BookOpen,
-  Calendar,
   Users,
-  Clock,
-  Award,
   ArrowRight,
   CheckCircle,
-  AlertCircle,
-  TrendingUp,
   Flame,
   Target,
-  Star,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -57,29 +50,26 @@ export default async function StudentDashboardPage() {
         )
     ) || []
 
-  // Calculate completion rates (mock for now)
-  const totalWeeks = enrolledCourses.reduce(
-    (acc: number, course: { weeks?: { length: number } }) =>
-      acc + (course.weeks?.length || 0),
-    0
-  )
-
   return (
-    <div className="flex-1 space-y-6 p-8">
+    <div className="flex-1 space-y-6">
       {/* Welcome Header */}
-      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
+      <div
+        className="reveal-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        style={{ animationDelay: "0ms" }}
+      >
         <div>
-          <h1 className="text-balance text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
             Welcome back, {displayName}! 👋
           </h1>
-          <p className="text-pretty mt-1 text-muted-foreground">
+          <p className="mt-1 text-pretty text-muted-foreground">
             Here&apos;s what&apos;s happening with your courses today.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/student/courses">
             <Button
               variant="outline"
+              size="sm"
               className="transition-transform duration-150 ease-out active:scale-[0.96]"
             >
               <BookOpen className="mr-2 h-4 w-4" />
@@ -87,7 +77,10 @@ export default async function StudentDashboardPage() {
             </Button>
           </Link>
           <Link href="/student/clubs">
-            <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
+            <Button
+              size="sm"
+              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+            >
               <Users className="mr-2 h-4 w-4" />
               Explore Clubs
             </Button>
@@ -96,22 +89,22 @@ export default async function StudentDashboardPage() {
       </div>
 
       {/* Progress Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card
-          className="surface-elevated reveal-in border-blue-200/50 bg-linear-to-br from-blue-500/10 to-blue-600/5"
+          className="surface-elevated reveal-in"
           style={{ animationDelay: "80ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            <CardTitle className="text-sm font-medium">
               Enrolled Courses
             </CardTitle>
-            <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
+            <div className="text-2xl font-bold tabular-nums">
               {enrolledCourses.length}
             </div>
-            <p className="mt-1 text-xs text-blue-600/70 dark:text-blue-400/70">
+            <p className="mt-1 text-xs text-muted-foreground">
               {
                 enrolledCourses.filter(
                   (c: { isPublished: boolean }) => c.isPublished
@@ -123,60 +116,48 @@ export default async function StudentDashboardPage() {
         </Card>
 
         <Card
-          className="surface-elevated reveal-in border-green-200/50 bg-linear-to-br from-green-500/10 to-green-600/5"
+          className="surface-elevated reveal-in"
           style={{ animationDelay: "140ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">
+            <CardTitle className="text-sm font-medium">
               Completion Rate
             </CardTitle>
-            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tabular-nums text-green-700 dark:text-green-300">
-              --%
-            </div>
-            <p className="mt-1 text-xs text-green-600/70 dark:text-green-400/70">
+            <div className="text-2xl font-bold tabular-nums">--%</div>
+            <p className="mt-1 text-xs text-muted-foreground">
               Across all courses
             </p>
           </CardContent>
         </Card>
 
         <Card
-          className="surface-elevated reveal-in border-orange-200/50 bg-linear-to-br from-orange-500/10 to-orange-600/5"
+          className="surface-elevated reveal-in"
           style={{ animationDelay: "200ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">
-              Study Streak
-            </CardTitle>
-            <Flame className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            <CardTitle className="text-sm font-medium">Study Streak</CardTitle>
+            <Flame className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tabular-nums text-orange-700 dark:text-orange-300">
-              --
-            </div>
-            <p className="mt-1 text-xs text-orange-600/70 dark:text-orange-400/70">
-              Days in a row
-            </p>
+            <div className="text-2xl font-bold tabular-nums">--</div>
+            <p className="mt-1 text-xs text-muted-foreground">Days in a row</p>
           </CardContent>
         </Card>
 
         <Card
-          className="surface-elevated reveal-in border-purple-200/50 bg-linear-to-br from-purple-500/10 to-purple-600/5"
+          className="surface-elevated reveal-in"
           style={{ animationDelay: "260ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Clubs Joined
-            </CardTitle>
-            <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <CardTitle className="text-sm font-medium">Clubs Joined</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tabular-nums text-purple-700 dark:text-purple-300">
-              --
-            </div>
-            <p className="mt-1 text-xs text-purple-600/70 dark:text-purple-400/70">
+            <div className="text-2xl font-bold tabular-nums">--</div>
+            <p className="mt-1 text-xs text-muted-foreground">
               Active memberships
             </p>
           </CardContent>
@@ -185,7 +166,7 @@ export default async function StudentDashboardPage() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="courses" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto sm:w-auto">
           <TabsTrigger value="courses">My Courses</TabsTrigger>
           <TabsTrigger value="clubs">Student Clubs</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
@@ -219,7 +200,7 @@ export default async function StudentDashboardPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-pretty mb-4 line-clamp-2 text-sm text-muted-foreground">
+                      <p className="mb-4 line-clamp-2 text-sm text-pretty text-muted-foreground">
                         {course.description || "No description available"}
                       </p>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -278,7 +259,7 @@ export default async function StudentDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {club.description || "No description available"}
                     </p>
                   </CardContent>
@@ -336,7 +317,7 @@ export default async function StudentDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {announcement.content}
                     </p>
                   </CardContent>

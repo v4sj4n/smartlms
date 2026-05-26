@@ -32,13 +32,11 @@ export function BreadcrumbLabelsProvider({
 export function BreadcrumbLabels({ labels }: { labels: BreadcrumbLabelMap }) {
   const context = React.useContext(BreadcrumbLabelsContext)
 
-  if (!context) {
-    return null
-  }
-
-  const { setLabels } = context
+  const { setLabels } = context ?? {}
 
   React.useEffect(() => {
+    if (!setLabels) return
+
     setLabels(labels)
 
     return () => {

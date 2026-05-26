@@ -19,8 +19,6 @@ import {
   ArrowLeft,
   BookOpen,
   Calendar,
-  Download,
-  ExternalLink,
   FileText,
   HelpCircle,
   Layers,
@@ -30,6 +28,7 @@ import {
 import Link from "next/link"
 import { CourseAiOverlay } from "@/components/course-ai-overlay"
 import { BreadcrumbLabels } from "@/components/breadcrumb-labels"
+import { WeekContentTable } from "@/components/week-content-table"
 
 type SemesterWeekSlot = {
   weekNumber: number
@@ -188,16 +187,20 @@ export default async function StudentCourseDetailPage({
       <BreadcrumbLabels
         labels={{ [`/student/courses/${course.id}`]: course.title }}
       />
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <Link href="/student/courses">
-              <Button variant="ghost" size="icon" className="rounded-xl">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mt-0.5 shrink-0 rounded-xl"
+              >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
                 {course.title}
               </h1>
               <p className="mt-1 text-muted-foreground">
@@ -216,7 +219,7 @@ export default async function StudentCourseDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card className="rounded-2xl border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Weeks</CardTitle>
@@ -267,13 +270,15 @@ export default async function StudentCourseDetailPage({
       </div>
 
       <Tabs defaultValue="weeks" className="space-y-4 pt-2">
-        <TabsList>
-          <TabsTrigger value="weeks">Course Weeks</TabsTrigger>
-          <TabsTrigger value="people">Classmates</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-          <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="w-max min-w-full sm:w-auto">
+            <TabsTrigger value="weeks">Course Weeks</TabsTrigger>
+            <TabsTrigger value="people">Classmates</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
+            <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="weeks" className="space-y-4">
           {timelineWeeks.length > 0 ? (
@@ -294,12 +299,12 @@ export default async function StudentCourseDetailPage({
                     )}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary">
                             {timelineWeek.weekNumber}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <CardTitle className="text-lg">
                               {week
                                 ? week.title
@@ -350,21 +355,12 @@ export default async function StudentCourseDetailPage({
                         </div>
                       </div>
 
-                      {week && (
-                        <Tabs defaultValue="materials" className="space-y-3">
-                          <TabsList>
-                            <TabsTrigger value="materials">
-                              Materials
-                            </TabsTrigger>
-                            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-                            <TabsTrigger value="flashcards">
-                              Flashcards
-                            </TabsTrigger>
-                          </TabsList>
-
-                          <TabsContent value="materials" className="space-y-2">
-                            {week.materials?.length ? (
-                              week.materials.map((material) => {
+                      {week &&
+                        (() => {
+                          const contentItems = [
+                            ...(week.materials ?? [])
+                              .filter((material) => material.isPublished)
+                              .map((material) => {
                                 const contentUrl = material.contentUrl
                                 const isExternal =
                                   Boolean(contentUrl) &&
@@ -378,115 +374,60 @@ export default async function StudentCourseDetailPage({
                                       )}`
                                   : null
 
-                                return (
-                                  <div
-                                    key={material.id}
-                                    className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2 text-sm"
-                                  >
-                                    <div>
-                                      <p className="font-medium">
-                                        {material.title}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {material.type}
-                                      </p>
-                                    </div>
-                                    {downloadHref && (
-                                      <Button
-                                        asChild
-                                        size="sm"
-                                        variant="outline"
-                                      >
-                                        <Link href={downloadHref}>
-                                          {isExternal ? (
-                                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                                          ) : (
-                                            <Download className="mr-1.5 h-3.5 w-3.5" />
-                                          )}
-                                          {isExternal ? "Open" : "Download"}
-                                        </Link>
-                                      </Button>
-                                    )}
-                                  </div>
-                                )
-                              })
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                No materials posted yet.
-                              </p>
-                            )}
-                          </TabsContent>
+                                return {
+                                  id: material.id,
+                                  kind: "material" as const,
+                                  title: material.title,
+                                  detail: material.type,
+                                  isPublished: material.isPublished,
+                                  actionHref: downloadHref,
+                                  isExternal: Boolean(isExternal),
+                                }
+                              }),
+                            ...(week.quizzes ?? [])
+                              .filter((quiz) => quiz.status === "PUBLISHED")
+                              .map((quiz) => ({
+                                id: quiz.id,
+                                kind: "quiz" as const,
+                                title: quiz.title,
+                                detail: quiz.timeLimitMinutes
+                                  ? `${quiz.type} • ${quiz.timeLimitMinutes} min`
+                                  : quiz.type,
+                                isPublished: quiz.status === "PUBLISHED",
+                                actionHref: `/student/courses/${course.id}/quizzes/${quiz.id}?weekId=${week.id}`,
+                              })),
+                            ...(() => {
+                              const publishedFlashcards = (
+                                week.flashcards || []
+                              ).filter((f) => f.status === "PUBLISHED")
 
-                          <TabsContent value="quizzes" className="space-y-2">
-                            {week.quizzes?.length ? (
-                              week.quizzes.map((quiz) => (
-                                <div
-                                  key={quiz.id}
-                                  className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/20 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                >
-                                  <div className="space-y-1">
-                                    <p className="font-medium">{quiz.title}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {quiz.type}
-                                      {quiz.timeLimitMinutes
-                                        ? ` • ${quiz.timeLimitMinutes} min`
-                                        : ""}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    asChild
-                                    size="sm"
-                                    className="rounded-full"
-                                  >
-                                    <Link
-                                      href={`/student/courses/${course.id}/quizzes/${quiz.id}?weekId=${week.id}`}
-                                    >
-                                      Open quiz
-                                      <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                                    </Link>
-                                  </Button>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                No quizzes yet.
-                              </p>
-                            )}
-                          </TabsContent>
+                              return publishedFlashcards.length > 0
+                                ? [
+                                    {
+                                      id: `flashcards-${week.id}`,
+                                      kind: "flashcardSet" as const,
+                                      title: "Flashcard Set",
+                                      detail: `${publishedFlashcards.length} flashcards`,
+                                      isPublished: true,
+                                      memberIds: publishedFlashcards.map(
+                                        (flashcard) => flashcard.id
+                                      ),
+                                      actionHref: `/student/courses/${course.id}/flashcards/${week.id}`,
+                                    },
+                                  ]
+                                : []
+                            })(),
+                          ]
 
-                          <TabsContent value="flashcards" className="space-y-2">
-                            {week.flashcards?.length ? (
-                              <div className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-3 text-sm sm:flex sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                  <p className="font-medium">
-                                    Study flashcards
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {week.flashcards.length} cards in this
-                                    week’s deck.
-                                  </p>
-                                </div>
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  className="rounded-full"
-                                >
-                                  <Link
-                                    href={`/student/courses/${course.id}/flashcards/${week.id}`}
-                                  >
-                                    Open deck
-                                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                                  </Link>
-                                </Button>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                No flashcards yet.
-                              </p>
-                            )}
-                          </TabsContent>
-                        </Tabs>
-                      )}
+                          return (
+                            <WeekContentTable
+                              key={week.id}
+                              weekId={week.id}
+                              items={contentItems}
+                              readOnly
+                            />
+                          )
+                        })()}
                     </CardContent>
                   </Card>
                 )

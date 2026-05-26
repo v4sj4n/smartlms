@@ -63,7 +63,7 @@ export default async function NewCourseFilePage({
         </div>
       </div>
 
-      <Card className="max-w-3xl">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Folder upload</CardTitle>
           <CardDescription>
@@ -74,6 +74,7 @@ export default async function NewCourseFilePage({
         <CardContent>
           <FolderMaterialUpload
             subjectId={course.id}
+            folderId={targetFolder.id}
             weekNumber={targetFolder.weekNumber}
           />
         </CardContent>

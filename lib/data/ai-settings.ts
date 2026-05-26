@@ -61,13 +61,15 @@ export async function updateAISettings(
       await db
         .update(aiSettings)
         .set({
-          chatProvider: settings.chatProvider as typeof aiSettings.$inferInsert.chatProvider,
+          chatProvider:
+            settings.chatProvider as typeof aiSettings.$inferInsert.chatProvider,
           chatModelId: settings.chatModelId,
           chatApiKey: settings.chatApiKey,
           chatBaseUrl: settings.chatBaseUrl,
           chatTemperature: settings.chatTemperature,
           chatMaxTokens: settings.chatMaxTokens,
-          embeddingProvider: settings.embeddingProvider as typeof aiSettings.$inferInsert.embeddingProvider,
+          embeddingProvider:
+            settings.embeddingProvider as typeof aiSettings.$inferInsert.embeddingProvider,
           embeddingModelId: settings.embeddingModelId,
           embeddingApiKey: settings.embeddingApiKey,
           embeddingBaseUrl: settings.embeddingBaseUrl,
@@ -80,13 +82,15 @@ export async function updateAISettings(
         .where(eq(aiSettings.id, existing.id))
     } else {
       await db.insert(aiSettings).values({
-        chatProvider: settings.chatProvider as typeof aiSettings.$inferInsert.chatProvider,
+        chatProvider:
+          settings.chatProvider as typeof aiSettings.$inferInsert.chatProvider,
         chatModelId: settings.chatModelId,
         chatApiKey: settings.chatApiKey,
         chatBaseUrl: settings.chatBaseUrl,
         chatTemperature: settings.chatTemperature,
         chatMaxTokens: settings.chatMaxTokens,
-        embeddingProvider: settings.embeddingProvider as typeof aiSettings.$inferInsert.embeddingProvider,
+        embeddingProvider:
+          settings.embeddingProvider as typeof aiSettings.$inferInsert.embeddingProvider,
         embeddingModelId: settings.embeddingModelId,
         embeddingApiKey: settings.embeddingApiKey,
         embeddingBaseUrl: settings.embeddingBaseUrl,

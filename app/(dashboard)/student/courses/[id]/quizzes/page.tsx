@@ -67,21 +67,29 @@ export default async function StudentCourseQuizzesPage({
           [`/student/courses/${course.id}/quizzes`]: "Quizzes",
         }}
       />
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href={`/student/courses/${course.id}`}>
-            <Button variant="ghost" size="icon" className="rounded-xl">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Quizzes</h1>
-            <p className="mt-1 text-muted-foreground">{course.title}</p>
+      <div className="flex items-start gap-3">
+        <Link href={`/student/courses/${course.id}`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-0.5 shrink-0 rounded-xl"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+              Quizzes
+            </h1>
+            <Badge variant="secondary" className="rounded-full px-3 py-1">
+              {totalQuizzes} total
+            </Badge>
           </div>
+          <p className="mt-1 text-pretty text-muted-foreground">
+            {course.title}
+          </p>
         </div>
-        <Badge variant="secondary" className="rounded-full px-3 py-1">
-          {totalQuizzes} total
-        </Badge>
       </div>
 
       {focusedWeek && (

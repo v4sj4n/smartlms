@@ -71,6 +71,35 @@ function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_")
 }
 
+async function resolveCourseWeek(input: {
+  subjectId?: string
+  folderId?: string
+  weekNumber?: number
+}) {
+  if (input.folderId) {
+    const folder = await db.query.courseWeeks.findFirst({
+      where: eq(courseWeeks.id, input.folderId),
+      columns: { id: true, weekNumber: true, courseId: true },
+    })
+
+    if (folder && (!input.subjectId || folder.courseId === input.subjectId)) {
+      return folder
+    }
+  }
+
+  if (input.subjectId && input.weekNumber) {
+    return await db.query.courseWeeks.findFirst({
+      where: and(
+        eq(courseWeeks.courseId, input.subjectId),
+        eq(courseWeeks.weekNumber, input.weekNumber)
+      ),
+      columns: { id: true, weekNumber: true, courseId: true },
+    })
+  }
+
+  return null
+}
+
 export async function createSignedUpload(input: unknown) {
   const user = await requireAuth()
 
@@ -94,9 +123,11 @@ export async function createSignedUpload(input: unknown) {
     data.profileImage ? "profile-images" : (data.subjectId ?? "unscoped"),
     data.profileImage
       ? user.id
-      : data.weekNumber
-        ? `week-${data.weekNumber}`
-        : "week-none",
+      : data.folderId
+        ? `folder-${data.folderId}`
+        : data.weekNumber
+          ? `week-${data.weekNumber}`
+          : "week-none",
     data.profileImage ? stamp : (data.clubId ?? "club-none"),
     user.id,
     stamp,
@@ -170,33 +201,34 @@ export async function finalizeFileUpload(input: unknown) {
     revalidatePath(`/admin/clubs/${data.clubId}`)
   }
 
-  if (data.subjectId && data.weekNumber) {
-    const week = await db.query.courseWeeks.findFirst({
+  const resolvedWeek = await resolveCourseWeek({
+    subjectId: data.subjectId,
+    folderId: data.folderId,
+    weekNumber: data.weekNumber,
+  })
+
+  if (resolvedWeek) {
+    await db
+      .update(files)
+      .set({ weekNumber: resolvedWeek.weekNumber })
+      .where(eq(files.id, record.id))
+
+    const existingMaterial = await db.query.lectureMaterials.findFirst({
       where: and(
-        eq(courseWeeks.courseId, data.subjectId),
-        eq(courseWeeks.weekNumber, data.weekNumber)
+        eq(lectureMaterials.weekId, resolvedWeek.id),
+        eq(lectureMaterials.contentUrl, data.path)
       ),
       columns: { id: true },
     })
 
-    if (week) {
-      const existingMaterial = await db.query.lectureMaterials.findFirst({
-        where: and(
-          eq(lectureMaterials.weekId, week.id),
-          eq(lectureMaterials.contentUrl, data.path)
-        ),
-        columns: { id: true },
+    if (!existingMaterial) {
+      await db.insert(lectureMaterials).values({
+        weekId: resolvedWeek.id,
+        title: data.name,
+        type: mapMimeTypeToLectureMaterialType(data.mimeType),
+        contentUrl: data.path,
+        fileSize: data.size,
       })
-
-      if (!existingMaterial) {
-        await db.insert(lectureMaterials).values({
-          weekId: week.id,
-          title: data.name,
-          type: mapMimeTypeToLectureMaterialType(data.mimeType),
-          contentUrl: data.path,
-          fileSize: data.size,
-        })
-      }
     }
 
     revalidatePath(`/professor/courses/${data.subjectId}`)

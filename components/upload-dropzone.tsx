@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 
 type Props = {
   subjectId?: string
+  folderId?: string
   weekNumber?: number
   clubId?: string
   onUploaded?: (file: unknown) => void
@@ -36,6 +37,7 @@ export function UploadDropzone(props: Props) {
         mimeType: file.type,
         size: file.size,
         subjectId: props.subjectId,
+        folderId: props.folderId,
         weekNumber: props.weekNumber,
         clubId: props.clubId,
       }),
@@ -83,6 +85,7 @@ export function UploadDropzone(props: Props) {
         size: file.size,
         path: signed.path,
         subjectId: props.subjectId,
+        folderId: props.folderId,
         weekNumber: props.weekNumber,
         clubId: props.clubId,
       }),
@@ -117,7 +120,7 @@ export function UploadDropzone(props: Props) {
   return (
     <div
       className={cn(
-        "rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 text-center",
+        "w-full rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 text-center",
         "transition hover:bg-muted/40"
       )}
       onDragOver={(e) => e.preventDefault()}

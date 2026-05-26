@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import { ArrowLeft, Calendar, Plus, School } from "lucide-react"
 import Link from "next/link"
 
@@ -27,33 +26,38 @@ export default async function SchoolYearsPage() {
   const { data: schoolYears } = await getSchoolYears()
 
   return (
-    <div className="flex-1 space-y-6 p-8">
-      <div className="flex items-center gap-4">
-        <Link href="/admin/academic">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Academic Years</h1>
-          <p className="mt-1 text-muted-foreground">
-            Manage academic years, semesters, and study programs.
-          </p>
+    <div className="flex-1 space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Link href="/admin/academic">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mt-0.5 shrink-0 rounded-xl"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+              Academic Years
+            </h1>
+            <p className="mt-1 text-pretty text-muted-foreground">
+              Manage academic years, semesters, and study programs.
+            </p>
+          </div>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-3">
           <span className="text-sm text-muted-foreground">
-            {schoolYears?.length || 0} academic years
+            {schoolYears?.length || 0} years
           </span>
+          <Link href="/admin/academic/school-years/new">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Year
+            </Button>
+          </Link>
         </div>
-        <Link href="/admin/academic/school-years/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Academic Year
-          </Button>
-        </Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

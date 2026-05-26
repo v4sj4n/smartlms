@@ -54,23 +54,24 @@ export default async function ProfessorDashboardPage() {
     ) || 0
 
   return (
-    <div className="flex-1 space-y-6 p-8">
+    <div className="flex-1 space-y-6">
       <div
-        className="reveal-in flex items-center justify-between"
+        className="reveal-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         style={{ animationDelay: "0ms" }}
       >
         <div>
-          <h1 className="text-balance text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
             Professor Dashboard
           </h1>
-          <p className="text-pretty mt-1 text-muted-foreground">
+          <p className="mt-1 text-pretty text-muted-foreground">
             Welcome back, {displayName}. Manage your courses and students.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/professor/courses">
             <Button
               variant="outline"
+              size="sm"
               className="transition-transform duration-150 ease-out active:scale-[0.96]"
             >
               <BookOpen className="mr-2 h-4 w-4" />
@@ -78,7 +79,10 @@ export default async function ProfessorDashboardPage() {
             </Button>
           </Link>
           <Link href="/professor/content/new">
-            <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
+            <Button
+              size="sm"
+              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create Content
             </Button>
@@ -86,7 +90,7 @@ export default async function ProfessorDashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card
           className="surface-elevated reveal-in"
           style={{ animationDelay: "80ms" }}
@@ -110,12 +114,18 @@ export default async function ProfessorDashboardPage() {
           style={{ animationDelay: "140ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Students
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground">Across all your courses</p>
+            <div className="text-2xl font-bold tabular-nums">
+              {totalStudents}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Across all your courses
+            </p>
           </CardContent>
         </Card>
 
@@ -124,7 +134,9 @@ export default async function ProfessorDashboardPage() {
           style={{ animationDelay: "200ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Grading</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Grading
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -140,18 +152,22 @@ export default async function ProfessorDashboardPage() {
           style={{ animationDelay: "260ms" }}
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active This Week</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active This Week
+            </CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tabular-nums">-</div>
-            <p className="text-xs text-muted-foreground">Student interactions</p>
+            <p className="text-xs text-muted-foreground">
+              Student interactions
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="courses" className="space-y-4 pt-2">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto sm:w-auto">
           <TabsTrigger value="courses">My Courses</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -205,7 +221,7 @@ export default async function ProfessorDashboardPage() {
               <CardContent className="flex flex-col items-center justify-center py-8">
                 <BookOpen className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Courses Assigned</h3>
-                <p className="text-pretty mt-1 max-w-sm text-center text-sm text-muted-foreground">
+                <p className="mt-1 max-w-sm text-center text-sm text-pretty text-muted-foreground">
                   You haven&apos;t been assigned to any courses yet. Contact
                   your administrator.
                 </p>
@@ -225,7 +241,9 @@ export default async function ProfessorDashboardPage() {
                 <Card
                   key={announcement.id}
                   className={
-                    announcement.isPinned ? "border-l-4 border-l-yellow-500" : ""
+                    announcement.isPinned
+                      ? "border-l-4 border-l-yellow-500"
+                      : ""
                   }
                 >
                   <CardHeader className="pb-3">
@@ -242,11 +260,12 @@ export default async function ProfessorDashboardPage() {
                       {announcement.author?.fullName ||
                         announcement.author?.name ||
                         "Unknown"}{" "}
-                      • {new Date(announcement.publishedAt).toLocaleDateString()}
+                      •{" "}
+                      {new Date(announcement.publishedAt).toLocaleDateString()}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
                       {announcement.content}
                     </p>
                   </CardContent>
@@ -258,7 +277,7 @@ export default async function ProfessorDashboardPage() {
               <CardContent className="flex flex-col items-center justify-center py-8">
                 <CheckCircle className="h-8 w-8 text-muted-foreground/50" />
                 <h3 className="mt-4 font-medium">No Announcements</h3>
-                <p className="text-pretty mt-1 max-w-sm text-center text-sm text-muted-foreground">
+                <p className="mt-1 max-w-sm text-center text-sm text-pretty text-muted-foreground">
                   No system announcements at this time.
                 </p>
               </CardContent>
@@ -283,7 +302,7 @@ export default async function ProfessorDashboardPage() {
                 <h3 className="mt-4 text-lg font-semibold">
                   Schedule Coming Soon
                 </h3>
-                <p className="text-pretty mt-2 max-w-sm text-center text-muted-foreground">
+                <p className="mt-2 max-w-sm text-center text-pretty text-muted-foreground">
                   The scheduling feature is currently in development.
                   You&apos;ll be able to view your teaching schedule here soon.
                 </p>

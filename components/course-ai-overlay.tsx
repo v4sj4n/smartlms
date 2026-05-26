@@ -275,7 +275,7 @@ export function CourseAiOverlay({
     <>
       <Button
         type="button"
-        className="fixed right-6 bottom-6 z-2147483647 h-14 w-14 rounded-full bg-primary shadow-[0_16px_40px_rgba(15,23,42,0.35)] transition-transform active:scale-[0.96]"
+        className="fixed right-4 bottom-6 z-2147483647 h-14 w-14 rounded-full bg-primary shadow-[0_16px_40px_rgba(15,23,42,0.35)] transition-transform active:scale-[0.96] sm:right-6"
         size="icon-lg"
         aria-expanded={isOpen}
         aria-label={
@@ -289,9 +289,9 @@ export function CourseAiOverlay({
       {isOpen && (
         <Card
           className={cn(
-            "fixed right-6 bottom-24 z-2147483647",
-            "flex h-[min(58rem,calc(100vh-5rem))] w-[min(28rem,calc(100vw-1.5rem))] flex-col",
-            "overflow-hidden rounded-[1.75rem] border border-border/70",
+            "fixed right-2 bottom-24 z-2147483647 sm:right-6",
+            "flex h-[min(58rem,calc(100dvh-7rem))] w-[calc(100vw-1rem)] flex-col sm:w-[min(28rem,calc(100vw-1.5rem))]",
+            "overflow-hidden rounded-2xl border border-border/70 sm:rounded-[1.75rem]",
             "bg-popover/95 shadow-[0_30px_90px_rgba(15,23,42,0.26)] backdrop-blur-xl"
           )}
         >
@@ -442,7 +442,7 @@ export function CourseAiOverlay({
                         ? "Ask about a lecture, topic, or file..."
                         : "AI assistant not available"
                     }
-                    className="min-h-24 resize-none rounded-2xl border-border/70 bg-background/90 px-4 py-3 shadow-sm"
+                    className="min-h-16 resize-none rounded-2xl border-border/70 bg-background/90 px-4 py-3 shadow-sm sm:min-h-24"
                     disabled={!canChat}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {

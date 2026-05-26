@@ -18,6 +18,15 @@ type CourseSchemaCompatibility = {
   flashcardsSchemaCompatible: boolean
 }
 
+const relatedUserColumns = {
+  id: true,
+  name: true,
+  email: true,
+  image: true,
+  nickname: true,
+  fullName: true,
+} as const
+
 let courseSchemaCompatibilityPromise: Promise<CourseSchemaCompatibility> | null =
   null
 
@@ -163,13 +172,17 @@ export async function getCourses(filters?: {
   try {
     const query = db.query.courses.findMany({
       with: {
-        teacher: true,
+        teacher: {
+          columns: relatedUserColumns,
+        },
         schoolYear: true,
         studyProgram: true,
         weeks: true,
         enrollments: {
           with: {
-            student: true,
+            student: {
+              columns: relatedUserColumns,
+            },
           },
         },
       },
@@ -222,7 +235,9 @@ export async function getCourseById(id: string) {
     const course = await db.query.courses.findFirst({
       where: eq(courses.id, id),
       with: {
-        teacher: true,
+        teacher: {
+          columns: relatedUserColumns,
+        },
         schoolYear: true,
         studyProgram: true,
         weeks: {
@@ -250,7 +265,9 @@ export async function getCourseById(id: string) {
         },
         enrollments: {
           with: {
-            student: true,
+            student: {
+              columns: relatedUserColumns,
+            },
           },
         },
         chatbots: true,
