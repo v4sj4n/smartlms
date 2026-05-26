@@ -35,17 +35,17 @@ export default async function AcademicPage() {
 
   return (
     <div className="flex-1 space-y-6 p-8">
-      <div className="flex items-center justify-between">
+      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-balance text-3xl font-bold tracking-tight">
             Academic Management
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="text-pretty mt-1 text-muted-foreground">
             Manage academic years, semesters, study programs, and enrollments.
           </p>
         </div>
         <Link href="/admin/academic/school-years">
-          <Button>
+          <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
             <Plus className="mr-2 h-4 w-4" />
             New Academic Year
           </Button>
@@ -61,7 +61,7 @@ export default async function AcademicPage() {
 
         <TabsContent value="overview" className="space-y-6">
           {activeYear ? (
-            <Card className="border-l-4 border-l-green-500">
+            <Card className="surface-elevated border-l-4 border-l-green-500">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -143,7 +143,7 @@ export default async function AcademicPage() {
                   as the foundation for your academic structure.
                 </p>
                 <Link href="/admin/academic/school-years" className="mt-6">
-                  <Button>
+                  <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Academic Year
                   </Button>
@@ -154,7 +154,7 @@ export default async function AcademicPage() {
 
           <div className="grid gap-6 md:grid-cols-3">
             <Link href="/admin/academic/school-years">
-              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Academic Years
@@ -162,7 +162,7 @@ export default async function AcademicPage() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold tabular-nums">
                     {schoolYears?.length || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -173,7 +173,7 @@ export default async function AcademicPage() {
             </Link>
 
             <Link href="/admin/academic/study-programs">
-              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Study Programs
@@ -181,7 +181,7 @@ export default async function AcademicPage() {
                   <GraduationCap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold tabular-nums">
                     {schoolYears?.reduce(
                       (
                         acc: number,
@@ -198,7 +198,7 @@ export default async function AcademicPage() {
             </Link>
 
             <Link href="/admin/academic/enrollments">
-              <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+              <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">
                     Enrollments
@@ -206,7 +206,7 @@ export default async function AcademicPage() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">-</div>
+                  <div className="text-2xl font-bold tabular-nums">-</div>
                   <p className="text-xs text-muted-foreground">
                     Manage student enrollments and registrations
                   </p>
@@ -220,7 +220,10 @@ export default async function AcademicPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Academic Years</h2>
             <Link href="/admin/academic/school-years">
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Year
               </Button>
@@ -242,7 +245,7 @@ export default async function AcademicPage() {
                   key={year.id}
                   href={`/admin/academic/school-years/${year.id}`}
                 >
-                  <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">{year.name}</CardTitle>
@@ -273,7 +276,10 @@ export default async function AcademicPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Study Programs</h2>
             <Link href="/admin/academic/study-programs">
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Program
               </Button>
@@ -287,7 +293,7 @@ export default async function AcademicPage() {
                   key={program.id}
                   href={`/admin/academic/study-programs/${program.id}`}
                 >
-                  <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                  <Card className="surface-elevated cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">
@@ -301,7 +307,7 @@ export default async function AcademicPage() {
                     </CardHeader>
                     {program.description && (
                       <CardContent>
-                        <p className="line-clamp-2 text-sm text-muted-foreground">
+                        <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
                           {program.description}
                         </p>
                       </CardContent>

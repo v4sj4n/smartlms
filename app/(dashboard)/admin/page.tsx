@@ -70,22 +70,25 @@ export default async function AdminDashboardPage() {
   return (
     <div className="flex-1 space-y-6 p-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-balance text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-pretty mt-1 text-muted-foreground">
             Welcome back, {displayName}. Here&apos;s what&apos;s happening.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/admin/academic/school-years/new">
-            <Button variant="outline">
+            <Button
+              variant="outline"
+              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+            >
               <Plus className="mr-2 h-4 w-4" />
               New Year
             </Button>
           </Link>
           <Link href="/admin/courses/new">
-            <Button>
+            <Button className="transition-transform duration-150 ease-out active:scale-[0.96]">
               <Plus className="mr-2 h-4 w-4" />
               New Course
             </Button>
@@ -95,7 +98,7 @@ export default async function AdminDashboardPage() {
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="surface-elevated reveal-in" style={{ animationDelay: "80ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Active Academic Year
@@ -103,7 +106,7 @@ export default async function AdminDashboardPage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tabular-nums">
               {activeYear ? activeYear.name : "None"}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -114,7 +117,7 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="surface-elevated reveal-in" style={{ animationDelay: "140ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Study Programs
@@ -122,14 +125,14 @@ export default async function AdminDashboardPage() {
             <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalPrograms}</div>
+            <div className="text-2xl font-bold tabular-nums">{totalPrograms}</div>
             <p className="text-xs text-muted-foreground">
               Across {schoolYears?.length || 0} academic years
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="surface-elevated reveal-in" style={{ animationDelay: "200ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Active Courses
@@ -137,7 +140,7 @@ export default async function AdminDashboardPage() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold tabular-nums">
               {courses?.filter((c: { isPublished: boolean }) => c.isPublished)
                 .length || 0}
             </div>
@@ -147,7 +150,7 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="surface-elevated reveal-in" style={{ animationDelay: "260ms" }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Student Enrollments
@@ -155,7 +158,7 @@ export default async function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalEnrollments}</div>
+            <div className="text-2xl font-bold tabular-nums">{totalEnrollments}</div>
             <p className="text-xs text-muted-foreground">
               Across all active courses
             </p>
@@ -176,7 +179,11 @@ export default async function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Recent Announcements</h3>
             <Link href="/admin/announcements">
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              >
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -219,7 +226,7 @@ export default async function AdminDashboardPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
                       {announcement.content}
                     </p>
                   </CardContent>
@@ -250,7 +257,11 @@ export default async function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Recent Courses</h3>
             <Link href="/admin/courses">
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              >
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -259,7 +270,7 @@ export default async function AdminDashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {courses?.slice(0, 6).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`}>
-                <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="line-clamp-1 text-base">
                       {course.title}
@@ -272,7 +283,7 @@ export default async function AdminDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
+                    <p className="text-pretty mb-4 line-clamp-2 text-sm text-muted-foreground">
                       {course.description || "No description available"}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -310,7 +321,11 @@ export default async function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Student Clubs</h3>
             <Link href="/admin/clubs">
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              >
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -319,7 +334,7 @@ export default async function AdminDashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {clubs?.slice(0, 6).map((club) => (
               <Link key={club.id} href={`/admin/clubs/${club.id}`}>
-                <Card className="h-full cursor-pointer transition-colors hover:bg-muted/50">
+                <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">{club.name}</CardTitle>
                     <CardDescription>
@@ -329,7 +344,7 @@ export default async function AdminDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                    <p className="text-pretty line-clamp-2 text-sm text-muted-foreground">
                       {club.description || "No description available"}
                     </p>
                   </CardContent>

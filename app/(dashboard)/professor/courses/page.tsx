@@ -18,13 +18,13 @@ export default async function ProfessorCoursesPage() {
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="reveal-in flex flex-col justify-between gap-4 sm:flex-row sm:items-center" style={{ animationDelay: "0ms" }}>
         <div>
-          <h1 className="flex items-center gap-3 font-heading text-3xl font-bold">
+          <h1 className="text-balance flex items-center gap-3 font-heading text-3xl font-bold">
             <BookOpen className="h-8 w-8 text-primary" />
             My Courses
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="text-pretty mt-2 text-muted-foreground">
             View and manage your assigned courses. Click on a course to view
             folders, add content, and manage quizzes.
           </p>
@@ -46,7 +46,7 @@ export default async function ProfessorCoursesPage() {
                 href={`/professor/courses/${course.id}`}
                 className="group block"
               >
-                <Card className="flex h-full flex-col rounded-2xl border border-border/40 shadow-sm transition-all group-hover:border-primary/50 hover:shadow-md">
+                <Card className="surface-elevated reveal-in flex h-full flex-col rounded-2xl border border-border/40 transition-[box-shadow,transform,border-color] group-hover:border-primary/50" style={{ animationDelay: "80ms" }}>
                   <CardHeader className="pb-4">
                     <div className="mb-2 flex items-start gap-4">
                       <div className="rounded-xl bg-primary/10 p-2.5 text-primary transition-transform duration-300 group-hover:scale-110">
@@ -56,7 +56,7 @@ export default async function ProfessorCoursesPage() {
                     <CardTitle className="line-clamp-2 font-heading text-xl leading-tight font-bold transition-colors group-hover:text-primary">
                       {course.title}
                     </CardTitle>
-                    <CardDescription className="mt-2 line-clamp-2 text-sm leading-relaxed">
+                    <CardDescription className="text-pretty mt-2 line-clamp-2 text-sm leading-relaxed">
                       {course.description ||
                         "No description provided for this course."}
                     </CardDescription>
@@ -85,14 +85,14 @@ export default async function ProfessorCoursesPage() {
           )}
         </div>
       ) : (
-        <Card className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-border/40 bg-muted/10 p-12 text-center shadow-sm">
+        <Card className="flex min-h-100 flex-col items-center justify-center rounded-3xl border border-border/40 bg-muted/10 p-12 text-center shadow-sm">
           <div className="mb-4 rounded-full bg-primary/10 p-4">
             <BookOpen className="h-12 w-12 text-primary" />
           </div>
           <h3 className="mb-2 font-heading text-xl font-bold">
             No Assigned Courses
           </h3>
-          <p className="mx-auto mb-6 max-w-md text-muted-foreground">
+          <p className="text-pretty mx-auto mb-6 max-w-md text-muted-foreground">
             You haven&apos;t been assigned any courses yet. Contact the
             administration to get your courses assigned.
           </p>

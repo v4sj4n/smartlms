@@ -19,7 +19,7 @@ import { type AdapterAccount } from "next-auth/adapters"
 
 const vector = customType<{ data: number[]; driverData: string }>({
   dataType() {
-    return "vector(1536)"
+    return "vector(1024)"
   },
   toDriver(value) {
     return `[${value.join(",")}]`
@@ -756,6 +756,50 @@ export const clubEvents = pgTable("club_events", {
 })
 
 /* ==========================================================================
+   11. AI CONFIGURATION DOMAIN
+   Global AI provider and model settings for chatbot, embeddings, and generation
+   ========================================================================== */
+
+export const aiProviderEnum = pgEnum("ai_provider", [
+  "openai",
+  "anthropic",
+  "google",
+  "mistral",
+  "groq",
+  "xai",
+  "cohere",
+  "deepseek",
+  "fireworks",
+  "togetherai",
+  "perplexity",
+  "groq",
+  "local",
+])
+
+export const aiSettings = pgTable("ai_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Chat Model Configuration
+  chatProvider: aiProviderEnum("chat_provider").default("google").notNull(),
+  chatModelId: varchar("chat_model_id", { length: 128 }).default("gemini-2.0-flash-001").notNull(),
+  chatApiKey: text("chat_api_key"),
+  chatBaseUrl: text("chat_base_url"), // For local/custom endpoints
+  chatTemperature: varchar("chat_temperature", { length: 10 }).default("0.7"),
+  chatMaxTokens: integer("chat_max_tokens").default(4096),
+  // Embedding Model Configuration
+  embeddingProvider: aiProviderEnum("embedding_provider").default("google").notNull(),
+  embeddingModelId: varchar("embedding_model_id", { length: 128 }).default("gemini-embedding-001").notNull(),
+  embeddingApiKey: text("embedding_api_key"),
+  embeddingBaseUrl: text("embedding_base_url"), // For local/custom endpoints
+  embeddingDimensions: integer("embedding_dimensions").default(1024),
+  // Feature Flags
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  allowFileUploads: boolean("allow_file_uploads").default(true).notNull(),
+  // Audit
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+})
+
+/* ==========================================================================
    RELATIONS
    ========================================================================== */
 
@@ -1169,6 +1213,13 @@ export const clubEventsRelations = relations(clubEvents, ({ one }) => ({
   }),
   creator: one(users, {
     fields: [clubEvents.createdBy],
+    references: [users.id],
+  }),
+}))
+
+export const aiSettingsRelations = relations(aiSettings, ({ one }) => ({
+  updater: one(users, {
+    fields: [aiSettings.updatedBy],
     references: [users.id],
   }),
 }))

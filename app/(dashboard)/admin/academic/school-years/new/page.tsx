@@ -41,7 +41,7 @@ export default function NewSchoolYearPage() {
       } else {
         toast.error(result.error || "Failed to create academic year")
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred")
     } finally {
       setIsSubmitting(false)

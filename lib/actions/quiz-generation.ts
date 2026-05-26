@@ -82,7 +82,7 @@ export async function generateQuizAndFlashcardsFromFile(input: {
   const prompt = `Generate study content from these chunks.\n\nRules:\n- Output JSON only.\n- Every question/flashcard must include valid sourceChunkIds from provided chunk ids.\n- Avoid duplicates and near duplicates.\n- Keep answers concise and correct.\n\nChunks:\n${context}`
 
   const response = await generateText({
-    model: chatModel(env.GENAI_QUIZ_MODEL),
+    model: await chatModel(env.GENAI_QUIZ_MODEL),
     system: "You are an LMS assessment generator.",
     prompt,
     providerOptions: {

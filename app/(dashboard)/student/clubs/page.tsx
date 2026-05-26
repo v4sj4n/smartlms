@@ -63,19 +63,16 @@ export default async function StudentClubsPage() {
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="reveal-in flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between" style={{ animationDelay: "0ms" }}>
         <div className="max-w-2xl space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-3 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <Sparkles className="h-3.5 w-3.5" />
             Student Clubs
           </div>
-          <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-balance font-heading text-3xl font-extrabold tracking-tight text-foreground">
             Find a club that fits your interests.
           </h1>
-          <p
-            className="max-w-xl text-sm text-muted-foreground"
-            style={{ textWrap: "pretty" } as React.CSSProperties}
-          >
+          <p className="text-pretty max-w-xl text-sm text-muted-foreground">
             Browse the communities available to students, see what is active,
             and jump into a club conversation.
           </p>
@@ -83,11 +80,17 @@ export default async function StudentClubsPage() {
 
         <div className="flex flex-wrap gap-3">
           <Link href="/student">
-            <Button variant="outline" className="rounded-xl">
+            <Button
+              variant="outline"
+              className="rounded-xl transition-transform duration-150 ease-out active:scale-[0.96]"
+            >
               Back to Dashboard
             </Button>
           </Link>
-          <Button className="rounded-xl" disabled>
+          <Button
+            className="rounded-xl transition-transform duration-150 ease-out active:scale-[0.96]"
+            disabled
+          >
             <Compass className="mr-2 h-4 w-4" />
             Explore Clubs
           </Button>
@@ -95,7 +98,7 @@ export default async function StudentClubsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl border-border/40 shadow-sm">
+        <Card className="surface-elevated rounded-2xl border-border/40">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -109,7 +112,7 @@ export default async function StudentClubsPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/40 shadow-sm">
+        <Card className="surface-elevated rounded-2xl border-border/40">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -123,7 +126,7 @@ export default async function StudentClubsPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border/40 shadow-sm">
+        <Card className="surface-elevated rounded-2xl border-border/40">
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -143,7 +146,8 @@ export default async function StudentClubsPage() {
           {clubs.map((club) => (
             <Card
               key={club.id}
-              className="group flex h-full flex-col rounded-2xl border-border/40 shadow-sm transition-all hover:border-border/60 hover:shadow-md"
+              className="surface-elevated reveal-in group flex h-full flex-col rounded-2xl border-border/40 transition-[box-shadow,transform,border-color] hover:border-border/60"
+              style={{ animationDelay: "80ms" }}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
@@ -151,7 +155,7 @@ export default async function StudentClubsPage() {
                     <CardTitle className="text-xl font-bold tracking-tight">
                       {club.name}
                     </CardTitle>
-                    <CardDescription className="mt-1 line-clamp-2 leading-relaxed">
+                    <CardDescription className="text-pretty mt-1 line-clamp-2 leading-relaxed">
                       {club.description ||
                         "A student community for events, updates, and shared materials."}
                     </CardDescription>
@@ -221,10 +225,10 @@ export default async function StudentClubsPage() {
             <div className="mb-4 rounded-full bg-primary/10 p-4 text-primary">
               <Compass className="h-10 w-10" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight">
+            <h2 className="text-balance text-xl font-bold tracking-tight">
               No clubs available yet
             </h2>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            <p className="text-pretty mt-2 max-w-md text-sm text-muted-foreground">
               Clubs will appear here once they are created by the school. For
               now, you can still explore your courses and dashboard.
             </p>

@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   const weekNumber = body.weekNumber
 
   const result = streamText({
-    model: chatModel(),
+    model: await chatModel(),
     system: systemPrompt,
     messages: history.map((m) => ({
       role: m.role as "user" | "assistant",

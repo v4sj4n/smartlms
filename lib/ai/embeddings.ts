@@ -1,51 +1,54 @@
-import { env } from "@/lib/env"
 import { embed, embedMany } from "ai"
-import { embeddingModel } from "@/lib/ai/models"
+import { getEmbeddingConfig } from "@/lib/ai/models"
 
-function coerceEmbeddingDimensions(embedding: number[]) {
-  if (embedding.length === env.GENAI_EMBEDDING_DIMENSIONS) {
+function coerceEmbeddingDimensions(embedding: number[], dimensions: number) {
+  if (embedding.length === dimensions) {
     return embedding
   }
 
-  if (embedding.length > env.GENAI_EMBEDDING_DIMENSIONS) {
-    return embedding.slice(0, env.GENAI_EMBEDDING_DIMENSIONS)
+  if (embedding.length > dimensions) {
+    return embedding.slice(0, dimensions)
   }
 
   throw new Error(
-    `Embedding size ${embedding.length} is smaller than required vector size ${env.GENAI_EMBEDDING_DIMENSIONS}`
+    `Embedding size ${embedding.length} is smaller than required vector size ${dimensions}`
   )
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (!texts.length) return []
 
+  const { model, provider, dimensions } = await getEmbeddingConfig()
+
+  const providerOptions =
+    provider === "google"
+      ? { google: { outputDimensionality: dimensions, taskType: "RETRIEVAL_DOCUMENT" } }
+      : undefined
+
   const response = await embedMany({
-    model: embeddingModel(env.GENAI_EMBEDDING_MODEL),
+    model,
     values: texts,
-    providerOptions: {
-      google: {
-        outputDimensionality: env.GENAI_EMBEDDING_DIMENSIONS,
-        taskType: "RETRIEVAL_DOCUMENT",
-      },
-    },
+    providerOptions,
   })
 
   return response.embeddings.map((embedding) =>
-    coerceEmbeddingDimensions(embedding)
+    coerceEmbeddingDimensions(embedding, dimensions)
   )
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
+  const { model, provider, dimensions } = await getEmbeddingConfig()
+
+  const providerOptions =
+    provider === "google"
+      ? { google: { outputDimensionality: dimensions, taskType: "RETRIEVAL_QUERY" } }
+      : undefined
+
   const response = await embed({
-    model: embeddingModel(env.GENAI_EMBEDDING_MODEL),
+    model,
     value: text,
-    providerOptions: {
-      google: {
-        outputDimensionality: env.GENAI_EMBEDDING_DIMENSIONS,
-        taskType: "RETRIEVAL_QUERY",
-      },
-    },
+    providerOptions,
   })
 
-  return coerceEmbeddingDimensions(response.embedding)
+  return coerceEmbeddingDimensions(response.embedding, dimensions)
 }

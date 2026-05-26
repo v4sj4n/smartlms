@@ -17,7 +17,8 @@ import {
 } from "@/lib/validation/upload"
 import { createSupabaseServiceClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { getBoss } from "@/lib/queues/boss"
+import { after } from "next/server"
+import { ingestFileToRag } from "@/lib/rag/ingest"
 
 const UPLOAD_BUCKET = "uploads"
 
@@ -202,8 +203,9 @@ export async function finalizeFileUpload(input: unknown) {
     revalidatePath(`/student/courses/${data.subjectId}`)
   }
 
-  const boss = await getBoss()
-  await boss.send("file.ingest", { fileId: record.id })
+  after(async () => {
+    await ingestFileToRag(record.id)
+  })
 
   revalidatePath("/professor/content")
   revalidatePath("/dashboard")

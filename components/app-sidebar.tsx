@@ -86,6 +86,11 @@ export function AppSidebar() {
             url: "/admin/clubs",
             icon: Compass,
           },
+          {
+            title: "Settings",
+            url: "/admin/settings",
+            icon: Settings,
+          },
         ]
       case "PROFESSOR":
         return [

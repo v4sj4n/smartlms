@@ -5,7 +5,10 @@ import { createPortal } from "react-dom"
 import ReactMarkdown from "react-markdown"
 import { useChat } from "@ai-sdk/react"
 import { TextStreamChatTransport, type UIMessage } from "ai"
+import rehypeKatex from "rehype-katex"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import "katex/dist/katex.min.css"
 import { Bot, Loader2, SendHorizontal, Sparkles, Square } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -146,6 +149,12 @@ function getMessageText(message: UIMessage) {
   return message.parts
     .map((part) => (part.type === "text" ? part.text : ""))
     .join("")
+}
+
+function normalizeLatex(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_m, inner) => `$$${inner}$$`)
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_m, inner) => `$${inner}$`)
 }
 
 function getLatestUserText(messages: UIMessage[]) {
@@ -367,10 +376,11 @@ export function CourseAiOverlay({
                             {isAssistant ? (
                               text ? (
                                 <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
+                                  remarkPlugins={[remarkGfm, remarkMath]}
+                                  rehypePlugins={[rehypeKatex]}
                                   components={markdownComponents}
                                 >
-                                  {text}
+                                  {normalizeLatex(text)}
                                 </ReactMarkdown>
                               ) : isLastMessage && isBusy ? (
                                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground/80">

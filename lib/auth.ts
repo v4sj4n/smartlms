@@ -82,16 +82,34 @@ export const authOptions: NextAuthOptions = {
         su.role = token.role as string
 
         if (token.id) {
-          const userRecord = await db.query.users.findFirst({
-            where: eq(users.id, token.id as string),
-            columns: {
-              image: true,
-              nickname: true,
-            },
-          })
+          try {
+            const userRecord = await db.query.users.findFirst({
+              where: eq(users.id, token.id as string),
+              columns: {
+                image: true,
+                nickname: true,
+              },
+            })
 
-          su.image = await resolveProfileImageUrl(userRecord?.image ?? null)
-          su.nickname = userRecord?.nickname ?? null
+            su.image = await resolveProfileImageUrl(userRecord?.image ?? null)
+            su.nickname = userRecord?.nickname ?? null
+          } catch {
+            // Allow sessions to work when profile columns are missing in older DBs.
+            try {
+              const userRecord = await db.query.users.findFirst({
+                where: eq(users.id, token.id as string),
+                columns: {
+                  image: true,
+                },
+              })
+
+              su.image = await resolveProfileImageUrl(userRecord?.image ?? null)
+            } catch {
+              su.image = null
+            }
+
+            su.nickname = null
+          }
         }
       }
       return session

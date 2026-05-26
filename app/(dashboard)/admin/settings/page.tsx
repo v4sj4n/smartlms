@@ -19,14 +19,7 @@ export default async function AdminSettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Update your visible profile details.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       <ProfileSettingsForm user={user} />
     </div>
   )

@@ -34,13 +34,13 @@ export default async function StudentCoursesPage() {
 
   return (
     <div className="flex flex-col gap-8 p-6 sm:p-8">
-      <div className="flex items-center justify-between">
+      <div className="reveal-in flex items-center justify-between" style={{ animationDelay: "0ms" }}>
         <div>
-          <h1 className="flex items-center gap-3 font-heading text-3xl font-bold">
+          <h1 className="text-balance flex items-center gap-3 font-heading text-3xl font-bold">
             <BookOpen className="h-8 w-8 text-primary" />
             My Courses
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="text-pretty mt-2 text-muted-foreground">
             View and access all the courses you are currently enrolled in.
           </p>
         </div>
@@ -51,7 +51,8 @@ export default async function StudentCoursesPage() {
           {enrolledCourses.map((course) => (
             <Card
               key={course.id}
-              className="group flex flex-col rounded-2xl border border-border/40 shadow-sm transition-all hover:shadow-md"
+              className="surface-elevated reveal-in group flex flex-col rounded-2xl border border-border/40"
+              style={{ animationDelay: "80ms" }}
             >
               <CardHeader className="pb-4">
                 <div className="mb-2 flex items-start justify-between gap-4">
@@ -68,7 +69,7 @@ export default async function StudentCoursesPage() {
                 <CardTitle className="line-clamp-2 font-heading text-xl leading-tight font-bold">
                   {course.title}
                 </CardTitle>
-                <CardDescription className="mt-2 line-clamp-2 text-sm leading-relaxed">
+                <CardDescription className="text-pretty mt-2 line-clamp-2 text-sm leading-relaxed">
                   {course.description ||
                     "No description provided for this course."}
                 </CardDescription>
@@ -83,7 +84,7 @@ export default async function StudentCoursesPage() {
               </CardContent>
               <div className="px-6 pt-0 pb-6">
                 <Link href={`/student/courses/${course.id}`}>
-                  <Button className="w-full gap-2 rounded-xl py-5 shadow-sm group-hover:bg-primary/90">
+                  <Button className="w-full gap-2 rounded-xl py-5 shadow-sm transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] group-hover:bg-primary/90">
                     Enter Course{" "}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
@@ -93,14 +94,14 @@ export default async function StudentCoursesPage() {
           ))}
         </div>
       ) : (
-        <Card className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-border/40 bg-muted/10 p-12 text-center shadow-sm">
+        <Card className="flex min-h-100 flex-col items-center justify-center rounded-3xl border border-border/40 bg-muted/10 p-12 text-center shadow-sm">
           <div className="mb-4 rounded-full bg-primary/10 p-4">
             <BookOpen className="h-12 w-12 text-primary" />
           </div>
           <h3 className="mb-2 font-heading text-xl font-bold">
             No Courses Found
           </h3>
-          <p className="mx-auto max-w-md text-muted-foreground">
+          <p className="text-pretty mx-auto max-w-md text-muted-foreground">
             You are not enrolled in any courses for the current semester. Please
             check back later or contact your academic advisor.
           </p>
