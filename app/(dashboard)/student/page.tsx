@@ -20,10 +20,14 @@ import {
   Users,
   ArrowRight,
   CheckCircle,
-  Flame,
-  Target,
+  Clock,
+  MapPin,
+  Pin,
 } from "lucide-react"
 import Link from "next/link"
+import { AffirmationCard } from "@/components/student/affirmation-card"
+import { TaskPlanner } from "@/components/student/task-planner"
+import { WeekCalendar } from "@/components/student/week-calendar"
 
 export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -59,7 +63,7 @@ export default async function StudentDashboardPage() {
       >
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
-            Welcome back, {displayName}! 👋
+            Welcome back, {displayName}!
           </h1>
           <p className="mt-1 text-pretty text-muted-foreground">
             Here&apos;s what&apos;s happening with your courses today.
@@ -70,274 +74,297 @@ export default async function StudentDashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              className="transition-[transform] duration-150 ease-out active:scale-[0.96]"
             >
-              <BookOpen className="mr-2 h-4 w-4" />
+              <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
               My Courses
             </Button>
           </Link>
           <Link href="/student/clubs">
             <Button
               size="sm"
-              className="transition-transform duration-150 ease-out active:scale-[0.96]"
+              className="transition-[transform] duration-150 ease-out active:scale-[0.96]"
             >
-              <Users className="mr-2 h-4 w-4" />
+              <Users className="mr-2 h-4 w-4" aria-hidden="true" />
               Explore Clubs
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Progress Overview Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Card
-          className="surface-elevated reveal-in"
-          style={{ animationDelay: "80ms" }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Enrolled Courses
-            </CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">
-              {enrolledCourses.length}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {
-                enrolledCourses.filter(
-                  (c: { isPublished: boolean }) => c.isPublished
-                ).length
-              }{" "}
-              currently active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="surface-elevated reveal-in"
-          style={{ animationDelay: "140ms" }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Completion Rate
-            </CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">--%</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Across all courses
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="surface-elevated reveal-in"
-          style={{ animationDelay: "200ms" }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Study Streak</CardTitle>
-            <Flame className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">--</div>
-            <p className="mt-1 text-xs text-muted-foreground">Days in a row</p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="surface-elevated reveal-in"
-          style={{ animationDelay: "260ms" }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Clubs Joined</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">--</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Active memberships
-            </p>
-          </CardContent>
-        </Card>
+      {/* Week Calendar */}
+      <div
+        className="reveal-in"
+        style={{ animationDelay: "120ms" }}
+      >
+        <WeekCalendar />
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="courses" className="space-y-4">
-        <TabsList className="w-full overflow-x-auto sm:w-auto">
-          <TabsTrigger value="courses">My Courses</TabsTrigger>
-          <TabsTrigger value="clubs">Student Clubs</TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="courses" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Enrolled Courses</h3>
-            <Link href="/student/courses">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="transition-transform duration-150 ease-out active:scale-[0.96]"
-              >
-                View All <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+      {/* Main two-column layout: tabs on the left, panel widgets on the right */}
+      <div
+        className="reveal-in grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_300px]"
+        style={{ animationDelay: "180ms" }}
+      >
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="schedule" className="space-y-4">
+          <div className="relative">
+            <TabsList className="w-full overflow-x-auto sm:w-auto" aria-label="Dashboard sections">
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="courses">
+                My Courses
+                {enrolledCourses.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 font-mono text-[10px] font-bold tabular-nums text-primary">
+                    {enrolledCourses.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="clubs">Clubs</TabsTrigger>
+              <TabsTrigger value="announcements">Announcements</TabsTrigger>
+            </TabsList>
           </div>
 
-          {enrolledCourses.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {enrolledCourses.map((course) => (
-                <Link key={course.id} href={`/student/courses/${course.id}`}>
-                  <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+          <TabsContent value="schedule" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Today&apos;s Schedule</h3>
+            </div>
+
+            {enrolledCourses.length > 0 ? (
+              <div className="flex flex-col gap-2.5">
+                {enrolledCourses.slice(0, 5).map((course, i) => {
+                  const times = [
+                    "09:00 – 10:30",
+                    "11:00 – 12:30",
+                    "14:00 – 15:00",
+                    "15:30 – 17:00",
+                    "17:15 – 18:15",
+                  ]
+                  const durations = ["90 min", "90 min", "60 min", "90 min", "60 min"]
+                  return (
+                    <Link key={course.id} href={`/student/courses/${course.id}`}>
+                      <div
+                        className="surface-elevated grid cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50"
+                        style={{ gridTemplateColumns: "1fr auto" }}
+                      >
+                        <div className="flex flex-col gap-1 px-4 py-3.5">
+                          <span className="line-clamp-1 text-sm font-semibold text-foreground">
+                            {course.title}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            {course.studyProgram?.name || "General"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end justify-center gap-0.5 px-4 py-3.5">
+                          <span className="flex items-center gap-1 font-mono text-xs font-medium text-foreground">
+                            <Clock className="h-3 w-3" aria-hidden="true" />
+                            {times[i % times.length]}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {durations[i % durations.length]}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+                    <Clock className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-balance">No Classes Today</h3>
+                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
+                    You have no scheduled classes for today.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+          </TabsContent>
+
+          <TabsContent value="courses" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Enrolled Courses</h3>
+              <Link href="/student/courses">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="transition-transform duration-150 ease-out active:scale-[0.96]"
+                >
+                  View All <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            {enrolledCourses.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
+                {enrolledCourses.map((course) => (
+                  <Link key={course.id} href={`/student/courses/${course.id}`}>
+                    <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="line-clamp-1 text-base">
+                          {course.title}
+                        </CardTitle>
+                        <CardDescription className="line-clamp-1">
+                          {course.studyProgram?.name || "General"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="mb-4 line-clamp-2 text-sm text-pretty text-muted-foreground">
+                          {course.description || "No description available"}
+                        </p>
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" aria-hidden="true" />
+                            {course.weeks?.length || 0} weeks
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" aria-hidden="true" />
+                            {course.enrollments?.length || 0} students
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+                    <BookOpen className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-balance">No Enrolled Courses</h3>
+                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
+                    You&apos;re not enrolled in any courses yet. Contact your
+                    administrator or academic advisor.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="clubs" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Available Clubs</h3>
+              <Link href="/student/clubs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="transition-transform duration-150 ease-out active:scale-[0.96]"
+                >
+                  View All <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            {clubs && clubs.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
+                {clubs.slice(0, 6).map((club) => (
+                  <Link key={club.id} href={`/student/clubs/${club.id}`}>
+                    <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">{club.name}</CardTitle>
+                        <CardDescription>
+                          <span className="tabular-nums">{club.members?.length || 0}</span> members
+                          {" · "}
+                          <span className="tabular-nums">{club.materials?.length || 0}</span> materials
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
+                          {club.description || "No description available"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+                    <Users className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-balance">No Clubs Available</h3>
+                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
+                    Student clubs will appear here once they&apos;re created by
+                    administrators.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="announcements" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">System Announcements</h3>
+            </div>
+
+            {announcements && announcements.length > 0 ? (
+              <div className="grid gap-3">
+                {announcements.map((announcement) => (
+                  <Card
+                    key={announcement.id}
+                    className={announcement.isPinned ? "border-l-[3px] border-l-primary" : ""}
+                  >
                     <CardHeader className="pb-3">
-                      <CardTitle className="line-clamp-1 text-base">
-                        {course.title}
-                      </CardTitle>
-                      <CardDescription className="line-clamp-1">
-                        {course.studyProgram?.name || "General"}
-                      </CardDescription>
+                      <div className="flex items-start gap-2">
+                        {announcement.isPinned && (
+                          <Pin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base text-balance">
+                            {announcement.title}
+                          </CardTitle>
+                          <CardDescription className="mt-0.5">
+                            By{" "}
+                            {announcement.author?.fullName ||
+                              announcement.author?.name ||
+                              "Unknown"}
+                            {" · "}
+                            {new Date(announcement.publishedAt).toLocaleDateString()}
+                          </CardDescription>
+                        </div>
+                        {announcement.isPinned && (
+                          <Badge variant="secondary" className="shrink-0">
+                            Pinned
+                          </Badge>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="mb-4 line-clamp-2 text-sm text-pretty text-muted-foreground">
-                        {course.description || "No description available"}
+                      <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
+                        {announcement.content}
                       </p>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          {course.weeks?.length || 0} weeks
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {course.enrollments?.length || 0} students
-                        </span>
-                      </div>
                     </CardContent>
                   </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <BookOpen className="h-8 w-8 text-muted-foreground/50" />
-                <h3 className="mt-4 font-medium">No Enrolled Courses</h3>
-                <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  You&apos;re not enrolled in any courses yet. Contact your
-                  administrator or academic advisor.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+                    <CheckCircle className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-balance">All Clear</h3>
+                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
+                    No system announcements at this time. Check back later for updates.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
 
-        <TabsContent value="clubs" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Available Clubs</h3>
-            <Link href="/student/clubs">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="transition-transform duration-150 ease-out active:scale-[0.96]"
-              >
-                View All <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {clubs?.slice(0, 6).map((club) => (
-              <Link key={club.id} href={`/student/clubs/${club.id}`}>
-                <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{club.name}</CardTitle>
-                    <CardDescription>
-                      {club.members?.length || 0} members •{" "}
-                      {club.materials?.length || 0} materials •{" "}
-                      {club.messages?.length || 0} messages
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
-                      {club.description || "No description available"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          {(!clubs || clubs.length === 0) && (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Users className="h-8 w-8 text-muted-foreground/50" />
-                <h3 className="mt-4 font-medium">No Clubs Available</h3>
-                <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  Student clubs will appear here once they&apos;re created by
-                  administrators.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="announcements" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">System Announcements</h3>
-          </div>
-
-          {announcements && announcements.length > 0 ? (
-            <div className="grid gap-4">
-              {announcements.map((announcement) => (
-                <Card
-                  key={announcement.id}
-                  className={
-                    announcement.isPinned
-                      ? "border-l-4 border-l-yellow-500"
-                      : ""
-                  }
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">
-                        {announcement.title}
-                      </CardTitle>
-                      {announcement.isPinned && (
-                        <Badge variant="secondary">Pinned</Badge>
-                      )}
-                    </div>
-                    <CardDescription>
-                      By{" "}
-                      {announcement.author?.fullName ||
-                        announcement.author?.name ||
-                        "Unknown"}{" "}
-                      •{" "}
-                      {new Date(announcement.publishedAt).toLocaleDateString()}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
-                      {announcement.content}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <CheckCircle className="h-8 w-8 text-muted-foreground/50" />
-                <h3 className="mt-4 font-medium">No Announcements</h3>
-                <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  No system announcements at this time. Check back later for
-                  updates.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+        {/* Right Panel: Affirmation + Task Planner only */}
+        <div className="flex flex-col gap-4">
+          <AffirmationCard />
+          <TaskPlanner />
+        </div>
+      </div>
     </div>
   )
 }
