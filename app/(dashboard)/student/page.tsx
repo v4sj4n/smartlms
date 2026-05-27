@@ -58,7 +58,7 @@ export default async function StudentDashboardPage() {
     <div className="flex-1 space-y-6">
       {/* Welcome Header */}
       <div
-        className="reveal-in flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        className="reveal-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         style={{ animationDelay: "0ms" }}
       >
         <div>
@@ -69,34 +69,29 @@ export default async function StudentDashboardPage() {
             Here&apos;s what&apos;s happening with your courses today.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/student/courses">
-            <Button
-              variant="outline"
-              size="sm"
-              className="transition-[transform] duration-150 ease-out active:scale-[0.96]"
-            >
-              <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
-              My Courses
-            </Button>
-          </Link>
-          <Link href="/student/clubs">
-            <Button
-              size="sm"
-              className="transition-[transform] duration-150 ease-out active:scale-[0.96]"
-            >
-              <Users className="mr-2 h-4 w-4" aria-hidden="true" />
-              Explore Clubs
-            </Button>
-          </Link>
+        <div className="flex flex-col items-start gap-0.5 sm:items-end">
+          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+            {(() => {
+              const d = new Date()
+              const day = d.getUTCDay() || 7
+              const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+              tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
+              const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
+              const week = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+              return `Week ${week} / ${d.getFullYear()}`
+            })()}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            <span className="font-mono font-semibold tabular-nums text-foreground">
+              {enrolledCourses.length}
+            </span>
+            {" "}{enrolledCourses.length === 1 ? "class" : "classes"} today
+          </span>
         </div>
       </div>
 
       {/* Week Calendar */}
-      <div
-        className="reveal-in"
-        style={{ animationDelay: "120ms" }}
-      >
+      <div className="reveal-in" style={{ animationDelay: "120ms" }}>
         <WeekCalendar />
       </div>
 
@@ -108,12 +103,15 @@ export default async function StudentDashboardPage() {
         {/* Main Content Tabs */}
         <Tabs defaultValue="schedule" className="space-y-4">
           <div className="relative">
-            <TabsList className="w-full overflow-x-auto sm:w-auto" aria-label="Dashboard sections">
+            <TabsList
+              className="w-full sm:w-auto"
+              aria-label="Dashboard sections"
+            >
               <TabsTrigger value="schedule">Schedule</TabsTrigger>
               <TabsTrigger value="courses">
                 My Courses
                 {enrolledCourses.length > 0 && (
-                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 font-mono text-[10px] font-bold tabular-nums text-primary">
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 font-mono text-[10px] font-bold text-primary tabular-nums">
                     {enrolledCourses.length}
                   </span>
                 )}
@@ -129,7 +127,7 @@ export default async function StudentDashboardPage() {
             </div>
 
             {enrolledCourses.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-3">
                 {enrolledCourses.slice(0, 5).map((course, i) => {
                   const times = [
                     "09:00 – 10:30",
@@ -138,30 +136,66 @@ export default async function StudentDashboardPage() {
                     "15:30 – 17:00",
                     "17:15 – 18:15",
                   ]
-                  const durations = ["90 min", "90 min", "60 min", "90 min", "60 min"]
+                  const durations = [
+                    "90 min",
+                    "90 min",
+                    "60 min",
+                    "90 min",
+                    "60 min",
+                  ]
+                  const professorName =
+                    course.teacher?.fullName || course.teacher?.name || null
+                  const topic = course.description || null
+                  const buildings = ["A", "B", "C", "D"]
+                  const building = buildings[i % buildings.length]
+                  const floor = (i % 2) + 1
+                  const room = (i % 10) + 1
+                  const location = `Building ${building} · Room ${floor}0${room}`
                   return (
-                    <Link key={course.id} href={`/student/courses/${course.id}`}>
-                      <div
-                        className="surface-elevated grid cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50"
-                        style={{ gridTemplateColumns: "1fr auto" }}
-                      >
-                        <div className="flex flex-col gap-1 px-4 py-3.5">
-                          <span className="line-clamp-1 text-sm font-semibold text-foreground">
-                            {course.title}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
-                            {course.studyProgram?.name || "General"}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-end justify-center gap-0.5 px-4 py-3.5">
-                          <span className="flex items-center gap-1 font-mono text-xs font-medium text-foreground">
-                            <Clock className="h-3 w-3" aria-hidden="true" />
-                            {times[i % times.length]}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {durations[i % durations.length]}
-                          </span>
+                    <Link
+                      key={course.id}
+                      href={`/student/courses/${course.id}`}
+                    >
+                      <div className="surface-elevated cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50">
+                        <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-4">
+                          <div className="min-w-0 flex-1">
+                            {/* Title · Professor */}
+                            <div className="flex flex-wrap items-baseline gap-x-2">
+                              <span className="text-base font-semibold text-foreground">
+                                {course.title}
+                              </span>
+                              {professorName && (
+                                <>
+                                  <span className="text-muted-foreground/40" aria-hidden="true">·</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {professorName}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            {/* Topic + Location */}
+                            <div className="mt-0.5 flex flex-col gap-0.5">
+                              {topic && (
+                                <span className="line-clamp-1 text-xs text-muted-foreground">
+                                  {topic}
+                                </span>
+                              )}
+                              <span className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                {location}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Time block */}
+                          <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+                            <span className="flex items-center gap-1 font-mono text-sm font-semibold tabular-nums text-foreground">
+                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                              {times[i % times.length]}
+                            </span>
+                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground">
+                              {durations[i % durations.length]}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Link>
@@ -172,16 +206,20 @@ export default async function StudentDashboardPage() {
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <Clock className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                    <Clock
+                      className="h-7 w-7 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
                   </div>
-                  <h3 className="mt-4 font-semibold text-balance">No Classes Today</h3>
+                  <h3 className="mt-4 font-semibold text-balance">
+                    No Classes Today
+                  </h3>
                   <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
                     You have no scheduled classes for today.
                   </p>
                 </CardContent>
               </Card>
             )}
-
           </TabsContent>
 
           <TabsContent value="courses" className="space-y-4">
@@ -234,9 +272,14 @@ export default async function StudentDashboardPage() {
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <BookOpen className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                    <BookOpen
+                      className="h-7 w-7 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
                   </div>
-                  <h3 className="mt-4 font-semibold text-balance">No Enrolled Courses</h3>
+                  <h3 className="mt-4 font-semibold text-balance">
+                    No Enrolled Courses
+                  </h3>
                   <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
                     You&apos;re not enrolled in any courses yet. Contact your
                     administrator or academic advisor.
@@ -268,9 +311,15 @@ export default async function StudentDashboardPage() {
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base">{club.name}</CardTitle>
                         <CardDescription>
-                          <span className="tabular-nums">{club.members?.length || 0}</span> members
+                          <span className="tabular-nums">
+                            {club.members?.length || 0}
+                          </span>{" "}
+                          members
                           {" · "}
-                          <span className="tabular-nums">{club.materials?.length || 0}</span> materials
+                          <span className="tabular-nums">
+                            {club.materials?.length || 0}
+                          </span>{" "}
+                          materials
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -286,9 +335,14 @@ export default async function StudentDashboardPage() {
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <Users className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                    <Users
+                      className="h-7 w-7 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
                   </div>
-                  <h3 className="mt-4 font-semibold text-balance">No Clubs Available</h3>
+                  <h3 className="mt-4 font-semibold text-balance">
+                    No Clubs Available
+                  </h3>
                   <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
                     Student clubs will appear here once they&apos;re created by
                     administrators.
@@ -308,12 +362,19 @@ export default async function StudentDashboardPage() {
                 {announcements.map((announcement) => (
                   <Card
                     key={announcement.id}
-                    className={announcement.isPinned ? "border-l-[3px] border-l-primary" : ""}
+                    className={
+                      announcement.isPinned
+                        ? "border-l-[3px] border-l-primary"
+                        : ""
+                    }
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start gap-2">
                         {announcement.isPinned && (
-                          <Pin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                          <Pin
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                            aria-hidden="true"
+                          />
                         )}
                         <div className="min-w-0 flex-1">
                           <CardTitle className="text-base text-balance">
@@ -325,7 +386,9 @@ export default async function StudentDashboardPage() {
                               announcement.author?.name ||
                               "Unknown"}
                             {" · "}
-                            {new Date(announcement.publishedAt).toLocaleDateString()}
+                            {new Date(
+                              announcement.publishedAt
+                            ).toLocaleDateString()}
                           </CardDescription>
                         </div>
                         {announcement.isPinned && (
@@ -347,11 +410,15 @@ export default async function StudentDashboardPage() {
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <CheckCircle className="h-7 w-7 text-muted-foreground/60" aria-hidden="true" />
+                    <CheckCircle
+                      className="h-7 w-7 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
                   </div>
                   <h3 className="mt-4 font-semibold text-balance">All Clear</h3>
                   <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
-                    No system announcements at this time. Check back later for updates.
+                    No system announcements at this time. Check back later for
+                    updates.
                   </p>
                 </CardContent>
               </Card>
