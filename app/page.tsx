@@ -1,5 +1,13 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
+
+export const metadata: Metadata = {
+  title: "OptimoLMS",
+  description:
+    "A seamless workspace where classes, assignments, and progress come together to make education easier, smarter, and more engaging.",
+}
+
 import {
   Brain,
   Target,

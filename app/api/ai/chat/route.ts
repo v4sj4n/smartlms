@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { env } from "@/lib/env"
 import { db } from "@/db"
 import { chatbotConversations, chatbotMessages } from "@/db/schema"
 import { and, eq } from "drizzle-orm"

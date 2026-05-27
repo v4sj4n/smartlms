@@ -32,7 +32,11 @@ const VALID_PROVIDERS = [
   "togetherai",
   "perplexity",
   "local",
+  "ollama",
+  "lm-studio",
 ] as const
+
+const LOCAL_PROVIDERS = ["local", "ollama", "lm-studio"] as const
 
 function sanitizeText(value: FormDataEntryValue | null): string {
   if (typeof value !== "string") return ""
@@ -113,14 +117,24 @@ export async function updateAIConfiguration(
   }
 
   // Local provider requires base URL
-  if (chatProvider === "local" && !chatBaseUrl) {
+  if (
+    LOCAL_PROVIDERS.includes(
+      chatProvider as (typeof LOCAL_PROVIDERS)[number]
+    ) &&
+    !chatBaseUrl
+  ) {
     return {
       success: false,
       message: "Local provider requires a base URL endpoint.",
     }
   }
 
-  if (embeddingProvider === "local" && !embeddingBaseUrl) {
+  if (
+    LOCAL_PROVIDERS.includes(
+      embeddingProvider as (typeof LOCAL_PROVIDERS)[number]
+    ) &&
+    !embeddingBaseUrl
+  ) {
     return {
       success: false,
       message: "Local embedding provider requires a base URL endpoint.",

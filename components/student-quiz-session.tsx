@@ -113,7 +113,7 @@ export function QuizSession({
     setAnswers(restoredAnswers)
     setStartedAt(restoredStartedAt ?? Date.now())
     setHydrated(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

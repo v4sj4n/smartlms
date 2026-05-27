@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AIProvider {
+  id            String     @id
+  name          String
+  models        AIModel[]
+  text_configs  AIConfig[] @relation("TextProviderConfig")
+  embed_configs AIConfig[] @relation("EmbedProviderConfig")
+
+  @@map("ai_providers")
+}
+
+model AIModel {
+  id               String    @id @default(cuid())
+  provider_id      String
+  provider         AIProvider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  model_name       String
+  model_identifier String
+  model_type       String
+  enabled          Boolean   @default(true)
+  created_at       DateTime  @default(now())
+
+  @@unique([provider_id, model_identifier])
+  @@index([provider_id])
+  @@index([model_type])
+  @@map("ai_models")
+}
+
+model AIConfig {
+  id              String      @id
+  text_provider_id String?
+  text_provider   AIProvider? @relation("TextProviderConfig", fields: [text_provider_id], references: [id], onDelete: SetNull)
+  text_model_id   String?
+  text_api_key    String?
+  text_base_url   String?
+  embed_provider_id String?
+  embed_provider  AIProvider? @relation("EmbedProviderConfig", fields: [embed_provider_id], references: [id], onDelete: SetNull)
+  embed_model_id  String?
+  embed_api_key   String?
+  embed_base_url  String?
+  updated_at      DateTime    @updatedAt
+
+  @@index([text_provider_id])
+  @@index([text_model_id])
+  @@index([embed_provider_id])
+  @@index([embed_model_id])
+  @@map("ai_configs")
+}

@@ -785,7 +785,48 @@ export const aiProviderEnum = pgEnum("ai_provider", [
   "togetherai",
   "perplexity",
   "local",
+  "ollama",
+  "lm-studio",
 ])
+
+export const aiModelTypeEnum = pgEnum("ai_model_type", ["text", "embedding"])
+
+export const aiProviderStatusEnum = pgEnum("ai_provider_status", [
+  "enabled",
+  "disabled",
+])
+
+export const aiProviders = pgTable("ai_providers", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  status: aiProviderStatusEnum("status").default("enabled").notNull(),
+  local: boolean("local").default(false).notNull(),
+})
+
+export const aiModels = pgTable(
+  "ai_models",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    providerId: text("provider_id")
+      .references(() => aiProviders.id, { onDelete: "cascade" })
+      .notNull(),
+    modelName: text("model_name").notNull(),
+    modelIdentifier: text("model_identifier").notNull(),
+    modelType: aiModelTypeEnum("model_type").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_ai_models_provider_identifier").on(
+      t.providerId,
+      t.modelIdentifier
+    ),
+    index("idx_ai_models_provider").on(t.providerId),
+    index("idx_ai_models_type").on(t.modelType),
+  ]
+)
 
 export const aiSettings = pgTable("ai_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1240,5 +1281,16 @@ export const aiSettingsRelations = relations(aiSettings, ({ one }) => ({
   updater: one(users, {
     fields: [aiSettings.updatedBy],
     references: [users.id],
+  }),
+}))
+
+export const aiProvidersRelations = relations(aiProviders, ({ many }) => ({
+  models: many(aiModels),
+}))
+
+export const aiModelsRelations = relations(aiModels, ({ one }) => ({
+  provider: one(aiProviders, {
+    fields: [aiModels.providerId],
+    references: [aiProviders.id],
   }),
 }))

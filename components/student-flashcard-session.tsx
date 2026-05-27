@@ -70,7 +70,7 @@ export function FlashcardStudySession({
     setCurrentIndex(restoredIndex)
     setIsFlipped(restoredFlipped)
     setHydrated(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

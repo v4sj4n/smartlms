@@ -8,6 +8,8 @@ async function main() {
     DROP TABLE IF EXISTS 
       "lesson_progress", 
       "announcements",
+      "ai_models",
+      "ai_providers",
       "club_events",
       "club_posts",
       "club_messages",

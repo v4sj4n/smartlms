@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import {
   Card,
@@ -9,6 +10,12 @@ import {
 } from "@/components/ui/card"
 import { OptimoLogo } from "@/components/optimo-logo"
 import { SignInForm } from "./sign-in-form"
+
+export const metadata: Metadata = {
+  title: "Sign In — Optimo",
+  description:
+    "Sign in to your Optimo account to access your academic dashboard.",
+}
 
 export default function SignInPage() {
   return (
