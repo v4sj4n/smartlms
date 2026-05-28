@@ -53,7 +53,7 @@ export function AffirmationCard() {
       />
       <div className="relative z-10">
         <div className="mb-3 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#3BA38D]">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest text-[#3BA38D] uppercase">
             <Sparkles className="h-3 w-3" />
             Daily Affirmation
           </span>

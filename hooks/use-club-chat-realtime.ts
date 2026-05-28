@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type RealtimeHandlers = {
@@ -17,12 +17,18 @@ export function useClubChatRealtime(
   currentUserId: string,
   handlers: RealtimeHandlers
 ) {
+  const handlersRef = useRef(handlers)
+
   useEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
+
+  useEffect(() => {
+    if (!clubId || !currentUserId) return
+
     const supabase = createSupabaseBrowserClient()
 
-    const channel = supabase.channel(`club:${clubId}`, {
-      config: { presence: { key: crypto.randomUUID() } },
-    })
+    const channel = supabase.channel(`club:${clubId}`)
 
     channel
       .on(
@@ -31,10 +37,10 @@ export function useClubChatRealtime(
           event: "INSERT",
           schema: "public",
           table: "club_messages",
-          filter: `club_id=eq.${clubId}`,
         },
         (payload) => {
-          handlers.onMessageInserted?.(payload)
+          console.log("[ClubChatRealtime] Raw INSERT payload:", payload)
+          handlersRef.current.onMessageInserted?.(payload)
         }
       )
       .on(
@@ -46,7 +52,7 @@ export function useClubChatRealtime(
           filter: `club_id=eq.${clubId}`,
         },
         (payload) => {
-          handlers.onMessageUpdated?.(payload)
+          handlersRef.current.onMessageUpdated?.(payload)
         }
       )
       .on(
@@ -57,7 +63,7 @@ export function useClubChatRealtime(
           table: "club_message_reactions",
         },
         (payload) => {
-          handlers.onReactionChanged?.(payload)
+          handlersRef.current.onReactionChanged?.(payload)
         }
       )
       .on(
@@ -68,7 +74,7 @@ export function useClubChatRealtime(
           table: "club_message_reads",
         },
         (payload) => {
-          handlers.onReadChanged?.(payload)
+          handlersRef.current.onReadChanged?.(payload)
         }
       )
       .on(
@@ -77,28 +83,27 @@ export function useClubChatRealtime(
         ({ payload }: { payload: unknown }) => {
           const typed = payload as { userId?: string; isTyping?: boolean }
           if (typed.userId && typeof typed.isTyping === "boolean") {
-            handlers.onTyping?.(typed.userId, typed.isTyping)
+            handlersRef.current.onTyping?.(typed.userId, typed.isTyping)
           }
         }
       )
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ userId: string }>()
-        const onlineUserIds = Object.values(state)
-          .flat()
-          .map((entry) => entry.userId)
-          .filter(Boolean)
 
-        handlers.onPresence?.([...new Set(onlineUserIds)])
-      })
-
-    channel.subscribe(async (status) => {
+    channel.subscribe((status, err) => {
+      console.log("[ClubChatRealtime] Subscription status:", status, err)
       if (status === "SUBSCRIBED") {
-        await channel.track({ userId: currentUserId })
+        console.log("[ClubChatRealtime] Successfully subscribed to club:", clubId)
+      }
+      if (status === "CHANNEL_ERROR") {
+        console.error("[ClubChatRealtime] Channel error:", err)
+      }
+      if (status === "TIMED_OUT") {
+        console.error("[ClubChatRealtime] Connection timed out")
       }
     })
 
     return () => {
+      console.log("[ClubChatRealtime] Unsubscribing from club:", clubId)
       supabase.removeChannel(channel)
     }
-  }, [clubId, currentUserId, handlers])
+  }, [clubId, currentUserId])
 }

@@ -17,19 +17,29 @@ function getWeekDays(anchor: Date) {
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ]
 
 function getISOWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  )
   const dayNum = d.getUTCDay() || 7
   d.setUTCDate(d.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
-
-const HAS_EVENT_DAYS = new Set([0, 1, 2])
 
 export function WeekCalendar() {
   const today = new Date()
@@ -49,18 +59,19 @@ export function WeekCalendar() {
   return (
     <div className="surface-elevated rounded-2xl border border-border/60 bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">{monthLabel}</span>
+        <span className="text-sm font-semibold text-foreground">
+          {monthLabel}
+        </span>
         <span className="rounded-full bg-muted px-3 py-1 font-mono text-[10px] font-medium tracking-widest text-muted-foreground">
           WEEK {week}
         </span>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {days.map((day, i) => {
           const isToday = isSameDay(day, today)
           const isSelected = isSameDay(day, selected)
           const isWeekend = i >= 5
-          const hasEvent = HAS_EVENT_DAYS.has(i)
 
           return (
             <button
@@ -69,7 +80,7 @@ export function WeekCalendar() {
               aria-label={`${DOW[i]} ${day.getDate()}${isToday ? ", today" : ""}${isSelected ? ", selected" : ""}`}
               aria-pressed={isSelected}
               className={cn(
-                "flex min-h-11 cursor-pointer flex-col items-center rounded-xl px-1 py-2.5 transition-[background-color,transform] duration-150 active:scale-[0.96]",
+                "flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-0.5 py-1 sm:px-1 sm:py-2.5 transition-[background-color,transform] duration-150 active:scale-[0.96]",
                 isSelected && !isToday
                   ? "bg-primary/10"
                   : !isToday
@@ -79,30 +90,37 @@ export function WeekCalendar() {
                   ? "bg-foreground text-background"
                   : isWeekend
                     ? "text-muted-foreground"
-                    : "text-foreground",
+                    : "text-foreground"
               )}
             >
+              {/* Top dot — mobile only, today only */}
               <span
                 className={cn(
-                  "mb-1.5 text-[10px] font-semibold uppercase tracking-wide",
-                  isToday ? "text-background/60" : "text-muted-foreground",
+                  "h-1 w-1 rounded-full sm:hidden",
+                  isToday ? "bg-emerald-400" : "invisible"
+                )}
+              />
+              <span
+                className={cn(
+                  "sm:mb-1.5 text-[9px] font-semibold tracking-wide uppercase",
+                  isToday ? "text-background/60" : "text-muted-foreground"
                 )}
               >
                 {DOW[i]}
               </span>
               <span
                 className={cn(
-                  "font-mono text-base font-bold tabular-nums",
-                  isToday ? "text-background" : "",
+                  "font-mono text-sm font-bold tabular-nums sm:text-base",
+                  isToday ? "text-background" : ""
                 )}
               >
                 {day.getDate()}
               </span>
+              {/* Bottom dot — sm+ only, today only */}
               <span
                 className={cn(
-                  "mt-1.5 h-1 w-1 rounded-full transition-opacity duration-200",
-                  hasEvent ? "opacity-100" : "opacity-0",
-                  isToday ? "bg-emerald-400" : "bg-primary/60",
+                  "mt-1.5 hidden h-1 w-1 rounded-full sm:block",
+                  isToday ? "bg-emerald-400" : "invisible"
                 )}
               />
             </button>

@@ -277,7 +277,7 @@ export default async function ProfessorCourseDetailPage({
 
       {/* Course Content Tabs */}
       <Tabs defaultValue="weeks" className="space-y-4 pt-2">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden">
           <TabsList className="w-max min-w-full sm:w-auto">
             <TabsTrigger value="weeks">Course Folders</TabsTrigger>
             <TabsTrigger value="students">Enrolled Students</TabsTrigger>

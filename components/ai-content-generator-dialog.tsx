@@ -14,7 +14,6 @@ import {
   Trash2,
 } from "lucide-react"
 
-import { generateContentWithAI } from "@/lib/actions/ai-content-generation"
 import { createManualFlashcards, createManualQuiz } from "@/lib/actions/quizzes"
 import { getWeekFiles } from "@/lib/actions/week-files"
 import { Button } from "@/components/ui/button"
@@ -906,6 +905,8 @@ export function AIContentGeneratorDialog({
   const [focusPrompt, setFocusPrompt] = useState("")
   const [title, setTitle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [streamedText, setStreamedText] = useState("")
+  const [streamedItems, setStreamedItems] = useState<Array<Record<string, unknown>>>([])
   const [isSaving, setIsSaving] = useState(false)
   const [isFetchingFiles, setIsFetchingFiles] = useState(false)
   const [files, setFiles] = useState<FileItem[]>([])
@@ -945,6 +946,8 @@ export function AIContentGeneratorDialog({
         setQuizDraft([])
         setFlashcardDraft([])
         setIsGenerating(false)
+        setStreamedText("")
+        setStreamedItems([])
         setIsSaving(false)
       }
     },
@@ -970,29 +973,128 @@ export function AIContentGeneratorDialog({
     }
 
     setIsGenerating(true)
+    setStreamedText("")
+    setStreamedItems([])
     try {
-      const result = await generateContentWithAI({
-        weekId,
-        contentType,
-        focusPrompt: focusPrompt.trim() || undefined,
-        fileIds: Array.from(selectedFileIds),
-        title: title.trim() || undefined,
+      const response = await fetch("/api/ai/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weekId,
+          contentType,
+          focusPrompt: focusPrompt.trim() || undefined,
+          fileIds: Array.from(selectedFileIds),
+        }),
       })
 
-      if (!result.success || !result.data) {
-        toast.error(result.error || "Failed to generate content")
+      if (!response.ok) {
+        const errorText = await response.text()
+        toast.error(errorText || "Failed to generate content")
         return
       }
 
-      if (result.data.contentType === "quiz") {
-        setQuizDraft(result.data.draft.questions)
+      if (!response.body) {
+        toast.error("No response stream received")
+        return
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        accumulated += chunk
+        setStreamedText(accumulated)
+
+        const itemsKey = contentType === "quiz" ? "questions" : "flashcards"
+        const keyIndex = accumulated.indexOf(`"${itemsKey}"`)
+        if (keyIndex !== -1) {
+          const arrayStart = accumulated.indexOf("[", keyIndex)
+          if (arrayStart !== -1) {
+            const partial = accumulated.slice(arrayStart + 1)
+            const parsed: Array<Record<string, unknown>> = []
+            let depth = 0
+            let objStart = -1
+            for (let i = 0; i < partial.length; i++) {
+              const ch = partial[i]
+              if (ch === "{" && depth === 0) { objStart = i; depth = 1 }
+              else if (ch === "{") depth++
+              else if (ch === "}" && depth === 1) {
+                depth = 0
+                try {
+                  const obj = JSON.parse(partial.slice(objStart, i + 1)) as Record<string, unknown>
+                  parsed.push(obj)
+                } catch { /* incomplete */ }
+                objStart = -1
+              } else if (ch === "}") depth--
+            }
+            setStreamedItems(parsed)
+          }
+        }
+      }
+
+      const rawText = accumulated.trim()
+      if (!rawText) {
+        toast.error("AI returned an empty response")
+        return
+      }
+
+      const cleaned = rawText
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```\s*$/i, "")
+        .trim()
+
+      const objectStart = cleaned.indexOf("{")
+      const objectEnd = cleaned.lastIndexOf("}")
+      const jsonCandidate =
+        objectStart !== -1 && objectEnd !== -1 && objectEnd > objectStart
+          ? cleaned.slice(objectStart, objectEnd + 1)
+          : cleaned
+
+      let parsedJson: unknown
+      try {
+        parsedJson = JSON.parse(jsonCandidate)
+      } catch {
+        toast.error("AI returned malformed JSON")
+        return
+      }
+
+      if (contentType === "quiz") {
+        const payload =
+          Array.isArray(parsedJson)
+            ? { questions: parsedJson }
+            : parsedJson && typeof parsedJson === "object" && "questions" in parsedJson
+              ? parsedJson
+              : parsedJson
+        const questions = (payload as { questions?: unknown }).questions
+        if (!Array.isArray(questions) || questions.length === 0) {
+          toast.error("AI did not return valid quiz questions")
+          return
+        }
+        setQuizDraft(questions as GeneratedQuizQuestion[])
         setFlashcardDraft([])
       } else {
-        setFlashcardDraft(result.data.draft.flashcards)
+        const payload =
+          Array.isArray(parsedJson)
+            ? { flashcards: parsedJson }
+            : parsedJson && typeof parsedJson === "object" && "flashcards" in parsedJson
+              ? parsedJson
+              : parsedJson
+        const cards = (payload as { flashcards?: unknown }).flashcards
+        if (!Array.isArray(cards) || cards.length === 0) {
+          toast.error("AI did not return valid flashcards")
+          return
+        }
+        setFlashcardDraft(cards as GeneratedFlashcard[])
         setQuizDraft([])
       }
 
       setDraftRevision((previous) => previous + 1)
+      setStreamedText("")
+      setStreamedItems([])
       setStep("edit")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Generation failed")
@@ -1233,6 +1335,59 @@ export function AIContentGeneratorDialog({
                   )}
                 </Button>
               </div>
+
+              {isGenerating && streamedText && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>
+                      {streamedItems.length > 0
+                        ? `${streamedItems.length} ${contentType === "quiz" ? "question" : "card"}${streamedItems.length === 1 ? "" : "s"} generated…`
+                        : "Generating…"}
+                    </span>
+                  </div>
+                  <div className="max-h-56 space-y-1.5 overflow-y-auto">
+                    {streamedItems.map((item, idx) =>
+                      contentType === "quiz" ? (
+                        <div
+                          key={idx}
+                          className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm"
+                        >
+                          <span className="mr-2 text-xs font-semibold text-muted-foreground">
+                            Q{idx + 1}
+                          </span>
+                          <span className="text-foreground/80">
+                            {String((item as { prompt?: unknown }).prompt ?? "")}
+                          </span>
+                          {(item as { difficulty?: string }).difficulty ? (
+                            <span className="ml-2 text-xs text-muted-foreground opacity-70">
+                              · {(item as { difficulty?: string }).difficulty}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-2 gap-1.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-sm"
+                        >
+                          <p className="truncate text-foreground/80">
+                            {String((item as { front?: unknown }).front ?? "")}
+                          </p>
+                          <p className="truncate text-muted-foreground">
+                            {String((item as { back?: unknown }).back ?? "")}
+                          </p>
+                        </div>
+                      )
+                    )}
+                    {streamedItems.length === 0 && (
+                      <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Waiting for first item…
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="pt-4">

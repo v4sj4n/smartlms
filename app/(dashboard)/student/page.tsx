@@ -70,22 +70,26 @@ export default async function StudentDashboardPage() {
           </p>
         </div>
         <div className="flex flex-col items-start gap-0.5 sm:items-end">
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+          <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
             {(() => {
               const d = new Date()
               const day = d.getUTCDay() || 7
-              const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+              const tmp = new Date(
+                Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+              )
               tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
               const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
-              const week = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+              const week = Math.ceil(
+                ((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+              )
               return `Week ${week} / ${d.getFullYear()}`
             })()}
           </span>
           <span className="text-sm text-muted-foreground">
-            <span className="font-mono font-semibold tabular-nums text-foreground">
+            <span className="font-mono font-semibold text-foreground tabular-nums">
               {enrolledCourses.length}
-            </span>
-            {" "}{enrolledCourses.length === 1 ? "class" : "classes"} today
+            </span>{" "}
+            {enrolledCourses.length === 1 ? "class" : "classes"} today
           </span>
         </div>
       </div>
@@ -104,7 +108,7 @@ export default async function StudentDashboardPage() {
         <Tabs defaultValue="schedule" className="space-y-4">
           <div className="relative">
             <TabsList
-              className="w-full sm:w-auto"
+              className="w-full overflow-x-auto overflow-y-hidden sm:w-auto [&::-webkit-scrollbar]:hidden"
               aria-label="Dashboard sections"
             >
               <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -160,13 +164,18 @@ export default async function StudentDashboardPage() {
                         <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-4">
                           <div className="min-w-0 flex-1">
                             {/* Title · Professor */}
-                            <div className="flex flex-wrap items-baseline gap-x-2">
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2">
                               <span className="text-base font-semibold text-foreground">
                                 {course.title}
                               </span>
                               {professorName && (
                                 <>
-                                  <span className="text-muted-foreground/40" aria-hidden="true">·</span>
+                                  <span
+                                    className="hidden text-muted-foreground/40 sm:inline"
+                                    aria-hidden="true"
+                                  >
+                                    ·
+                                  </span>
                                   <span className="text-sm text-muted-foreground">
                                     {professorName}
                                   </span>
@@ -181,18 +190,24 @@ export default async function StudentDashboardPage() {
                                 </span>
                               )}
                               <span className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                <MapPin
+                                  className="h-3 w-3 shrink-0"
+                                  aria-hidden="true"
+                                />
                                 {location}
                               </span>
                             </div>
                           </div>
                           {/* Time block */}
                           <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-                            <span className="flex items-center gap-1 font-mono text-sm font-semibold tabular-nums text-foreground">
-                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span className="flex items-center gap-1 font-mono text-sm font-semibold text-foreground tabular-nums">
+                              <Clock
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
                               {times[i % times.length]}
                             </span>
-                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground">
+                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground tabular-nums">
                               {durations[i % durations.length]}
                             </span>
                           </div>

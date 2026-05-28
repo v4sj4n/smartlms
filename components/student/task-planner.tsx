@@ -45,7 +45,7 @@ export function TaskPlanner() {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-muted/60">
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
           Task Planner
         </span>
         <button

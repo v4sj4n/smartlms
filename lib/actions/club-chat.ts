@@ -17,6 +17,20 @@ const DEFAULT_PAGE_SIZE = 30
 
 type Attachment = { path: string; name: string; mimeType: string; size: number }
 
+export async function getUserById(userId: string) {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: {
+      id: true,
+      fullName: true,
+      nickname: true,
+      image: true,
+      role: true,
+    },
+  })
+  return user
+}
+
 async function assertClubAccess(clubId: string, userId: string, role: string) {
   if (role === "ADMIN" || role === "PROFESSOR") {
     return

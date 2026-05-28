@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
+import { useSession } from "next-auth/react"
 
-import { getClubMessagesPage, sendClubMessage } from "@/lib/actions/club-chat"
+import { getClubMessagesPage, sendClubMessage, getUserById } from "@/lib/actions/club-chat"
+import { useClubChatRealtime } from "@/hooks/use-club-chat-realtime"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Send } from "lucide-react"
 
 type ClubChatMessage = {
   id: string
@@ -29,6 +32,9 @@ export function ClubChatPanel({
   placeholder,
   emptyMessage,
 }: ClubChatPanelProps) {
+  const { data: session } = useSession()
+  const currentUserId = session?.user?.id ?? ""
+
   const [messages, setMessages] = useState<ClubChatMessage[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [content, setContent] = useState("")
@@ -37,6 +43,7 @@ export function ClubChatPanel({
   const [isSending, setIsSending] = useState(false)
 
   const listRef = useRef<HTMLDivElement>(null)
+  const pendingNewMessageRef = useRef(false)
 
   const hasMore = useMemo(() => nextCursor !== null, [nextCursor])
 
@@ -45,6 +52,88 @@ export function ClubChatPanel({
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [])
+
+  const handleMessageInserted = useCallback(
+    async (payload: unknown) => {
+      console.log("[ClubChat] Message inserted payload:", payload)
+      const typedPayload = payload as {
+        new: {
+          id: string
+          content: string
+          created_at: string
+          author_id: string
+          club_id: string
+        }
+      }
+      const newMessage = typedPayload.new
+
+      if (!newMessage || newMessage.club_id !== clubId) {
+        console.log("[ClubChat] Skipping message - clubId mismatch or no message. Expected:", clubId, "Got:", newMessage?.club_id)
+        return
+      }
+
+      // Fetch author info for realtime messages
+      let author = null
+      try {
+        const user = await getUserById(newMessage.author_id)
+        if (user) {
+          author = {
+            id: user.id,
+            fullName: user.fullName,
+            nickname: user.nickname,
+          }
+        }
+      } catch (err) {
+        console.error("[ClubChat] Failed to fetch author:", err)
+      }
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newMessage.id)) return prev
+        return [
+          ...prev,
+          {
+            id: newMessage.id,
+            content: newMessage.content,
+            createdAt: newMessage.created_at,
+            author,
+          },
+        ]
+      })
+
+      if (!pendingNewMessageRef.current) {
+        requestAnimationFrame(() => {
+          scrollToBottom()
+        })
+      }
+    },
+    [clubId, scrollToBottom]
+  )
+
+  const handleMessageUpdated = useCallback((payload: unknown) => {
+    const typedPayload = payload as {
+      new: {
+        id: string
+        content: string
+        editedAt?: string
+      }
+    }
+    const updatedMessage = typedPayload.new
+
+    if (!updatedMessage) return
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === updatedMessage.id
+          ? { ...m, content: updatedMessage.content }
+          : m
+      )
+    )
+  }, [])
+
+  useClubChatRealtime(clubId, currentUserId, {
+    onMessageInserted: handleMessageInserted,
+    onMessageUpdated: handleMessageUpdated,
+  })
 
   const loadOlderMessages = useCallback(async () => {
     if (!hasMore || isLoadingOlder || !nextCursor) return
@@ -142,68 +231,78 @@ export function ClubChatPanel({
     }
   }, [clubId, content, isSending, scrollToBottom])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault()
+        void handleSend()
+      }
+    },
+    [handleSend]
+  )
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
+    <div className="flex flex-col gap-4">
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1"
+      >
+        {isLoadingInitial ? (
+          <p className="text-sm text-muted-foreground">Loading messages...</p>
+        ) : messages.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+        ) : (
+          <>
+            {isLoadingOlder && (
+              <p className="pb-1 text-center text-xs text-muted-foreground">
+                Loading older messages...
+              </p>
+            )}
+
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className="rounded-lg border border-border/60 px-3 py-2"
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {message.author?.fullName ||
+                      message.author?.nickname ||
+                      "Member"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(message.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-sm text-foreground/90">
+                  {message.content}
+                </p>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div className="flex items-end gap-2">
         <Textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
+          rows={2}
           required
+          className="min-h-15 flex-1 resize-none"
         />
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            onClick={() => void handleSend()}
-            disabled={isSending}
-          >
-            {isSending ? "Sending..." : "Send message"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Recent messages</p>
-        <div
-          ref={listRef}
-          onScroll={handleScroll}
-          className="max-h-90 space-y-2 overflow-y-auto pr-1"
+        <Button
+          type="button"
+          size="icon"
+          onClick={() => void handleSend()}
+          disabled={isSending || !content.trim()}
+          className="h-10 w-10 shrink-0 rounded-full"
         >
-          {isLoadingInitial ? (
-            <p className="text-sm text-muted-foreground">Loading messages...</p>
-          ) : messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-          ) : (
-            <>
-              {isLoadingOlder && (
-                <p className="pb-1 text-center text-xs text-muted-foreground">
-                  Loading older messages...
-                </p>
-              )}
-
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className="rounded-lg border border-border/60 px-3 py-2"
-                >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">
-                      {message.author?.fullName ||
-                        message.author?.nickname ||
-                        "Member"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(message.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <p className="text-sm text-foreground/90">
-                    {message.content}
-                  </p>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )

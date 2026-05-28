@@ -27,14 +27,14 @@ type ClubDetail = {
   materials?: ClubMaterial[]
 }
 
-export default async function ProfessorClubDetailPage({
+export default async function AdminClubDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const session = await getServerSession(authOptions)
 
-  if (!session || session.user.role !== "PROFESSOR") {
+  if (!session || session.user.role !== "ADMIN") {
     redirect("/sign-in")
   }
 
@@ -49,15 +49,17 @@ export default async function ProfessorClubDetailPage({
 
   return (
     <div className="flex flex-col gap-6 p-6 sm:p-8">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{club.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {club.description || "Faculty monitoring space for this club."}
+          <h1 className="text-2xl font-bold tracking-tight text-balance">
+            {club.name}
+          </h1>
+          <p className="mt-1 text-sm text-pretty text-muted-foreground">
+            {club.description || "Admin monitoring space for this club."}
           </p>
         </div>
-        <Link href="/professor/clubs">
-          <Button variant="outline" className="rounded-xl">
+        <Link href="/admin/clubs" className="self-start sm:self-auto">
+          <Button variant="outline" size="sm" className="rounded-xl">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Clubs
           </Button>
@@ -67,7 +69,7 @@ export default async function ProfessorClubDetailPage({
       <ClubWorkspace
         clubId={club.id}
         materials={(club.materials ?? []) as ClubMaterial[]}
-        chatPlaceholder="Share guidance with this club..."
+        chatPlaceholder="Monitor or participate in club conversations..."
         chatEmptyMessage="No messages yet."
         materialsTitle="Recent materials"
       />

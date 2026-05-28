@@ -4,11 +4,9 @@ import Link from "next/link"
 
 import { authOptions } from "@/lib/auth"
 import { getClubById } from "@/lib/actions/clubs"
-import { UploadDropzone } from "@/components/upload-dropzone"
-import { ClubChatPanel } from "@/components/club-chat-panel"
+import { ClubWorkspace } from "@/components/club-workspace"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, FileUp, MessageSquare } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 type ClubMaterial = {
   id: string
@@ -68,62 +66,13 @@ export default async function StudentClubDetailPage({
         </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileUp className="h-4 w-4" />
-              Upload material
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <UploadDropzone clubId={club.id} />
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Recent materials</p>
-              {club.materials?.length ? (
-                <div className="space-y-2">
-                  {club.materials.slice(0, 5).map((material) => (
-                    <div
-                      key={material.id}
-                      className="rounded-lg border border-border/60 px-3 py-2 text-sm"
-                    >
-                      <p className="font-medium">{material.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {material.type} • by{" "}
-                        {material.uploader?.fullName ||
-                          material.uploader?.name ||
-                          material.uploader?.nickname ||
-                          "Unknown"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No materials yet.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MessageSquare className="h-4 w-4" />
-              Club chat
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ClubChatPanel
-              clubId={club.id}
-              placeholder="Write a message to your club..."
-              emptyMessage="No messages yet. Start the conversation."
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <ClubWorkspace
+        clubId={club.id}
+        materials={(club.materials ?? []) as ClubMaterial[]}
+        chatPlaceholder="Write a message to your club..."
+        chatEmptyMessage="No messages yet. Start the conversation."
+        materialsTitle="Recent materials"
+      />
     </div>
   )
 }
