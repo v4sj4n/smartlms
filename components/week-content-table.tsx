@@ -2,13 +2,28 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { FileText, HelpCircle, Layers } from "lucide-react"
+import { FileText, HelpCircle, Layers, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { updateWeekContentPublicationState } from "@/lib/actions/content-visibility"
+import {
+  deleteWeekContentItem,
+  updateWeekContentPublicationState,
+} from "@/lib/actions/content-visibility"
+import { getSignedDownloadUrl } from "@/lib/actions/files"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Table,
   TableBody,
@@ -73,6 +88,8 @@ export function WeekContentTable({
   const [contentItems, setContentItems] = React.useState(() => sortItems(items))
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [isSaving, setIsSaving] = React.useState(false)
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [viewingId, setViewingId] = React.useState<string | null>(null)
 
   const selectedCount = selectedIds.length
   const allSelected =
@@ -136,6 +153,57 @@ export function WeekContentTable({
     setSelectedIds(checked ? contentItems.map((item) => item.id) : [])
   }
 
+  function deleteMaterial(item: WeekContentItem) {
+    if (isSaving || deletingId) {
+      return
+    }
+
+    setDeletingId(item.id)
+    void (async () => {
+      try {
+        await deleteWeekContentItem({ weekId, item })
+        setContentItems((currentItems) =>
+          currentItems.filter((currentItem) => currentItem.id !== item.id)
+        )
+        setSelectedIds((current) =>
+          current.filter((selectedId) => selectedId !== item.id)
+        )
+        router.refresh()
+        toast.success(
+          item.kind === "material"
+            ? "Material deleted"
+            : item.kind === "quiz"
+              ? "Quiz deleted"
+              : "Flashcard set deleted"
+        )
+      } catch {
+        toast.error("Failed to delete item")
+      } finally {
+        setDeletingId(null)
+      }
+    })()
+  }
+
+  function viewMaterial(item: WeekContentItem) {
+    const actionHref = item.actionHref
+
+    if (!actionHref || viewingId || isSaving || deletingId) {
+      return
+    }
+
+    setViewingId(item.id)
+    void (async () => {
+      try {
+        const signedUrl = await getSignedDownloadUrl(actionHref)
+        window.open(signedUrl, "_blank", "noopener,noreferrer")
+      } catch {
+        toast.error("Failed to open material")
+      } finally {
+        setViewingId(null)
+      }
+    })()
+  }
+
   return (
     <div className="space-y-3">
       {selectedCount > 0 && (
@@ -190,6 +258,9 @@ export function WeekContentTable({
               <TableHead>Status</TableHead>
               {!readOnly && (
                 <TableHead className="text-right">Publish</TableHead>
+              )}
+              {!readOnly && (
+                <TableHead className="w-24 text-right">Delete</TableHead>
               )}
             </TableRow>
           </TableHeader>
@@ -267,6 +338,17 @@ export function WeekContentTable({
                   {!readOnly && (
                     <TableCell className="text-right">
                       <div className="inline-flex items-center justify-end gap-2">
+                        {item.kind === "material" && item.actionHref && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewMaterial(item)}
+                            disabled={viewingId === item.id || isSaving}
+                          >
+                            {viewingId === item.id ? "Opening..." : "View"}
+                          </Button>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {item.isPublished ? "On" : "Off"}
                         </span>
@@ -279,6 +361,56 @@ export function WeekContentTable({
                           aria-label={`Toggle publish state for ${item.title}`}
                         />
                       </div>
+                    </TableCell>
+                  )}
+                  {!readOnly && (
+                    <TableCell className="text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${item.title}`}
+                            disabled={deletingId === item.id || isSaving}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Delete{" "}
+                              {item.kind === "quiz"
+                                ? "quiz"
+                                : item.kind === "flashcardSet"
+                                  ? "flashcard set"
+                                  : "material"}
+                              ?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove {item.title} from
+                              this folder. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel
+                              disabled={deletingId === item.id}
+                            >
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              onClick={() => deleteMaterial(item)}
+                              disabled={deletingId === item.id}
+                            >
+                              {deletingId === item.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   )}
                 </TableRow>

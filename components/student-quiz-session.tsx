@@ -42,6 +42,7 @@ type QuizSessionProps = {
   questions?: QuizQuestion[]
   timeLimitMinutes?: number | null
   userId: string
+  existingAttempt?: SavedQuizAttempt
 }
 
 type QuizResult = {
@@ -49,6 +50,8 @@ type QuizResult = {
   maxScore: number
   completedAt: string
 }
+
+type SavedQuizAttempt = QuizResult | null
 
 export function QuizSession({
   courseId,
@@ -60,6 +63,7 @@ export function QuizSession({
   questions,
   timeLimitMinutes,
   userId,
+  existingAttempt,
 }: QuizSessionProps) {
   const storageKey = `optimo.quiz.${userId}.${courseId}.${quizId}`
   const timeLimitSeconds = timeLimitMinutes ? timeLimitMinutes * 60 : null
@@ -71,9 +75,11 @@ export function QuizSession({
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [clockNow, setClockNow] = useState<number>(() => Date.now())
   const [status, setStatus] = useState<"ready" | "submitting" | "finished">(
-    "ready"
+    existingAttempt ? "finished" : "ready"
   )
-  const [result, setResult] = useState<QuizResult | null>(null)
+  const [result, setResult] = useState<QuizResult | null>(
+    existingAttempt ?? null
+  )
 
   useEffect(() => {
     const savedState = localStorage.getItem(storageKey)
@@ -109,10 +115,12 @@ export function QuizSession({
       }
     }
 
-    setCurrentIndex(restoredIndex)
-    setAnswers(restoredAnswers)
-    setStartedAt(restoredStartedAt ?? Date.now())
-    setHydrated(true)
+    queueMicrotask(() => {
+      setCurrentIndex(restoredIndex)
+      setAnswers(restoredAnswers)
+      setStartedAt(restoredStartedAt ?? Date.now())
+      setHydrated(true)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -233,7 +241,11 @@ export function QuizSession({
       status === "ready" &&
       hydrated
     ) {
-      void handleSubmit()
+      const timeoutId = window.setTimeout(() => {
+        void handleSubmit()
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
     }
     // handleSubmit is intentionally excluded — it's stable and including it
     // would require useCallback, which is unnecessary here.
@@ -327,20 +339,22 @@ export function QuizSession({
                     Review quiz list
                   </Link>
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => {
-                    setCurrentIndex(0)
-                    setAnswers({})
-                    setResult(null)
-                    setStatus("ready")
-                    setStartedAt(Date.now())
-                  }}
-                >
-                  Restart quiz
-                </Button>
+                {!existingAttempt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      setCurrentIndex(0)
+                      setAnswers({})
+                      setResult(null)
+                      setStatus("ready")
+                      setStartedAt(Date.now())
+                    }}
+                  >
+                    Restart quiz
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

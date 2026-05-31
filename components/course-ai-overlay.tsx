@@ -269,6 +269,16 @@ export function CourseAiOverlay({
     }
   }
 
+  function handleNewChat() {
+    if (isBusy) {
+      stop()
+    }
+
+    setMessages([])
+    setInput("")
+    clearError()
+  }
+
   if (!isMounted) return null
 
   return createPortal(
@@ -367,10 +377,10 @@ export function CourseAiOverlay({
                           </span>
                           <div
                             className={cn(
-                              "max-w-[86%] rounded-3xl px-4 py-3 text-sm leading-6 shadow-sm",
+                              "max-w-[86%] rounded-3xl px-3 py-3 text-sm leading-6 shadow-sm",
                               isAssistant
                                 ? "border border-border/60 bg-background/85 text-foreground"
-                                : "bg-primary wrap-break-word whitespace-pre-wrap text-primary-foreground shadow-[0_12px_30px_rgba(37,99,235,0.22)]"
+                                : "break-words whitespace-pre-wrap bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(37,99,235,0.22)]"
                             )}
                           >
                             {isAssistant ? (
@@ -442,7 +452,7 @@ export function CourseAiOverlay({
                         ? "Ask about a lecture, topic, or file..."
                         : "AI assistant not available"
                     }
-                    className="min-h-16 resize-none rounded-2xl border-border/70 bg-background/90 px-4 py-3 shadow-sm sm:min-h-24"
+                    className="min-h-16 flex-1 min-w-0 resize-none rounded-2xl border-border/70 bg-background/90 px-3 py-3 shadow-sm sm:min-h-24"
                     disabled={!canChat}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
@@ -452,39 +462,52 @@ export function CourseAiOverlay({
                     }}
                   />
 
-                  {isBusy ? (
+                  <div className="flex shrink-0 flex-col gap-2">
                     <Button
                       type="button"
-                      size="icon"
-                      variant="secondary"
-                      className="h-11 w-11 rounded-2xl active:scale-[0.96]"
-                      onClick={() => void stop()}
-                      aria-label="Stop generating"
+                      variant="ghost"
+                      className="h-9 rounded-xl px-3 text-xs font-medium"
+                      onClick={handleNewChat}
+                      disabled={!canChat || isBusy || messages.length === 0}
+                      aria-label="Start a new chat"
                     >
-                      <Square className="size-4" />
+                      New chat
                     </Button>
-                  ) : error ? (
-                    <Button
-                      type="button"
-                      size="icon"
-                      className="h-11 w-11 rounded-2xl active:scale-[0.96]"
-                      onClick={() => void regenerate()}
-                      aria-label="Retry response"
-                    >
-                      <SendHorizontal className="size-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="icon"
-                      className="h-11 w-11 rounded-2xl active:scale-[0.96]"
-                      onClick={() => void handleSend()}
-                      disabled={!canChat || input.trim().length === 0}
-                      aria-label="Send message"
-                    >
-                      <SendHorizontal className="size-4" />
-                    </Button>
-                  )}
+
+                    {isBusy ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        className="h-11 w-11 rounded-2xl active:scale-[0.96]"
+                        onClick={() => void stop()}
+                        aria-label="Stop generating"
+                      >
+                        <Square className="size-4" />
+                      </Button>
+                    ) : error ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        className="h-11 w-11 rounded-2xl active:scale-[0.96]"
+                        onClick={() => void regenerate()}
+                        aria-label="Retry response"
+                      >
+                        <SendHorizontal className="size-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="icon"
+                        className="h-11 w-11 rounded-2xl active:scale-[0.96]"
+                        onClick={() => void handleSend()}
+                        disabled={!canChat || input.trim().length === 0}
+                        aria-label="Send message"
+                      >
+                        <SendHorizontal className="size-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {error && (

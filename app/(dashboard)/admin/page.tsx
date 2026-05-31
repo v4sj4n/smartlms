@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { getSchoolYears } from "@/lib/actions/academic"
 import { getCourses } from "@/lib/actions/courses"
 import { getClubs } from "@/lib/actions/clubs"
+import { getAdminDashboardPriorities } from "@/lib/actions/dashboard-intelligence"
 import { getAnnouncements } from "@/lib/actions/announcements"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getUserDisplayName } from "@/lib/display-name"
+import { DashboardPriorityPanel } from "@/components/dashboard-priority-panel"
 import {
   Users,
   BookOpen,
@@ -49,6 +51,8 @@ export default async function AdminDashboardPage() {
     getClubs(),
     getAnnouncements({ limit: 5 }),
   ])
+
+  const { important, notImportant } = await getAdminDashboardPriorities()
 
   const activeYear = schoolYears?.find((y: { isActive: boolean }) => y.isActive)
   const totalPrograms =
@@ -188,12 +192,18 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
+      <DashboardPriorityPanel
+        important={important}
+        notImportant={notImportant}
+        title="Dashboard Priorities"
+      />
+
       {/* Main Content Tabs */}
       <Tabs defaultValue="announcements" className="space-y-4">
         <TabsList className="w-full overflow-x-auto sm:w-auto">
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="courses">Recent Courses</TabsTrigger>
-          <TabsTrigger value="clubs">Student Clubs</TabsTrigger>
+          <TabsTrigger value="clubs">Clubs</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -341,7 +351,7 @@ export default async function AdminDashboardPage() {
 
         <TabsContent value="clubs" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Student Clubs</h3>
+            <h3 className="text-lg font-semibold">Clubs</h3>
             <Link href="/admin/clubs">
               <Button
                 variant="ghost"
@@ -379,15 +389,14 @@ export default async function AdminDashboardPage() {
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-8">
                 <Users2 className="h-8 w-8 text-muted-foreground/50" />
-                <h3 className="mt-4 font-medium">No Clubs</h3>
+                <h3 className="mt-4 font-medium">No Clubs Yet</h3>
                 <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-                  Create student clubs to foster community and extracurricular
-                  activities.
+                  Create clubs to foster community and collaborative activity.
                 </p>
                 <Link href="/admin/clubs/new" className="mt-4">
                   <Button size="sm">
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Club
+                      Create Group
                   </Button>
                 </Link>
               </CardContent>

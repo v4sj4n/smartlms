@@ -87,7 +87,7 @@ export function WeekCalendar() {
                     ? "bg-muted/60 hover:bg-muted"
                     : "",
                 isToday
-                  ? "bg-foreground text-background"
+                  ? "bg-primary text-primary-foreground"
                   : isWeekend
                     ? "text-muted-foreground"
                     : "text-foreground"
@@ -97,13 +97,13 @@ export function WeekCalendar() {
               <span
                 className={cn(
                   "h-1 w-1 rounded-full sm:hidden",
-                  isToday ? "bg-emerald-400" : "invisible"
+                  isToday ? "bg-primary/60" : "invisible"
                 )}
               />
               <span
                 className={cn(
                   "sm:mb-1.5 text-[9px] font-semibold tracking-wide uppercase",
-                  isToday ? "text-background/60" : "text-muted-foreground"
+                  isToday ? "text-primary-foreground/60" : "text-muted-foreground"
                 )}
               >
                 {DOW[i]}
@@ -111,7 +111,7 @@ export function WeekCalendar() {
               <span
                 className={cn(
                   "font-mono text-sm font-bold tabular-nums sm:text-base",
-                  isToday ? "text-background" : ""
+                  isToday ? "text-primary-foreground" : ""
                 )}
               >
                 {day.getDate()}
@@ -120,7 +120,7 @@ export function WeekCalendar() {
               <span
                 className={cn(
                   "mt-1.5 hidden h-1 w-1 rounded-full sm:block",
-                  isToday ? "bg-emerald-400" : "invisible"
+                  isToday ? "bg-primary/60" : "invisible"
                 )}
               />
             </button>

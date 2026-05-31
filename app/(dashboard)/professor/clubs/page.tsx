@@ -70,14 +70,14 @@ export default async function ProfessorClubsPage() {
         <div className="max-w-2xl space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-3 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <Sparkles className="mr-2 h-4 w-4" />
-            Club Support
+            Clubs
           </div>
           <h1 className="font-heading text-3xl font-extrabold tracking-tight text-balance text-foreground">
-            Keep an eye on student clubs.
+            Guide teacher-led clubs.
           </h1>
           <p className="max-w-xl text-sm text-pretty text-muted-foreground">
-            Use this space to monitor club communities, review materials, and
-            track activity across student groups.
+            Use this space to monitor official club communities, review
+            materials, and track activity across student groups.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default async function ProfessorClubsPage() {
             disabled
           >
             <Compass className="mr-2 h-4 w-4" />
-            Clubs Overview
+            Groups Overview
           </Button>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default async function ProfessorClubsPage() {
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Clubs
+                Groups
               </p>
               <p className="mt-1 text-2xl font-bold tabular-nums">
                 {clubs.length}
@@ -160,7 +160,7 @@ export default async function ProfessorClubsPage() {
                     </CardTitle>
                     <CardDescription className="mt-1 line-clamp-2 leading-relaxed text-pretty">
                       {club.description ||
-                        "A student club that may need faculty attention or advising."}
+                        "An official club that may need faculty attention or advising."}
                     </CardDescription>
                   </div>
                   <Badge
@@ -229,10 +229,10 @@ export default async function ProfessorClubsPage() {
               <Compass className="h-10 w-10" />
             </div>
             <h2 className="text-xl font-bold tracking-tight text-balance">
-              No clubs available yet
+              No Clubs Available Yet
             </h2>
             <p className="mt-2 max-w-md text-sm text-pretty text-muted-foreground">
-              Once clubs are created, this page will help you follow their
+              Once groups are created, this page will help you follow their
               activity and support students more easily.
             </p>
           </CardContent>

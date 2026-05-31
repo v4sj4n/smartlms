@@ -53,6 +53,7 @@ function getBreadcrumbLabel(
     student: "Student",
     professor: "Professor",
     courses: "Courses",
+    "learning-hub": "Learning Hub",
     clubs: "Clubs",
     settings: "Settings",
     academic: "Academic",
@@ -94,7 +95,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-svh w-full overflow-x-hidden bg-background">
+      <div className="relative flex min-h-svh w-full overflow-x-hidden bg-background">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-primary/5 via-primary/3 to-transparent"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-24 right-0 h-80 w-80 translate-x-1/3 rounded-full bg-primary/5 blur-3xl"
+        />
         {/* Dynamic Role-Aware Sidebar */}
         <AppSidebar />
 
@@ -155,7 +164,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
                 <Input
                   placeholder="Search resources, files..."
-                  className="h-9 w-full rounded-xl border-border/40 bg-muted/40 pl-9 text-sm transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-muted-foreground/60 focus:bg-background focus:ring-1 focus:ring-primary/45"
+                  className="h-9 w-full rounded-full border-border/40 bg-muted/40 pl-9 text-sm transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-muted-foreground/60 focus:bg-background focus:ring-1 focus:ring-primary/45"
                 />
               </div>
 
@@ -163,7 +172,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-lg border-border/40 text-foreground transition-[background-color,border-color,transform] duration-200 hover:bg-muted/60 active:scale-[0.96]"
+                className="h-9 w-9 rounded-full border-border/40 text-foreground transition-[background-color,border-color,transform] duration-200 hover:bg-muted/60 active:scale-[0.96]"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 aria-label="Toggle Theme"
               >
@@ -175,7 +184,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="outline"
                 size="icon"
-                className="relative h-9 w-9 rounded-lg border-border/40 text-foreground transition-[background-color,border-color,transform] duration-200 hover:bg-muted/60 active:scale-[0.96]"
+                className="relative h-9 w-9 rounded-full border-border/40 text-foreground transition-[background-color,border-color,transform] duration-200 hover:bg-muted/60 active:scale-[0.96]"
                 aria-label="View Notifications"
               >
                 <Bell className="h-4 w-4" />
@@ -185,7 +194,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </header>
 
           {/* Main Content Area */}
-          <main className="relative flex-1 bg-background/50 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+          <main className="relative flex-1 bg-background/40 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
             <div className="mx-auto w-full max-w-7xl animate-in duration-300 fade-in slide-in-from-bottom-2">
               {children}
             </div>

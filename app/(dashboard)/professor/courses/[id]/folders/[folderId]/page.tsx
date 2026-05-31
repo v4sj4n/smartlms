@@ -66,6 +66,7 @@ export default async function ProfessorFolderDetailPage({
       title: material.title,
       detail: material.type,
       isPublished: material.isPublished,
+      actionHref: material.contentUrl,
     })),
     ...(folder.quizzes ?? []).map((quiz) => ({
       id: quiz.id,

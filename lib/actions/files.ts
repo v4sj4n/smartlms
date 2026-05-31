@@ -7,6 +7,7 @@ import {
   clubMaterials,
   courseWeeks,
   lectureMaterials,
+  learningHubGroupMembers,
 } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import { requireAuth } from "@/lib/auth-guard"
@@ -26,6 +27,7 @@ async function assertUploadPermission(input: {
   role: string
   userId: string
   clubId?: string
+  learningHubGroupId?: string
 }) {
   if (["ADMIN", "PROFESSOR"].includes(input.role)) {
     return
@@ -36,6 +38,20 @@ async function assertUploadPermission(input: {
       where: and(
         eq(clubMembers.clubId, input.clubId),
         eq(clubMembers.userId, input.userId)
+      ),
+      columns: { id: true },
+    })
+
+    if (membership) {
+      return
+    }
+  }
+
+  if (input.role === "STUDENT" && input.learningHubGroupId) {
+    const membership = await db.query.learningHubGroupMembers.findFirst({
+      where: and(
+        eq(learningHubGroupMembers.groupId, input.learningHubGroupId),
+        eq(learningHubGroupMembers.userId, input.userId)
       ),
       columns: { id: true },
     })
@@ -62,6 +78,12 @@ function mapMimeTypeToLectureMaterialType(mimeType: string) {
 }
 
 function mapMimeTypeToClubMaterialType(mimeType: string) {
+  if (mimeType === "application/pdf") return "PDF"
+  if (mimeType.startsWith("image/")) return "IMAGE"
+  return "DOCUMENT"
+}
+
+function mapMimeTypeToLearningHubGroupFileType(mimeType: string) {
   if (mimeType === "application/pdf") return "PDF"
   if (mimeType.startsWith("image/")) return "IMAGE"
   return "DOCUMENT"
@@ -110,6 +132,7 @@ export async function createSignedUpload(input: unknown) {
       role: user.role,
       userId: user.id,
       clubId: data.clubId,
+      learningHubGroupId: data.learningHubGroupId,
     })
   }
 
@@ -128,7 +151,9 @@ export async function createSignedUpload(input: unknown) {
         : data.weekNumber
           ? `week-${data.weekNumber}`
           : "week-none",
-    data.profileImage ? stamp : (data.clubId ?? "club-none"),
+    data.profileImage
+      ? stamp
+      : data.clubId ?? data.learningHubGroupId ?? "club-none",
     user.id,
     stamp,
     `${crypto.randomUUID()}-${safeFileName(data.name)}`,
@@ -158,6 +183,7 @@ export async function finalizeFileUpload(input: unknown) {
     role: user.role,
     userId: user.id,
     clubId: data.clubId,
+    learningHubGroupId: data.learningHubGroupId,
   })
 
   const [record] = await db
@@ -171,6 +197,7 @@ export async function finalizeFileUpload(input: unknown) {
       subjectId: data.subjectId,
       weekNumber: data.weekNumber,
       clubId: data.clubId,
+      learningHubGroupId: data.learningHubGroupId,
       metadata: data.metadata,
       status: "UPLOADED",
     })
@@ -199,6 +226,11 @@ export async function finalizeFileUpload(input: unknown) {
     revalidatePath(`/student/clubs/${data.clubId}`)
     revalidatePath(`/professor/clubs/${data.clubId}`)
     revalidatePath(`/admin/clubs/${data.clubId}`)
+  }
+
+  if (data.learningHubGroupId) {
+    revalidatePath(`/student/learning-hub/${data.learningHubGroupId}`)
+    revalidatePath("/student/learning-hub")
   }
 
   const resolvedWeek = await resolveCourseWeek({

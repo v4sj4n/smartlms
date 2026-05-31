@@ -25,6 +25,39 @@ type FlashcardStudySessionProps = {
   userId: string
 }
 
+function readFlashcardState(storageKey: string, flashcardCount: number) {
+  if (typeof window === "undefined") {
+    return { currentIndex: 0, isFlipped: false }
+  }
+
+  const savedState = localStorage.getItem(storageKey)
+
+  if (!savedState) {
+    return { currentIndex: 0, isFlipped: false }
+  }
+
+  try {
+    const parsed = JSON.parse(savedState) as {
+      currentIndex?: number
+      isFlipped?: boolean
+    }
+
+    return {
+      currentIndex:
+        typeof parsed.currentIndex === "number"
+          ? Math.min(
+              Math.max(parsed.currentIndex, 0),
+              Math.max(flashcardCount - 1, 0)
+            )
+          : 0,
+      isFlipped: typeof parsed.isFlipped === "boolean" ? parsed.isFlipped : false,
+    }
+  } catch {
+    localStorage.removeItem(storageKey)
+    return { currentIndex: 0, isFlipped: false }
+  }
+}
+
 export function FlashcardStudySession({
   courseId,
   courseTitle,
@@ -35,49 +68,11 @@ export function FlashcardStudySession({
   userId,
 }: FlashcardStudySessionProps) {
   const storageKey = `optimo.flashcards.${userId}.${courseId}.${weekId}`
-  const [hydrated, setHydrated] = useState(false)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isFlipped, setIsFlipped] = useState(false)
+  const initialState = readFlashcardState(storageKey, flashcards.length)
+  const [currentIndex, setCurrentIndex] = useState(initialState.currentIndex)
+  const [isFlipped, setIsFlipped] = useState(initialState.isFlipped)
 
   useEffect(() => {
-    const savedState = localStorage.getItem(storageKey)
-
-    let restoredIndex = 0
-    let restoredFlipped = false
-
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState) as {
-          currentIndex?: number
-          isFlipped?: boolean
-        }
-
-        if (typeof parsed.currentIndex === "number") {
-          restoredIndex = Math.min(
-            Math.max(parsed.currentIndex, 0),
-            Math.max(flashcards.length - 1, 0)
-          )
-        }
-
-        if (typeof parsed.isFlipped === "boolean") {
-          restoredFlipped = parsed.isFlipped
-        }
-      } catch {
-        localStorage.removeItem(storageKey)
-      }
-    }
-
-    setCurrentIndex(restoredIndex)
-    setIsFlipped(restoredFlipped)
-    setHydrated(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (!hydrated) {
-      return
-    }
-
     localStorage.setItem(
       storageKey,
       JSON.stringify({
@@ -85,7 +80,7 @@ export function FlashcardStudySession({
         isFlipped,
       })
     )
-  }, [currentIndex, hydrated, isFlipped, storageKey])
+  }, [currentIndex, isFlipped, storageKey])
 
   const currentFlashcard = flashcards[currentIndex]
   const currentNumber = flashcards.length > 0 ? currentIndex + 1 : 0
@@ -186,17 +181,17 @@ export function FlashcardStudySession({
                 type="button"
                 onClick={toggleFlip}
                 aria-label={isFlipped ? "Show question" : "Reveal answer"}
-                className="group relative h-[24rem] w-full rounded-[2rem] [perspective:2000px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background focus-visible:outline-none sm:h-[28rem]"
+                className="group relative h-96 w-full rounded-[2rem] perspective-[2000px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background focus-visible:outline-none sm:h-112"
               >
                 <div
                   className={cn(
-                    "relative h-full w-full rounded-[2rem] transition-transform duration-500 ease-[cubic-bezier(0.2,0,0,1)] [transform-style:preserve-3d]",
-                    isFlipped && "[transform:rotateY(180deg)]"
+                    "relative h-full w-full rounded-[2rem] transition-transform duration-500 ease-[cubic-bezier(0.2,0,0,1)] transform-3d",
+                    isFlipped && "transform-[rotateY(180deg)]"
                   )}
                   style={{ willChange: "transform" }}
                 >
-                  <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-border/60 bg-card/100 p-5 shadow-[0_28px_60px_rgba(15,23,42,0.12)] [backface-visibility:hidden] sm:p-8">
-                    <div className="absolute top-0 left-0 h-2 w-full rounded-t-[2rem] bg-gradient-to-r from-primary to-primary/70" />
+                  <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-border/60 bg-card p-5 shadow-[0_28px_60px_rgba(15,23,42,0.12)] backface-hidden sm:p-8">
+                    <div className="absolute top-0 left-0 h-2 w-full rounded-t-[2rem] bg-linear-to-r from-primary to-primary/70" />
                     <div className="flex h-full flex-col items-center justify-center gap-6 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="rounded-[1.5rem] border border-border/40 bg-primary/5 px-6 py-5 text-primary shadow-sm">
@@ -224,7 +219,7 @@ export function FlashcardStudySession({
                     </div>
                   </div>
 
-                  <div className="absolute inset-0 [transform:rotateY(180deg)] overflow-hidden rounded-[2rem] border border-border/50 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94))] p-5 text-white shadow-[0_28px_60px_rgba(15,23,42,0.18)] [backface-visibility:hidden] sm:p-8">
+                  <div className="absolute inset-0 transform-[rotateY(180deg)] overflow-hidden rounded-[2rem] border border-border/50 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94))] p-5 text-white shadow-[0_28px_60px_rgba(15,23,42,0.18)] backface-hidden sm:p-8">
                     <div className="flex h-full flex-col justify-between gap-6">
                       <div className="flex items-center justify-between gap-3 text-sm text-white/70">
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 tracking-[0.2em] uppercase">

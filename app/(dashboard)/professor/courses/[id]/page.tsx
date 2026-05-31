@@ -301,6 +301,7 @@ export default async function ProfessorCourseDetailPage({
                         title: material.title,
                         detail: material.type,
                         isPublished: material.isPublished,
+                        actionHref: material.contentUrl,
                       })),
                       ...(week.quizzes ?? []).map((quiz) => ({
                         id: quiz.id,
@@ -357,9 +358,6 @@ export default async function ProfessorCourseDetailPage({
                             </div>
                           </div>
                           <div className="mr-2 flex items-center gap-2">
-                            <Badge variant={week ? "default" : "secondary"}>
-                              {week ? "Configured" : "Empty"}
-                            </Badge>
                             {timelineWeek.isOutsideSemester && (
                               <Badge variant="outline">Outside semester</Badge>
                             )}

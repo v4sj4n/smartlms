@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono, Manrope } from "next/font/google"
+import { Geologica, Geist_Mono } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -6,12 +6,10 @@ import { AuthProvider } from "@/components/auth-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 
-const manropeHeading = Manrope({
+const geologica = Geologica({
   subsets: ["latin"],
-  variable: "--font-heading",
+  variable: "--font-sans",
 })
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -31,8 +29,7 @@ export default function RootLayout({
         "antialiased",
         fontMono.variable,
         "font-sans",
-        geist.variable,
-        manropeHeading.variable
+        geologica.variable
       )}
     >
       <body>

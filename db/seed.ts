@@ -72,34 +72,34 @@ async function main() {
     passwordHash,
   })
 
-  const professorUser = await createSeedUser({
-    name: "Prof. Sarah Connor",
-    fullName: "Sarah Connor",
-    email: "sarahconnor@optimolms.com",
+  const professorMalvina = await createSeedUser({
+    name: "Prof. Malvina Niklekaj",
+    fullName: "Malvina Niklekaj",
+    email: "malvinaniklekaj@optimolms.com",
     role: "PROFESSOR",
     passwordHash,
   })
 
-  const advisorUser = await createSeedUser({
-    name: "Prof. Arben Kodra",
-    fullName: "Arben Kodra",
-    email: "arbenkodra@optimolms.com",
+  const professorJora = await createSeedUser({
+    name: "Prof. Jora Banda",
+    fullName: "Jora Banda",
+    email: "jorabanda@optimolms.com",
     role: "PROFESSOR",
     passwordHash,
   })
 
-  const johnStudent = await createSeedUser({
-    name: "Student John Doe",
-    fullName: "John Doe",
-    email: "johnd@optimolms.com",
+  const studentFjona = await createSeedUser({
+    name: "Student Fjona Danglli",
+    fullName: "Fjona Danglli",
+    email: "fjonadanglli@optimolms.com",
     role: "STUDENT",
     passwordHash,
   })
 
-  const miraStudent = await createSeedUser({
-    name: "Student Mira Kola",
-    fullName: "Mira Kola",
-    email: "mkola@optimolms.com",
+  const studentVasjan = await createSeedUser({
+    name: "Student Vasjan Çupri",
+    fullName: "Vasjan Çupri",
+    email: "vasjancupri@optimolms.com",
     role: "STUDENT",
     passwordHash,
   })
@@ -152,12 +152,12 @@ async function main() {
 
   await db.insert(studentProgramEnrollments).values([
     {
-      studentId: johnStudent.id,
+      studentId: studentFjona.id,
       studyProgramId: computerScienceProgram.id,
       schoolYearId: schoolYear.id,
     },
     {
-      studentId: miraStudent.id,
+      studentId: studentVasjan.id,
       studyProgramId: dataScienceProgram.id,
       schoolYearId: schoolYear.id,
     },
@@ -172,7 +172,7 @@ async function main() {
           title: "Advanced Machine Learning",
           description:
             "Linear models, cost functions, gradient descent, and regularization.",
-          teacherId: professorUser.id,
+          teacherId: professorMalvina.id,
           schoolYearId: schoolYear.id,
           studyProgramId: computerScienceProgram.id,
           semester: "FIRST",
@@ -182,7 +182,7 @@ async function main() {
           title: "Web Application Engineering",
           description:
             "Full-stack application patterns with authentication, data models, and UI workflows.",
-          teacherId: professorUser.id,
+          teacherId: professorMalvina.id,
           schoolYearId: schoolYear.id,
           studyProgramId: computerScienceProgram.id,
           semester: "SECOND",
@@ -192,7 +192,7 @@ async function main() {
           title: "Data Visualization Studio",
           description:
             "Practical dashboards, visual encodings, and storytelling with data.",
-          teacherId: advisorUser.id,
+          teacherId: professorJora.id,
           schoolYearId: schoolYear.id,
           studyProgramId: dataScienceProgram.id,
           semester: "FIRST",
@@ -203,19 +203,19 @@ async function main() {
 
   await db.insert(courseEnrollments).values([
     {
-      studentId: johnStudent.id,
+      studentId: studentFjona.id,
       courseId: machineLearningCourse.id,
     },
     {
-      studentId: miraStudent.id,
+      studentId: studentVasjan.id,
       courseId: machineLearningCourse.id,
     },
     {
-      studentId: johnStudent.id,
+      studentId: studentFjona.id,
       courseId: webEngineeringCourse.id,
     },
     {
-      studentId: miraStudent.id,
+      studentId: studentVasjan.id,
       courseId: visualizationCourse.id,
     },
   ])
@@ -262,6 +262,92 @@ async function main() {
         title: "Dashboard Critique",
         description:
           "Improving scan paths, density, color, and narrative emphasis.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 3,
+        title: "Linear Models",
+        description:
+          "Linear regression, classification, feature scaling, and regularization.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 4,
+        title: "Model Evaluation",
+        description:
+          "Accuracy, precision, recall, F1 score, confusion matrices, and cross-validation.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 5,
+        title: "Decision Trees",
+        description:
+          "Tree construction, information gain, overfitting, and pruning strategies.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 6,
+        title: "Ensemble Methods",
+        description:
+          "Random forests, boosting techniques, and model aggregation principles.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 7,
+        title: "Neural Network Basics",
+        description:
+          "Perceptrons, activation functions, forward propagation, and backpropagation.",
+      },
+      {
+        courseId: machineLearningCourse.id,
+        weekNumber: 8,
+        title: "Deployment and Monitoring",
+        description:
+          "Serving models, tracking drift, performance monitoring, and retraining workflows.",
+      },
+
+      // Web Engineering
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 3,
+        title: "API Architecture",
+        description:
+          "REST principles, route organization, versioning, and request validation.",
+      },
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 4,
+        title: "Database Design",
+        description:
+          "Schema modeling, relationships, indexing, and query optimization.",
+      },
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 5,
+        title: "Authentication Systems",
+        description:
+          "Sessions, JWTs, OAuth flows, role-based access control, and security practices.",
+      },
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 6,
+        title: "Performance Optimization",
+        description:
+          "Caching strategies, code splitting, asset optimization, and rendering techniques.",
+      },
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 7,
+        title: "Testing Strategies",
+        description:
+          "Unit testing, integration testing, end-to-end testing, and CI workflows.",
+      },
+      {
+        courseId: webEngineeringCourse.id,
+        weekNumber: 8,
+        title: "Production Readiness",
+        description:
+          "Observability, logging, deployment pipelines, scalability, and incident response.",
       },
     ])
     .returning()
@@ -347,411 +433,34 @@ async function main() {
     },
   ])
 
-  // Flashcards: Model Foundations (mlWeekOne), Web, Visualization, and Optimization (mlWeekTwo)
-  await db.insert(flashcards).values([
-    // Model Foundations flashcards
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a vector in machine learning?",
-      backContent:
-        "A numerical array representing features of a data point in a multi-dimensional space.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "Define features in ML.",
-      backContent:
-        "Individual measurable properties or characteristics of the data used as input variables for the model.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a feature vector?",
-      backContent:
-        "A vector that contains all the feature values for a single data point, representing it in the feature space.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is supervised learning?",
-      backContent:
-        "A machine learning paradigm where the model is trained on labeled data (input-output pairs).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is the primary goal of supervised learning?",
-      backContent:
-        "To learn a mapping function from input features (X) to output labels (y).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "Types of supervised learning tasks",
-      backContent:
-        "Classification (discrete labels) and Regression (continuous values).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a loss function?",
-      backContent:
-        "A function that quantifies the difference between the predicted output and the true label, guiding model optimization.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What does MSE stand for and what is it used for?",
-      backContent:
-        "Mean Squared Error; a common loss function for regression tasks that averages the squared differences between predictions and true values.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is cross-entropy loss?",
-      backContent:
-        "A loss function commonly used for classification tasks, measuring the difference between two probability distributions.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "4 main steps of supervised learning workflow",
-      backContent:
-        "1) Data Collection, 2) Data Preprocessing, 3) Model Training, 4) Model Evaluation.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is training data?",
-      backContent:
-        "The portion of the dataset used to train the model by adjusting its parameters.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is test data?",
-      backContent:
-        "The portion of the dataset reserved for final evaluation of the model's performance on unseen data.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is validation data?",
-      backContent:
-        "The portion of the dataset used to tune hyperparameters and prevent overfitting during development.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is overfitting?",
-      backContent:
-        "When a model learns the training data too well, including noise and outliers, resulting in poor generalization to new data.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is underfitting?",
-      backContent:
-        "When a model is too simple to capture the underlying patterns in the data, resulting in poor performance.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is the bias-variance tradeoff?",
-      backContent:
-        "The balance between a model's ability to fit the training data (low bias) and its ability to generalize to new data (low variance).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a hypothesis in ML?",
-      backContent:
-        "A function that maps input features to output predictions, parameterized by the model.",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a model parameter?",
-      backContent:
-        "Internal variables of the model that are learned from the training data (e.g., weights).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is a hyperparameter?",
-      backContent:
-        "Configuration variables external to the model that must be set before training (e.g., learning rate).",
-    },
-    {
-      weekId: mlWeekOne.id,
-      frontContent: "What is feature scaling?",
-      backContent:
-        "The process of normalizing or standardizing feature values to a similar range to improve model performance.",
-    },
-
-    // Existing web and viz flashcards
-    {
-      weekId: webWeekOne.id,
-      frontContent: "Server action",
-      backContent:
-        "A server-side function callable from React components or forms in a Next.js application.",
-    },
-    {
-      weekId: vizWeekOne.id,
-      frontContent: "Visual channel",
-      backContent:
-        "A visual property such as position, length, color, or size used to encode data.",
-    },
-
-    // Optimization flashcards (mlWeekTwo)
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is gradient descent?",
-      backContent:
-        "An iterative optimization algorithm used to minimize the loss function by moving in the direction of the steepest descent (negative gradient).",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is the learning rate in gradient descent?",
-      backContent:
-        "A hyperparameter that determines the step size at each iteration while moving toward a minimum of the loss function.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is a gradient?",
-      backContent:
-        "A vector of partial derivatives of the loss function with respect to each parameter, indicating the direction of steepest ascent.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is stochastic gradient descent (SGD)?",
-      backContent:
-        "A variant of gradient descent that uses a single random training example per iteration to compute the gradient, making it faster but noisier.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is batch gradient descent?",
-      backContent:
-        "A variant that uses the entire training dataset to compute the gradient for each iteration, ensuring stable convergence but computationally expensive.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is mini-batch gradient descent?",
-      backContent:
-        "A variant that uses a small random batch of training examples per iteration, balancing the trade-offs of SGD and batch gradient descent.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is a local minimum?",
-      backContent:
-        "A point in the loss landscape where the loss is lower than all nearby points, but not necessarily the lowest point in the entire space.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is a global minimum?",
-      backContent:
-        "The point in the loss landscape with the lowest possible loss value across the entire parameter space.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is momentum in gradient descent?",
-      backContent:
-        "A technique that accelerates gradient descent in the relevant direction by adding a fraction of the previous update to the current update.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is a validation curve?",
-      backContent:
-        "A plot showing the model's performance as a function of a hyperparameter (e.g., learning rate, model complexity).",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is learning rate scheduling?",
-      backContent:
-        "The practice of adjusting the learning rate during training, often by reducing it over time to fine-tune the model's parameters.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is a saddle point?",
-      backContent:
-        "A point in the loss landscape where the gradient is zero but the point is neither a minimum nor a maximum.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is convex optimization?",
-      backContent:
-        "Optimization on convex loss functions, where any local minimum is the global minimum.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is the role of the gradient in optimization?",
-      backContent:
-        "The gradient points in the direction of the steepest ascent of the loss function; gradient descent moves opposite to it to minimize the loss.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is early stopping?",
-      backContent:
-        "A regularization technique that stops the training process when the validation error stops improving.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is the Adam optimizer?",
-      backContent:
-        "An adaptive learning rate optimization algorithm that combines the benefits of momentum and RMSprop.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What is RMSprop?",
-      backContent:
-        "An adaptive learning rate method that divides the learning rate by an exponentially decaying average of squared gradients.",
-    },
-    {
-      weekId: mlWeekTwo.id,
-      frontContent: "What happens if the learning rate is too large?",
-      backContent:
-        "The algorithm may overshoot the minimum, causing divergence or oscillation, and the loss may increase instead of decreasing.",
-    },
-  ])
-
-  // Add additional Model Foundations quiz questions (short answer)
-  const additionalMlQuestions: (typeof questions.$inferInsert)[] = [
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "Explain the difference between features and labels in supervised learning.",
-      points: 2,
-      orderIndex: 3,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content: "How does a loss function contribute to model training?",
-      points: 2,
-      orderIndex: 4,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "What is the key difference between classification and regression tasks?",
-      points: 2,
-      orderIndex: 5,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "Describe the typical workflow of a supervised learning project.",
-      points: 3,
-      orderIndex: 6,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content: "Why is it important to split data into training and test sets?",
-      points: 2,
-      orderIndex: 7,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "What is the purpose of the validation set in model development?",
-      points: 2,
-      orderIndex: 8,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content: "How can you detect overfitting in a model?",
-      points: 2,
-      orderIndex: 9,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "What is the difference between model parameters and hyperparameters?",
-      points: 2,
-      orderIndex: 10,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "Why is feature scaling important in many machine learning algorithms?",
-      points: 2,
-      orderIndex: 11,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "What role does the learning algorithm play in supervised learning?",
-      points: 2,
-      orderIndex: 12,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "How do you choose an appropriate loss function for a given task?",
-      points: 2,
-      orderIndex: 13,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content: "What is the difference between MSE and MAE?",
-      points: 2,
-      orderIndex: 14,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content: "How does model complexity affect bias and variance?",
-      points: 2,
-      orderIndex: 15,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "What are some common preprocessing steps in supervised learning?",
-      points: 2,
-      orderIndex: 16,
-    },
-    {
-      quizId: mlQuiz.id,
-      type: "multiple_choice",
-      content:
-        "How do you evaluate the performance of a supervised learning model?",
-      points: 2,
-      orderIndex: 17,
-    },
-  ]
-
-  await db.insert(questions).values(additionalMlQuestions).returning()
-
-  // Model Foundations: true/false questions
   const mfTrueFalse = [
     {
       content:
-        "Vectors are only used in deep learning and not in traditional machine learning models.",
-      answer: false,
-      explanation:
-        "Vectors are fundamental to all machine learning models, representing features in the input space for both traditional and deep learning models.",
-    },
-    {
-      content:
-        "The loss function measures how well the model is performing on the training data.",
+        "Supervised learning uses labeled examples to learn a mapping from inputs to outputs.",
       answer: true,
       explanation:
-        "The loss function quantifies the error between predictions and true labels, directly measuring model performance during training.",
+        "Supervised datasets include target labels that guide model training.",
     },
     {
-      content: "Supervised learning requires labeled data for training.",
+      content:
+        "A validation set is usually used to tune model choices before final test evaluation.",
       answer: true,
       explanation:
-        "Supervised learning relies on labeled data (input-output pairs) to train the model to make predictions.",
+        "Validation data helps compare settings while keeping the test set reserved.",
     },
     {
       content:
-        "Overfitting occurs when the model is too simple to capture the underlying patterns in the data.",
+        "Overfitting means a model performs poorly on training data but perfectly on unseen data.",
       answer: false,
       explanation:
-        "Overfitting occurs when the model is too complex, capturing noise and outliers in the training data, leading to poor generalization.",
+        "Overfitting usually means strong training performance but weak generalization.",
     },
     {
       content:
-        "Feature scaling is always necessary for every machine learning algorithm.",
-      answer: false,
+        "Feature scaling can help algorithms that rely on distances or gradient optimization.",
+      answer: true,
       explanation:
-        "Some algorithms (e.g., decision trees, random forests) are scale-invariant and do not require feature scaling.",
+        "Scaling keeps feature ranges comparable for distance-based and gradient-based methods.",
     },
   ]
 
@@ -1302,42 +1011,42 @@ async function main() {
   await db.insert(clubMembers).values([
     {
       clubId: roboticsClub.id,
-      userId: johnStudent.id,
+      userId: studentFjona.id,
       role: "LEADER",
     },
     {
       clubId: roboticsClub.id,
-      userId: miraStudent.id,
+      userId: studentVasjan.id,
       role: "MEMBER",
     },
     {
       clubId: roboticsClub.id,
-      userId: advisorUser.id,
+      userId: professorJora.id,
       role: "ADVISOR",
     },
     {
       clubId: webBuildersClub.id,
-      userId: miraStudent.id,
+      userId: studentVasjan.id,
       role: "LEADER",
     },
     {
       clubId: webBuildersClub.id,
-      userId: johnStudent.id,
+      userId: studentFjona.id,
       role: "MEMBER",
     },
     {
       clubId: webBuildersClub.id,
-      userId: professorUser.id,
+      userId: professorMalvina.id,
       role: "ADVISOR",
     },
     {
       clubId: cultureClub.id,
-      userId: johnStudent.id,
+      userId: studentFjona.id,
       role: "MEMBER",
     },
     {
       clubId: cultureClub.id,
-      userId: miraStudent.id,
+      userId: studentVasjan.id,
       role: "MEMBER",
     },
   ])
@@ -1345,7 +1054,7 @@ async function main() {
   await db.insert(clubMessages).values([
     {
       clubId: roboticsClub.id,
-      authorId: advisorUser.id,
+      authorId: professorJora.id,
       content:
         "Welcome to the full-year Robotics & AI Club. Introduce yourself and share what you want to build this year.",
       createdAt: new Date("2025-09-05T09:00:00"),
@@ -1353,14 +1062,14 @@ async function main() {
     },
     {
       clubId: roboticsClub.id,
-      authorId: johnStudent.id,
+      authorId: studentFjona.id,
       content: "I can bring the sensor kit for our first prototype discussion.",
       createdAt: new Date("2025-09-05T09:18:00"),
       updatedAt: new Date("2025-09-05T09:18:00"),
     },
     {
       clubId: webBuildersClub.id,
-      authorId: miraStudent.id,
+      authorId: studentVasjan.id,
       content:
         "I added the deployment checklist. Let us use it for every project demo this year.",
       createdAt: new Date("2025-09-06T14:30:00"),
@@ -1368,7 +1077,7 @@ async function main() {
     },
     {
       clubId: webBuildersClub.id,
-      authorId: professorUser.id,
+      authorId: professorMalvina.id,
       content:
         "Nice. Keep project links and setup notes in the chat so new members can catch up quickly.",
       createdAt: new Date("2025-09-06T15:10:00"),
@@ -1376,7 +1085,7 @@ async function main() {
     },
     {
       clubId: cultureClub.id,
-      authorId: johnStudent.id,
+      authorId: studentFjona.id,
       content:
         "The event template is up. Add ideas there before we vote on the first activity.",
       createdAt: new Date("2025-09-07T11:45:00"),
@@ -1401,7 +1110,7 @@ async function main() {
         "Nice. Keep project links and setup notes in the chat so new members can catch up quickly.",
       scope: "club",
       referenceId: roboticsClub.id,
-      authorId: advisorUser.id,
+      authorId: professorJora.id,
       isPinned: false,
       isPublished: true,
       publishedAt: new Date("2026-05-20T10:00:00"),
@@ -1412,10 +1121,10 @@ async function main() {
   console.log("--------------------------------------------------")
   console.log("Test Credentials (Password for all: password123):")
   console.log(" - Admin:          admin@optimolms.com")
-  console.log(" - Professor:      professor@optimolms.com")
-  console.log(" - Club Advisor:   advisor@optimolms.com")
-  console.log(" - Student:        student@optimolms.com")
-  console.log(" - Second Student: student2@optimolms.com")
+  console.log(" - Professor 1:    malvinaniklekaj@optimolms.com")
+  console.log(" - Professor 2:    jorabanda@optimolms.com")
+  console.log(" - Student 1:      fjonadanglli@optimolms.com")
+  console.log(" - Student 2:      vasjancupri@optimolms.com")
   console.log("--------------------------------------------------")
   process.exit(0)
 }

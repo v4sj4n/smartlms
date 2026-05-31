@@ -10,9 +10,10 @@ import { streamText } from "ai"
 
 type GenerateContentBody = {
   weekId: string
-  contentType: "quiz" | "flashcards"
+  contentType: "quiz" | "flashcards" | "assignment"
   focusPrompt?: string
   fileIds?: string[]
+  assignmentType?: "essay" | "project" | "homework" | "lab_report" | "presentation"
 }
 
 export async function POST(req: NextRequest) {
@@ -121,6 +122,27 @@ Output format:
     }
   ]
 }`
+      : body.contentType === "assignment"
+        ? `
+Output format:
+{
+  "assignment": {
+    "title": string,
+    "description": string,
+    "type": "essay" | "project" | "homework" | "lab_report" | "presentation",
+    "maxScore": number,
+    "timeLimitMinutes": number | null,
+    "rubric": {
+      "criteria": [
+        {
+          "name": string,
+          "description": string,
+          "points": number
+        }
+      ]
+    }
+  }
+}`
       : `
 Output format:
 {
@@ -141,23 +163,32 @@ ${aiPersonalizationSection}Rules:
 - Return exactly one top-level field for the requested content type.
 - If generating quizzes, return only "questions".
 - If generating flashcards, return only "flashcards".
-- Every item must include valid sourceChunkIds from the provided chunk IDs.
+- If generating assignments, return only "assignment".
+- For quiz/flashcard items: include valid sourceChunkIds from the provided chunk IDs.
 - Avoid duplicates and near-duplicates.
 - Keep answers concise and correct.
+- Preserve normal word spacing in every string value. Do not collapse words, remove spaces inside sentences, or concatenate separate words.
 - For mcq questions: provide 4 options, with the answer being the exact text of the correct option.
 - For true_false questions: answer must be boolean true or false.
 - For flashcards: front should be a clear question/prompt, back should be the concise answer.
+- For assignments: create a comprehensive assignment with clear instructions, appropriate rubric criteria, and reasonable scoring.
 
 ${outputSchemaSection}`
 
   const userPrompt = `Generate ${
-    body.contentType === "quiz" ? "quiz questions" : "flashcards"
+    body.contentType === "quiz"
+      ? "quiz questions"
+      : body.contentType === "assignment"
+        ? `an ${body.assignmentType || "essay"} assignment`
+        : "flashcards"
   } from these chunks.${focusSection}
 
 ${
   body.contentType === "quiz"
     ? "Include a mix of mcq (5-8) and true_false (2-4) questions."
-    : "Include 8-15 flashcards."
+    : body.contentType === "assignment"
+      ? `Create a comprehensive ${body.assignmentType || "essay"} assignment with clear instructions, learning objectives, and a rubric for grading. The assignment should be appropriate for the content level and test students' understanding of key concepts.`
+      : "Include 8-15 flashcards."
 }
 
 Chunks:

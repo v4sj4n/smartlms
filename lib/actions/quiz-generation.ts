@@ -86,7 +86,7 @@ export async function generateQuizAndFlashcardsFromFile(input: {
     .map((chunk) => `[chunk:${chunk.id}] ${chunk.chunkText}`)
     .join("\n\n")
 
-  const prompt = `Generate study content from these chunks.\n\n${aiPersonalizationSection}Rules:\n- Output JSON only.\n- Every question/flashcard must include valid sourceChunkIds from provided chunk ids.\n- Avoid duplicates and near duplicates.\n- Keep answers concise and correct.\n\nChunks:\n${context}`
+  const prompt = `Generate study content from these chunks.\n\n${aiPersonalizationSection}Rules:\n- Output JSON only.\n- Every question/flashcard must include valid sourceChunkIds from provided chunk ids.\n- Avoid duplicates and near duplicates.\n- Keep answers concise and correct.\n- Preserve normal word spacing in every string value. Do not collapse words, remove spaces inside sentences, or concatenate separate words.\n\nChunks:\n${context}`
 
   const response = await generateText({
     model: await chatModel(),

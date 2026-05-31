@@ -136,6 +136,11 @@ export function AppSidebar() {
             icon: Compass,
           },
           {
+            title: "Learning Hub",
+            url: "/student/learning-hub",
+            icon: Sparkles,
+          },
+          {
             title: "Settings",
             url: "/student/settings",
             icon: Settings,

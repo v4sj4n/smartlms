@@ -260,6 +260,7 @@ ${aiPersonalizationSection}Rules:
 - Every item must include valid sourceChunkIds from the provided chunk IDs.
 - Avoid duplicates and near-duplicates.
 - Keep answers concise and correct.
+  - Preserve normal word spacing in every string value. Do not collapse words, remove spaces inside sentences, or concatenate separate words.
 - For mcq questions: provide 4 options, with the answer being the exact text of the correct option.
 - For true_false questions: answer must be boolean true or false.
 - For flashcards: front should be a clear question/prompt, back should be the concise answer.

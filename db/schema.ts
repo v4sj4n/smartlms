@@ -407,6 +407,10 @@ export const files = pgTable(
     clubId: uuid("club_id").references(() => clubs.id, {
       onDelete: "set null",
     }),
+    learningHubGroupId: uuid("learning_hub_group_id").references(
+      () => learningHubGroups.id,
+      { onDelete: "set null" }
+    ),
     status: fileStatusEnum("status").default("UPLOADED").notNull(),
     metadata: jsonb("metadata")
       .$type<Record<string, unknown>>()
@@ -418,6 +422,7 @@ export const files = pgTable(
   (t) => [
     index("idx_files_subject_week").on(t.subjectId, t.weekNumber),
     index("idx_files_club").on(t.clubId),
+    index("idx_files_learning_hub_group").on(t.learningHubGroupId),
     index("idx_files_uploaded_by").on(t.uploadedBy),
   ]
 )
@@ -675,6 +680,45 @@ export const assignmentTypeEnum = pgEnum("assignment_type", [
   "presentation",
 ])
 
+export const assignmentOriginEnum = pgEnum("assignment_origin", [
+  "manual",
+  "ai_generated",
+])
+
+export const assignmentSubmissionTypeEnum = pgEnum("assignment_submission_type", [
+  "text",
+  "file",
+  "both",
+])
+
+export const assignments = pgTable("assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  weekId: uuid("week_id")
+    .references(() => courseWeeks.id, { onDelete: "cascade" })
+    .notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  type: assignmentTypeEnum("type").notNull().default("homework"),
+  origin: assignmentOriginEnum("origin").notNull().default("manual"),
+  sourceFileId: uuid("source_file_id").references(() => files.id, {
+    onDelete: "set null",
+  }),
+  submissionType: assignmentSubmissionTypeEnum("submission_type").notNull().default("both"),
+  maxScore: integer("max_score").notNull().default(100),
+  dueDate: timestamp("due_date", { mode: "date" }),
+  timeLimitMinutes: integer("time_limit_minutes"), // For timed assignments
+  isPublished: boolean("is_published").default(false).notNull(),
+  allowLateSubmissions: boolean("allow_late_submissions").default(true).notNull(),
+  createdBy: uuid("created_by")
+    .references(() => users.id, { onDelete: "set null" })
+    .notNull(),
+  rubric: jsonb("rubric").$type<{
+    criteria: { name: string; description: string; points: number }[]
+  }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
 export const submissions = pgTable("submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
   studentId: uuid("student_id")
@@ -766,6 +810,121 @@ export const clubEvents = pgTable("club_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
+
+/* ==========================================================================
+   6. STUDENT LEARNING HUB DOMAIN
+   Personal, student-owned study space for goals, notes, tasks, and resources
+   ========================================================================== */
+
+export const learningHubItemTypeEnum = pgEnum("learning_hub_item_type", [
+  "goal",
+  "note",
+  "task",
+  "resource",
+])
+
+export const learningHubs = pgTable(
+  "learning_hubs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    studentId: uuid("student_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    title: text("title").default("My Learning Hub").notNull(),
+    description: text("description"),
+    focus: text("focus"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("unq_learning_hubs_student").on(t.studentId)]
+)
+
+export const learningHubItems = pgTable(
+  "learning_hub_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hubId: uuid("hub_id")
+      .references(() => learningHubs.id, { onDelete: "cascade" })
+      .notNull(),
+    type: learningHubItemTypeEnum("type").default("note").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    dueAt: timestamp("due_at"),
+    isCompleted: boolean("is_completed").default(false).notNull(),
+    orderIndex: integer("order_index").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_learning_hub_items_hub").on(t.hubId),
+    index("idx_learning_hub_items_created_at").on(t.createdAt),
+  ]
+)
+
+export const learningHubGroups = pgTable(
+  "learning_hub_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    hubId: uuid("hub_id")
+      .references(() => learningHubs.id, { onDelete: "cascade" })
+      .notNull(),
+    createdById: uuid("created_by_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    joinCode: varchar("join_code", { length: 12 }).notNull(),
+    isDiscoverable: boolean("is_discoverable").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_learning_hub_groups_join_code").on(t.joinCode),
+    index("idx_learning_hub_groups_hub").on(t.hubId),
+    index("idx_learning_hub_groups_creator").on(t.createdById),
+  ]
+)
+
+export const learningHubGroupMembers = pgTable(
+  "learning_hub_group_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .references(() => learningHubGroups.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    role: varchar("role", { length: 24 }).default("MEMBER").notNull(),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_learning_hub_group_member").on(t.groupId, t.userId),
+    index("idx_learning_hub_group_members_user").on(t.userId),
+  ]
+)
+
+export const learningHubGroupMessages = pgTable(
+  "learning_hub_group_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .references(() => learningHubGroups.id, { onDelete: "cascade" })
+      .notNull(),
+    authorId: uuid("author_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_learning_hub_group_messages_group_created_at").on(
+      t.groupId,
+      t.createdAt
+    ),
+  ]
+)
 
 /* ==========================================================================
    11. AI CONFIGURATION DOMAIN
@@ -1099,6 +1258,21 @@ export const submissionsRelations = relations(submissions, ({ one }) => ({
   }),
 }))
 
+export const assignmentsRelations = relations(assignments, ({ one }) => ({
+  week: one(courseWeeks, {
+    fields: [assignments.weekId],
+    references: [courseWeeks.id],
+  }),
+  sourceFile: one(files, {
+    fields: [assignments.sourceFileId],
+    references: [files.id],
+  }),
+  creator: one(users, {
+    fields: [assignments.createdBy],
+    references: [users.id],
+  }),
+}))
+
 export const announcementsRelations = relations(announcements, ({ one }) => ({
   author: one(users, {
     fields: [announcements.authorId],
@@ -1174,6 +1348,10 @@ export const filesRelations = relations(files, ({ one, many }) => ({
   club: one(clubs, {
     fields: [files.clubId],
     references: [clubs.id],
+  }),
+  learningHubGroup: one(learningHubGroups, {
+    fields: [files.learningHubGroupId],
+    references: [learningHubGroups.id],
   }),
   chunks: many(fileChunks),
   quizzes: many(quizzes),
@@ -1276,6 +1454,73 @@ export const clubEventsRelations = relations(clubEvents, ({ one }) => ({
     references: [users.id],
   }),
 }))
+
+export const learningHubsRelations = relations(
+  learningHubs,
+  ({ one, many }) => ({
+    student: one(users, {
+      fields: [learningHubs.studentId],
+      references: [users.id],
+    }),
+    items: many(learningHubItems),
+    groups: many(learningHubGroups),
+  })
+)
+
+export const learningHubGroupsRelations = relations(
+  learningHubGroups,
+  ({ one, many }) => ({
+    hub: one(learningHubs, {
+      fields: [learningHubGroups.hubId],
+      references: [learningHubs.id],
+    }),
+    creator: one(users, {
+      fields: [learningHubGroups.createdById],
+      references: [users.id],
+    }),
+    members: many(learningHubGroupMembers),
+    messages: many(learningHubGroupMessages),
+    files: many(files),
+  })
+)
+
+export const learningHubGroupMembersRelations = relations(
+  learningHubGroupMembers,
+  ({ one }) => ({
+    group: one(learningHubGroups, {
+      fields: [learningHubGroupMembers.groupId],
+      references: [learningHubGroups.id],
+    }),
+    user: one(users, {
+      fields: [learningHubGroupMembers.userId],
+      references: [users.id],
+    }),
+  })
+)
+
+export const learningHubGroupMessagesRelations = relations(
+  learningHubGroupMessages,
+  ({ one }) => ({
+    group: one(learningHubGroups, {
+      fields: [learningHubGroupMessages.groupId],
+      references: [learningHubGroups.id],
+    }),
+    author: one(users, {
+      fields: [learningHubGroupMessages.authorId],
+      references: [users.id],
+    }),
+  })
+)
+
+export const learningHubItemsRelations = relations(
+  learningHubItems,
+  ({ one }) => ({
+    hub: one(learningHubs, {
+      fields: [learningHubItems.hubId],
+      references: [learningHubs.id],
+    }),
+  })
+)
 
 export const aiSettingsRelations = relations(aiSettings, ({ one }) => ({
   updater: one(users, {

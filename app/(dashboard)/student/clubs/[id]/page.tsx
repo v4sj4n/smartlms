@@ -55,7 +55,8 @@ export default async function StudentClubDetailPage({
             {club.name}
           </h1>
           <p className="mt-1 text-sm text-pretty text-muted-foreground">
-            {club.description || "Club space for materials and conversations."}
+            {club.description ||
+              "Teacher-led club space for materials and conversations."}
           </p>
         </div>
         <Link href="/student/clubs" className="self-start sm:self-auto">

@@ -11,7 +11,7 @@ import {
   quizAttempts,
   quizAnswers,
 } from "@/db/schema"
-import { and, asc, eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { requireAuth } from "@/lib/auth-guard"
 
@@ -377,6 +377,80 @@ export async function submitQuizAttempt(input: {
         error instanceof Error
           ? error.message
           : "Failed to submit quiz attempt",
+    }
+  }
+}
+
+export async function getCurrentUserQuizAttempt(quizId: string) {
+  try {
+    const user = await requireAuth()
+
+    if (user.role !== "STUDENT") {
+      return { success: false, error: "Forbidden" }
+    }
+
+    const quiz = await db.query.quizzes.findFirst({
+      where: eq(quizzes.id, quizId),
+      with: {
+        week: {
+          with: {
+            course: {
+              with: {
+                enrollments: true,
+              },
+            },
+          },
+        },
+        questions: {
+          with: {
+            options: true,
+          },
+          orderBy: (questions, { asc }) => [asc(questions.orderIndex)],
+        },
+      },
+    })
+
+    if (!quiz || !quiz.week?.course) {
+      return { success: false, error: "Quiz not found" }
+    }
+
+    const isEnrolled =
+      quiz.week.course.enrollments?.some(
+        (enrollment: { studentId: string }) => enrollment.studentId === user.id
+      ) ?? false
+
+    if (!isEnrolled) {
+      return { success: false, error: "Forbidden" }
+    }
+
+    const attempt = await db.query.quizAttempts.findFirst({
+      where: and(
+        eq(quizAttempts.userId, user.id),
+        eq(quizAttempts.quizId, quiz.id)
+      ),
+    })
+
+    if (!attempt) {
+      return { success: true, data: null }
+    }
+
+    return {
+      success: true,
+      data: {
+        score: attempt.score,
+        maxScore: quiz.questions.reduce(
+          (total, question) => total + question.points,
+          0
+        ),
+        completedAt: attempt.completedAt.toISOString(),
+      },
+    }
+  } catch (error) {
+    console.error("Failed to fetch quiz attempt:", error)
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch quiz attempt",
     }
   }
 }

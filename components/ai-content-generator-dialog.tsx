@@ -1319,7 +1319,7 @@ export function AIContentGeneratorDialog({
                 </Button>
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || files.length === 0}
+                  disabled={isGenerating}
                   className="gap-1.5"
                 >
                   {isGenerating ? (

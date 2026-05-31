@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 
 import { authOptions } from "@/lib/auth"
 import { getCourseById } from "@/lib/actions/courses"
-import { getQuizById } from "@/lib/actions/quizzes"
+import { getCurrentUserQuizAttempt, getQuizById } from "@/lib/actions/quizzes"
 import { QuizSession } from "@/components/student-quiz-session"
 import { BreadcrumbLabels } from "@/components/breadcrumb-labels"
 
@@ -48,6 +48,8 @@ export default async function StudentCourseQuizSessionPage({
     notFound()
   }
 
+  const { data: existingAttempt } = await getCurrentUserQuizAttempt(quiz.id)
+
   return (
     <>
       <BreadcrumbLabels
@@ -67,6 +69,7 @@ export default async function StudentCourseQuizSessionPage({
         questions={quiz.questions}
         timeLimitMinutes={quiz.timeLimitMinutes}
         userId={session.user.id}
+        existingAttempt={existingAttempt}
       />
     </>
   )

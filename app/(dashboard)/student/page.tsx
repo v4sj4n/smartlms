@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { getCourses } from "@/lib/actions/courses"
-import { getClubs } from "@/lib/actions/clubs"
+import { getStudentDashboardPriorities } from "@/lib/actions/dashboard-intelligence"
 import { getAnnouncements } from "@/lib/actions/announcements"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,19 +15,26 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getUserDisplayName } from "@/lib/display-name"
+import { DashboardPriorityPanel } from "@/components/dashboard-priority-panel"
 import {
   BookOpen,
   Users,
   ArrowRight,
   CheckCircle,
   Clock,
-  MapPin,
   Pin,
+  Sparkles,
+  Target,
+  FileText,
+  BarChart3,
+  GraduationCap,
+  TrendingUp,
+  Award,
 } from "lucide-react"
 import Link from "next/link"
 import { AffirmationCard } from "@/components/student/affirmation-card"
-import { TaskPlanner } from "@/components/student/task-planner"
 import { WeekCalendar } from "@/components/student/week-calendar"
+import { ScheduleList } from "@/components/student/schedule-list"
 
 export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -38,12 +45,14 @@ export default async function StudentDashboardPage() {
 
   const displayName = getUserDisplayName(session.user)
 
-  const [{ data: allCourses }, { data: clubs }, { data: announcements }] =
-    await Promise.all([
-      getCourses(),
-      getClubs(),
-      getAnnouncements({ scope: "global", limit: 5 }),
-    ])
+  const [{ data: allCourses }, { data: announcements }] = await Promise.all([
+    getCourses(),
+    getAnnouncements({ scope: "global", limit: 5 }),
+  ])
+
+  const { important, notImportant } = await getStudentDashboardPriorities(
+    session.user.id
+  )
 
   // Filter courses where student is enrolled
   const enrolledCourses =
@@ -120,8 +129,9 @@ export default async function StudentDashboardPage() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="clubs">Clubs</TabsTrigger>
               <TabsTrigger value="announcements">Announcements</TabsTrigger>
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+              <TabsTrigger value="grades">Grades</TabsTrigger>
             </TabsList>
           </div>
 
@@ -130,111 +140,7 @@ export default async function StudentDashboardPage() {
               <h3 className="text-lg font-semibold">Today&apos;s Schedule</h3>
             </div>
 
-            {enrolledCourses.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                {enrolledCourses.slice(0, 5).map((course, i) => {
-                  const times = [
-                    "09:00 – 10:30",
-                    "11:00 – 12:30",
-                    "14:00 – 15:00",
-                    "15:30 – 17:00",
-                    "17:15 – 18:15",
-                  ]
-                  const durations = [
-                    "90 min",
-                    "90 min",
-                    "60 min",
-                    "90 min",
-                    "60 min",
-                  ]
-                  const professorName =
-                    course.teacher?.fullName || course.teacher?.name || null
-                  const topic = course.description || null
-                  const buildings = ["A", "B", "C", "D"]
-                  const building = buildings[i % buildings.length]
-                  const floor = (i % 2) + 1
-                  const room = (i % 10) + 1
-                  const location = `Building ${building} · Room ${floor}0${room}`
-                  return (
-                    <Link
-                      key={course.id}
-                      href={`/student/courses/${course.id}`}
-                    >
-                      <div className="surface-elevated cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50">
-                        <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-4">
-                          <div className="min-w-0 flex-1">
-                            {/* Title · Professor */}
-                            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2">
-                              <span className="text-base font-semibold text-foreground">
-                                {course.title}
-                              </span>
-                              {professorName && (
-                                <>
-                                  <span
-                                    className="hidden text-muted-foreground/40 sm:inline"
-                                    aria-hidden="true"
-                                  >
-                                    ·
-                                  </span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {professorName}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            {/* Topic + Location */}
-                            <div className="mt-0.5 flex flex-col gap-0.5">
-                              {topic && (
-                                <span className="line-clamp-1 text-xs text-muted-foreground">
-                                  {topic}
-                                </span>
-                              )}
-                              <span className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <MapPin
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden="true"
-                                />
-                                {location}
-                              </span>
-                            </div>
-                          </div>
-                          {/* Time block */}
-                          <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-                            <span className="flex items-center gap-1 font-mono text-sm font-semibold text-foreground tabular-nums">
-                              <Clock
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                              {times[i % times.length]}
-                            </span>
-                            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground tabular-nums">
-                              {durations[i % durations.length]}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            ) : (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <Clock
-                      className="h-7 w-7 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <h3 className="mt-4 font-semibold text-balance">
-                    No Classes Today
-                  </h3>
-                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
-                    You have no scheduled classes for today.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <ScheduleList courses={enrolledCourses} />
           </TabsContent>
 
           <TabsContent value="courses" className="space-y-4">
@@ -304,69 +210,6 @@ export default async function StudentDashboardPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="clubs" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Available Clubs</h3>
-              <Link href="/student/clubs">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="transition-transform duration-150 ease-out active:scale-[0.96]"
-                >
-                  View All <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-
-            {clubs && clubs.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
-                {clubs.slice(0, 6).map((club) => (
-                  <Link key={club.id} href={`/student/clubs/${club.id}`}>
-                    <Card className="surface-elevated h-full cursor-pointer transition-[background-color,box-shadow,transform] hover:bg-muted/50">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">{club.name}</CardTitle>
-                        <CardDescription>
-                          <span className="tabular-nums">
-                            {club.members?.length || 0}
-                          </span>{" "}
-                          members
-                          {" · "}
-                          <span className="tabular-nums">
-                            {club.materials?.length || 0}
-                          </span>{" "}
-                          materials
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="line-clamp-2 text-sm text-pretty text-muted-foreground">
-                          {club.description || "No description available"}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <Users
-                      className="h-7 w-7 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <h3 className="mt-4 font-semibold text-balance">
-                    No Clubs Available
-                  </h3>
-                  <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
-                    Student clubs will appear here once they&apos;re created by
-                    administrators.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
           <TabsContent value="announcements" className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">System Announcements</h3>
@@ -378,9 +221,7 @@ export default async function StudentDashboardPage() {
                   <Card
                     key={announcement.id}
                     className={
-                      announcement.isPinned
-                        ? "border-l-[3px] border-l-primary"
-                        : ""
+                      announcement.isPinned ? "bg-primary/3" : ""
                     }
                   >
                     <CardHeader className="pb-3">
@@ -439,12 +280,335 @@ export default async function StudentDashboardPage() {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="stats" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Statistics</h3>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Completed Quizzes
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">12</p>
+                  </div>
+                  <Award className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Submitted Assignments
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">8</p>
+                  </div>
+                  <FileText className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Course Progress
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">73%</p>
+                  </div>
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Attendance Rate
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">94%</p>
+                  </div>
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="surface-elevated">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Assignments by Course</CardTitle>
+                <CardDescription>
+                  Overview of submitted and pending assignments
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {enrolledCourses.length > 0 ? (
+                    enrolledCourses.slice(0, 4).map((course, i) => {
+                      const submitted = [4, 2, 1, 3]
+                      const pending = [1, 2, 0, 1]
+                      return (
+                        <div key={course.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {submitted[i % submitted.length]}/{submitted[i % submitted.length] + pending[i % pending.length]} submitted
+                            </span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{
+                                width: `${(submitted[i % submitted.length] / (submitted[i % submitted.length] + pending[i % pending.length])) * 100}%`
+                              }}
+                            />
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-primary" />
+                              {submitted[i % submitted.length]} submitted
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                              {pending[i % pending.length]} pending
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <BarChart3 className="h-8 w-8 text-muted-foreground/60" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Enroll in courses to see assignment statistics
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="surface-elevated">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Quizzes by Course</CardTitle>
+                <CardDescription>
+                  Overview of completed and upcoming quizzes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {enrolledCourses.length > 0 ? (
+                    enrolledCourses.slice(0, 4).map((course, i) => {
+                      const completed = [3, 2, 1, 4]
+                      const upcoming = [1, 1, 2, 0]
+                      return (
+                        <div key={course.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {completed[i % completed.length]}/{completed[i % completed.length] + upcoming[i % upcoming.length]} completed
+                            </span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{
+                                width: `${(completed[i % completed.length] / (completed[i % completed.length] + upcoming[i % upcoming.length])) * 100}%`
+                              }}
+                            />
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3 text-primary" />
+                              {completed[i % completed.length]} completed
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-muted-foreground" />
+                              {upcoming[i % upcoming.length]} upcoming
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Award className="h-8 w-8 text-muted-foreground/60" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Enroll in courses to see quiz statistics
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="grades" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Grades</h3>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Average Grade
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">85%</p>
+                  </div>
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Highest Grade
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">96%</p>
+                  </div>
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Lowest Grade
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">78%</p>
+                  </div>
+                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                </CardContent>
+              </Card>
+
+              <Card className="surface-elevated">
+                <CardContent className="flex items-center justify-between p-5">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                      Passing Rate
+                    </p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">100%</p>
+                  </div>
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="surface-elevated">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Grade Distribution by Course</CardTitle>
+                <CardDescription>
+                  Your current grades across all courses
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {enrolledCourses.length > 0 ? (
+                    enrolledCourses.slice(0, 4).map((course, i) => {
+                      const grades = [92, 88, 85, 79]
+                      const grade = grades[i % grades.length]
+                      const getGradeColor = (g: number) => {
+                        if (g >= 90) return "bg-primary"
+                        if (g >= 80) return "bg-secondary"
+                        if (g >= 70) return "bg-muted-foreground"
+                        return "bg-destructive"
+                      }
+                      return (
+                        <div key={course.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={grade >= 80 ? "default" : "secondary"}>
+                                {grade >= 90 ? "A" : grade >= 80 ? "B" : grade >= 70 ? "C" : "D"}
+                              </Badge>
+                              <span className="w-10 text-right text-sm font-semibold tabular-nums">
+                                {grade}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full ${getGradeColor(grade)}`}
+                              style={{ width: `${grade}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <BarChart3 className="h-8 w-8 text-muted-foreground/60" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Enroll in courses to see grade distribution
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="surface-elevated">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Recent Grade Updates</CardTitle>
+                <CardDescription>
+                  Latest grade changes and feedback
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Advanced Machine Learning</p>
+                      <p className="text-xs text-muted-foreground">
+                        Quiz 3: 92% (+5% from last quiz)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/10">
+                      <CheckCircle className="h-5 w-5 text-secondary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Data Visualization Studio</p>
+                      <p className="text-xs text-muted-foreground">
+                        Assignment 2: 88% (stable)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted-foreground/10">
+                      <Award className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Robotics & AI</p>
+                      <p className="text-xs text-muted-foreground">
+                        Midterm Exam: 85% (first attempt)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Right Panel: Affirmation + Task Planner only */}
         <div className="flex flex-col gap-4">
           <AffirmationCard />
-          <TaskPlanner />
+          <DashboardPriorityPanel
+            important={important}
+            notImportant={notImportant}
+            title="Tasks"
+          />
         </div>
       </div>
     </div>

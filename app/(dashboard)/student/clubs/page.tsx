@@ -70,14 +70,14 @@ export default async function StudentClubsPage() {
         <div className="max-w-2xl space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-3 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <Sparkles className="mr-2 h-4 w-4" />
-            Student Clubs
+            Clubs
           </div>
           <h1 className="font-heading text-3xl font-extrabold tracking-tight text-balance text-foreground">
-            Find a club that fits your interests.
+            Join teacher-led clubs.
           </h1>
           <p className="max-w-xl text-sm text-pretty text-muted-foreground">
-            Browse the communities available to students, see what is active,
-            and jump into a club conversation.
+            Browse official school communities led or advised by faculty, see
+            what is active, and jump into a club conversation.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default async function StudentClubsPage() {
             disabled
           >
             <Compass className="mr-2 h-4 w-4" />
-            Explore Clubs
+            Explore Groups
           </Button>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default async function StudentClubsPage() {
           <CardContent className="flex items-center justify-between p-5">
             <div>
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Clubs
+                Groups
               </p>
               <p className="mt-1 text-2xl font-bold tabular-nums">
                 {clubs.length}
@@ -160,7 +160,7 @@ export default async function StudentClubsPage() {
                     </CardTitle>
                     <CardDescription className="mt-1 line-clamp-2 leading-relaxed text-pretty">
                       {club.description ||
-                        "A student community for events, updates, and shared materials."}
+                        "An official club space for events, updates, and shared materials."}
                     </CardDescription>
                   </div>
                   <Badge
@@ -229,11 +229,11 @@ export default async function StudentClubsPage() {
               <Compass className="h-10 w-10" />
             </div>
             <h2 className="text-xl font-bold tracking-tight text-balance">
-              No clubs available yet
+              No Clubs Available Yet
             </h2>
             <p className="mt-2 max-w-md text-sm text-pretty text-muted-foreground">
-              Clubs will appear here once they are created by the school. For
-              now, you can still explore your courses and dashboard.
+              Groups will appear here once they are created by the school. For
+              student-led topics, open your Learning Hub.
             </p>
           </CardContent>
         </Card>

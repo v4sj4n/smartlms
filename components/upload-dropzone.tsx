@@ -8,6 +8,7 @@ type Props = {
   folderId?: string
   weekNumber?: number
   clubId?: string
+  learningHubGroupId?: string
   onUploaded?: (file: unknown) => void
 }
 
@@ -40,6 +41,7 @@ export function UploadDropzone(props: Props) {
         folderId: props.folderId,
         weekNumber: props.weekNumber,
         clubId: props.clubId,
+        learningHubGroupId: props.learningHubGroupId,
       }),
     })
 
@@ -88,6 +90,7 @@ export function UploadDropzone(props: Props) {
         folderId: props.folderId,
         weekNumber: props.weekNumber,
         clubId: props.clubId,
+        learningHubGroupId: props.learningHubGroupId,
       }),
     })
 

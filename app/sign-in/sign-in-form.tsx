@@ -48,7 +48,7 @@ export function SignInForm() {
           <Input
             id="email"
             type="email"
-            placeholder="fjona@smartlms.com"
+            placeholder="fjona@optimolms.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

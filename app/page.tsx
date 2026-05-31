@@ -39,7 +39,7 @@ import {
 const features = [
   {
     icon: BookOpen,
-    title: "Learning Hub",
+    title: "Academic Hub",
     description:
       "A unified center for courses, materials, assignments, and learning resources.",
   },
@@ -158,9 +158,9 @@ export default function Page() {
               size="lg"
               className="group h-12 pr-7.5 pl-8 text-base transition-transform duration-150 ease-out active:scale-[0.96]"
             >
-              <Link href="/vidshpjeguese.mp4" target="_blank">
+              <Link href="/intro">
                 <Play className="mr-2 ml-px h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
-                Watch Demo
+                Watch Intro
               </Link>
             </Button>
           </div>

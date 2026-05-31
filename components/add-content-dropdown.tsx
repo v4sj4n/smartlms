@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, FileText, HelpCircle, Layers, Sparkles } from "lucide-react"
+import { Plus, FileText, HelpCircle, Layers, Sparkles, ClipboardCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ export function AddContentDropdown({
         <DropdownMenuItem asChild>
           <Link
             href={`/professor/courses/${courseId}/files/new?folderId=${weekId}`}
-            className="flex cursor-pointer items-center"
+            className="flex cursor-pointer items-center px-4 py-2"
           >
             <FileText className="mr-2 h-4 w-4" />
             Materials
@@ -43,7 +43,7 @@ export function AddContentDropdown({
         <DropdownMenuItem asChild>
           <Link
             href={`/professor/courses/${courseId}/quizzes/new?folderId=${weekId}`}
-            className="flex cursor-pointer items-center"
+            className="flex cursor-pointer items-center px-4 py-2"
           >
             <HelpCircle className="mr-2 h-4 w-4" />
             Quizzes
@@ -51,8 +51,17 @@ export function AddContentDropdown({
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link
+            href={`/professor/courses/${courseId}/assignments/new?folderId=${weekId}`}
+            className="flex cursor-pointer items-center px-4 py-2"
+          >
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Assignments
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
             href={`/professor/courses/${courseId}/flashcards/new?folderId=${weekId}`}
-            className="flex cursor-pointer items-center"
+            className="flex cursor-pointer items-center px-4 py-2"
           >
             <Layers className="mr-2 h-4 w-4" />
             Flashcards
@@ -63,7 +72,7 @@ export function AddContentDropdown({
             weekId={weekId}
             weekTitle={weekTitle}
             trigger={
-              <div className="flex cursor-pointer items-center px-2 py-2">
+              <div className="flex cursor-pointer items-center px-4 py-2">
                 <Sparkles className="mr-2 h-4 w-4 text-amber-400" />
                 <span className="">GenAI</span>
               </div>
