@@ -20,14 +20,14 @@ interface ScheduleListProps {
 function parseTime(timeStr: string): { start: Date; end: Date } {
   const today = new Date()
   const [startStr, endStr] = timeStr.split(" – ")
-  
+
   const parsePart = (part: string) => {
     const [hours, minutes] = part.split(":").map(Number)
     const date = new Date(today)
     date.setHours(hours, minutes, 0, 0)
     return date
   }
-  
+
   return {
     start: parsePart(startStr),
     end: parsePart(endStr),
@@ -48,7 +48,7 @@ function isPastLecture(timeStr: string): boolean {
 
 function getNextLectureIndex(courses: Course[]): number | null {
   const now = new Date()
-  
+
   const times = [
     "09:00 – 10:30",
     "11:00 – 12:30",
@@ -56,14 +56,14 @@ function getNextLectureIndex(courses: Course[]): number | null {
     "15:30 – 17:00",
     "17:15 – 18:15",
   ]
-  
+
   for (let i = 0; i < Math.min(courses.length, times.length); i++) {
     const { start } = parseTime(times[i])
     if (now < start) {
       return i
     }
   }
-  
+
   return null
 }
 
@@ -75,12 +75,12 @@ export function ScheduleList({ courses }: ScheduleListProps) {
     "15:30 – 17:00",
     "17:15 – 18:15",
   ]
-  
+
   const durations = ["90 min", "90 min", "60 min", "90 min", "60 min"]
   const buildings = ["A", "B", "C", "D"]
-  
+
   const nextIndex = getNextLectureIndex(courses)
-  
+
   if (courses.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -94,32 +94,33 @@ export function ScheduleList({ courses }: ScheduleListProps) {
       </div>
     )
   }
-  
+
   return (
     <div className="flex flex-col gap-3">
       {courses.slice(0, 5).map((course, i) => {
         const time = times[i % times.length]
         const duration = durations[i % durations.length]
-        const professorName = course.teacher?.fullName || course.teacher?.name || null
+        const professorName =
+          course.teacher?.fullName || course.teacher?.name || null
         const topic = course.description || null
         const building = buildings[i % buildings.length]
         const floor = (i % 2) + 1
         const room = (i % 10) + 1
         const location = `Building ${building} · Room ${floor}0${room}`
-        
+
         const current = isCurrentLecture(time)
         const past = isPastLecture(time)
         const isNext = nextIndex === i
-        
+
         return (
           <Link key={course.id} href={`/student/courses/${course.id}`}>
             <div
               className={`relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50 ${
-                current ? "ring-1 ring-primary/30 bg-primary/2" : ""
+                current ? "bg-primary/2 ring-1 ring-primary/30" : ""
               } ${past ? "opacity-60" : ""}`}
             >
               {/* Status indicator dot */}
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <div className="absolute top-1/2 left-3 -translate-y-1/2">
                 {current && (
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
@@ -130,8 +131,8 @@ export function ScheduleList({ courses }: ScheduleListProps) {
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
                 )}
               </div>
-              
-              <div className="flex items-start justify-between gap-4 pl-8 pr-5 pt-4 pb-4">
+
+              <div className="flex items-start justify-between gap-4 pt-4 pr-5 pb-4 pl-8">
                 <div className="min-w-0 flex-1">
                   {/* Title · Professor */}
                   <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2">
@@ -152,7 +153,7 @@ export function ScheduleList({ courses }: ScheduleListProps) {
                       </>
                     )}
                   </div>
-                  
+
                   {/* Status label */}
                   {current && (
                     <span className="mt-1 inline-flex items-center text-xs font-medium text-emerald-600">
@@ -164,7 +165,7 @@ export function ScheduleList({ courses }: ScheduleListProps) {
                       Next
                     </span>
                   )}
-                  
+
                   {/* Topic + Location */}
                   <div className="mt-0.5 flex flex-col gap-0.5">
                     {topic && (
@@ -178,7 +179,7 @@ export function ScheduleList({ courses }: ScheduleListProps) {
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Time block */}
                 <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
                   <span className="flex items-center gap-1 font-mono text-sm font-semibold text-foreground tabular-nums">

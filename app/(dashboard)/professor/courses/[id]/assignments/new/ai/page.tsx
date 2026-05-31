@@ -34,7 +34,7 @@ export default async function AIAssignmentCreationPage({
 
   const weeks = course.weeks ?? []
   const focusedWeek = folderId
-    ? weeks.find((week) => week.id === folderId) ?? null
+    ? (weeks.find((week) => week.id === folderId) ?? null)
     : null
 
   if (!focusedWeek) {
@@ -44,17 +44,24 @@ export default async function AIAssignmentCreationPage({
   return (
     <div className="flex-1 space-y-6 p-8">
       <div className="flex items-start gap-4">
-        <Link href={`/professor/courses/${id}/assignments/new?mode=tailored${folderId ? `&folderId=${folderId}` : ""}`}>
+        <Link
+          href={`/professor/courses/${id}/assignments/new?mode=tailored${folderId ? `&folderId=${folderId}` : ""}`}
+        >
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Create Assignment with AI</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Create Assignment with AI
+          </h1>
           <p className="text-muted-foreground">
-            AI will analyze your folder materials and generate a tailored assignment.
+            AI will analyze your folder materials and generate a tailored
+            assignment.
           </p>
-          <p className="text-sm text-muted-foreground">Course: {course.title}</p>
+          <p className="text-sm text-muted-foreground">
+            Course: {course.title}
+          </p>
           {focusedWeek && (
             <p className="text-sm text-muted-foreground">
               Folder: Week {focusedWeek.weekNumber}: {focusedWeek.title}

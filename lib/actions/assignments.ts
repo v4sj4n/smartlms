@@ -28,7 +28,7 @@ export async function createAssignment(data: {
 }) {
   try {
     const user = await requireAuth()
-    
+
     const [assignment] = await db
       .insert(assignments)
       .values({

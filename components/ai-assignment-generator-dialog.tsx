@@ -84,17 +84,23 @@ export function AIAssignmentGeneratorDialog({
   const [files, setFiles] = useState<FileItem[]>([])
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
   const [hasFetchedFiles, setHasFetchedFiles] = useState(false)
-  const [assignmentDraft, setAssignmentDraft] = useState<GeneratedAssignment | null>(null)
+  const [assignmentDraft, setAssignmentDraft] =
+    useState<GeneratedAssignment | null>(null)
 
   // Draft editing state
   const [draftTitle, setDraftTitle] = useState("")
   const [draftDescription, setDraftDescription] = useState("")
-  const [draftType, setDraftType] = useState<GeneratedAssignment["type"]>("essay")
-  const [draftSubmissionType, setDraftSubmissionType] = useState<"text" | "file" | "both">("both")
+  const [draftType, setDraftType] =
+    useState<GeneratedAssignment["type"]>("essay")
+  const [draftSubmissionType, setDraftSubmissionType] = useState<
+    "text" | "file" | "both"
+  >("both")
   const [draftMaxScore, setDraftMaxScore] = useState(100)
   const [draftTimeLimit, setDraftTimeLimit] = useState<number | "">("")
   const [draftDueDate, setDraftDueDate] = useState("")
-  const [draftRubric, setDraftRubric] = useState<GeneratedAssignment["rubric"]>({ criteria: [] })
+  const [draftRubric, setDraftRubric] = useState<GeneratedAssignment["rubric"]>(
+    { criteria: [] }
+  )
   const [draftAllowLate, setDraftAllowLate] = useState(true)
 
   const fetchFiles = useCallback(async () => {
@@ -216,11 +222,14 @@ export function AIAssignmentGeneratorDialog({
       }
 
       const payload =
-        parsedJson && typeof parsedJson === "object" && "assignment" in parsedJson
+        parsedJson &&
+        typeof parsedJson === "object" &&
+        "assignment" in parsedJson
           ? parsedJson
           : parsedJson
 
-      const assignment = (payload as { assignment?: GeneratedAssignment }).assignment
+      const assignment = (payload as { assignment?: GeneratedAssignment })
+        .assignment
       if (!assignment || !assignment.title) {
         toast.error("AI did not return a valid assignment")
         return
@@ -262,7 +271,8 @@ export function AIAssignmentGeneratorDialog({
         origin: "ai_generated",
         submissionType: draftSubmissionType,
         maxScore: draftMaxScore,
-        timeLimitMinutes: draftTimeLimit === "" ? undefined : Number(draftTimeLimit),
+        timeLimitMinutes:
+          draftTimeLimit === "" ? undefined : Number(draftTimeLimit),
         dueDate: draftDueDate ? new Date(draftDueDate) : undefined,
         allowLateSubmissions: draftAllowLate,
         rubric: draftRubric.criteria.length > 0 ? draftRubric : undefined,
@@ -307,7 +317,9 @@ export function AIAssignmentGeneratorDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              {step === "setup" ? "Generate assignment with AI" : "Review AI Assignment Draft"}
+              {step === "setup"
+                ? "Generate assignment with AI"
+                : "Review AI Assignment Draft"}
             </DialogTitle>
             <DialogDescription>
               {step === "setup"
@@ -491,7 +503,9 @@ export function AIAssignmentGeneratorDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="text">Text only (paste/write)</SelectItem>
+                    <SelectItem value="text">
+                      Text only (paste/write)
+                    </SelectItem>
                     <SelectItem value="file">File upload only</SelectItem>
                     <SelectItem value="both">Both text and file</SelectItem>
                   </SelectContent>
@@ -502,7 +516,9 @@ export function AIAssignmentGeneratorDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="draft-description">Description / Instructions</Label>
+                <Label htmlFor="draft-description">
+                  Description / Instructions
+                </Label>
                 <Textarea
                   id="draft-description"
                   value={draftDescription}
@@ -584,7 +600,7 @@ export function AIAssignmentGeneratorDialog({
                     {draftRubric.criteria.map((criterion, index) => (
                       <div
                         key={index}
-                        className="rounded-lg border p-3 space-y-2"
+                        className="space-y-2 rounded-lg border p-3"
                       >
                         <div className="flex items-center justify-between">
                           <Input
@@ -603,7 +619,8 @@ export function AIAssignmentGeneratorDialog({
                             value={criterion.points}
                             onChange={(e) => {
                               const newCriteria = [...draftRubric.criteria]
-                              newCriteria[index].points = Number(e.target.value) || 0
+                              newCriteria[index].points =
+                                Number(e.target.value) || 0
                               setDraftRubric({ criteria: newCriteria })
                             }}
                             className="ml-2 w-20 text-right"

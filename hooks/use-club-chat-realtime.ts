@@ -91,7 +91,10 @@ export function useClubChatRealtime(
     channel.subscribe((status, err) => {
       console.log("[ClubChatRealtime] Subscription status:", status, err)
       if (status === "SUBSCRIBED") {
-        console.log("[ClubChatRealtime] Successfully subscribed to club:", clubId)
+        console.log(
+          "[ClubChatRealtime] Successfully subscribed to club:",
+          clubId
+        )
       }
       if (status === "CHANNEL_ERROR") {
         console.error("[ClubChatRealtime] Channel error:", err)

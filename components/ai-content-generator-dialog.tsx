@@ -906,7 +906,9 @@ export function AIContentGeneratorDialog({
   const [title, setTitle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamedText, setStreamedText] = useState("")
-  const [streamedItems, setStreamedItems] = useState<Array<Record<string, unknown>>>([])
+  const [streamedItems, setStreamedItems] = useState<
+    Array<Record<string, unknown>>
+  >([])
   const [isSaving, setIsSaving] = useState(false)
   const [isFetchingFiles, setIsFetchingFiles] = useState(false)
   const [files, setFiles] = useState<FileItem[]>([])
@@ -1020,14 +1022,20 @@ export function AIContentGeneratorDialog({
             let objStart = -1
             for (let i = 0; i < partial.length; i++) {
               const ch = partial[i]
-              if (ch === "{" && depth === 0) { objStart = i; depth = 1 }
-              else if (ch === "{") depth++
+              if (ch === "{" && depth === 0) {
+                objStart = i
+                depth = 1
+              } else if (ch === "{") depth++
               else if (ch === "}" && depth === 1) {
                 depth = 0
                 try {
-                  const obj = JSON.parse(partial.slice(objStart, i + 1)) as Record<string, unknown>
+                  const obj = JSON.parse(
+                    partial.slice(objStart, i + 1)
+                  ) as Record<string, unknown>
                   parsed.push(obj)
-                } catch { /* incomplete */ }
+                } catch {
+                  /* incomplete */
+                }
                 objStart = -1
               } else if (ch === "}") depth--
             }
@@ -1063,12 +1071,13 @@ export function AIContentGeneratorDialog({
       }
 
       if (contentType === "quiz") {
-        const payload =
-          Array.isArray(parsedJson)
-            ? { questions: parsedJson }
-            : parsedJson && typeof parsedJson === "object" && "questions" in parsedJson
-              ? parsedJson
-              : parsedJson
+        const payload = Array.isArray(parsedJson)
+          ? { questions: parsedJson }
+          : parsedJson &&
+              typeof parsedJson === "object" &&
+              "questions" in parsedJson
+            ? parsedJson
+            : parsedJson
         const questions = (payload as { questions?: unknown }).questions
         if (!Array.isArray(questions) || questions.length === 0) {
           toast.error("AI did not return valid quiz questions")
@@ -1077,12 +1086,13 @@ export function AIContentGeneratorDialog({
         setQuizDraft(questions as GeneratedQuizQuestion[])
         setFlashcardDraft([])
       } else {
-        const payload =
-          Array.isArray(parsedJson)
-            ? { flashcards: parsedJson }
-            : parsedJson && typeof parsedJson === "object" && "flashcards" in parsedJson
-              ? parsedJson
-              : parsedJson
+        const payload = Array.isArray(parsedJson)
+          ? { flashcards: parsedJson }
+          : parsedJson &&
+              typeof parsedJson === "object" &&
+              "flashcards" in parsedJson
+            ? parsedJson
+            : parsedJson
         const cards = (payload as { flashcards?: unknown }).flashcards
         if (!Array.isArray(cards) || cards.length === 0) {
           toast.error("AI did not return valid flashcards")
@@ -1357,7 +1367,9 @@ export function AIContentGeneratorDialog({
                             Q{idx + 1}
                           </span>
                           <span className="text-foreground/80">
-                            {String((item as { prompt?: unknown }).prompt ?? "")}
+                            {String(
+                              (item as { prompt?: unknown }).prompt ?? ""
+                            )}
                           </span>
                           {(item as { difficulty?: string }).difficulty ? (
                             <span className="ml-2 text-xs text-muted-foreground opacity-70">

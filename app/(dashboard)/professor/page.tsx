@@ -51,11 +51,12 @@ export default async function ProfessorDashboardPage() {
 
   const displayName = getUserDisplayName(session.user)
 
-  const [{ data: courses }, priorities, { data: announcements }] = await Promise.all([
-    getCourses({ teacherId: session.user.id }),
-    getProfessorDashboardPriorities(session.user.id),
-    getAnnouncements({ scope: "global", limit: 5 }),
-  ])
+  const [{ data: courses }, priorities, { data: announcements }] =
+    await Promise.all([
+      getCourses({ teacherId: session.user.id }),
+      getProfessorDashboardPriorities(session.user.id),
+      getAnnouncements({ scope: "global", limit: 5 }),
+    ])
 
   const myCourses = courses || []
 
@@ -63,11 +64,12 @@ export default async function ProfessorDashboardPage() {
   const courseIds = myCourses.map((c) => c.id)
 
   // Fetch data for all courses
-  const [pendingSubmissions, upcomingDeadlines, quizPerformance] = await Promise.all([
-    getPendingSubmissions(courseIds),
-    getUpcomingDeadlines(courseIds),
-    getQuizPerformance(courseIds),
-  ])
+  const [pendingSubmissions, upcomingDeadlines, quizPerformance] =
+    await Promise.all([
+      getPendingSubmissions(courseIds),
+      getUpcomingDeadlines(courseIds),
+      getQuizPerformance(courseIds),
+    ])
 
   // Calculate totals across all courses
   const totalStudents = myCourses.reduce(
@@ -78,7 +80,8 @@ export default async function ProfessorDashboardPage() {
     (acc, course) =>
       acc +
       (course.weeks?.reduce(
-        (wAcc, week) => wAcc + ((week as { quizzes?: unknown[] }).quizzes?.length || 0),
+        (wAcc, week) =>
+          wAcc + ((week as { quizzes?: unknown[] }).quizzes?.length || 0),
         0
       ) || 0),
     0
@@ -87,7 +90,8 @@ export default async function ProfessorDashboardPage() {
     (acc, course) =>
       acc +
       (course.weeks?.reduce(
-        (wAcc, week) => wAcc + ((week as { materials?: unknown[] }).materials?.length || 0),
+        (wAcc, week) =>
+          wAcc + ((week as { materials?: unknown[] }).materials?.length || 0),
         0
       ) || 0),
     0
@@ -115,7 +119,9 @@ export default async function ProfessorDashboardPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
               <BookOpen className="h-7 w-7 text-muted-foreground/60" />
             </div>
-            <h3 className="mt-4 font-semibold text-balance">No Courses Assigned</h3>
+            <h3 className="mt-4 font-semibold text-balance">
+              No Courses Assigned
+            </h3>
             <p className="mt-1.5 max-w-sm text-center text-sm text-pretty text-muted-foreground">
               You haven&apos;t been assigned to any courses yet. Contact your
               administrator.
@@ -208,7 +214,9 @@ export default async function ProfessorDashboardPage() {
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <Card className="surface-elevated">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">My Courses</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    My Courses
+                  </CardTitle>
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -216,7 +224,9 @@ export default async function ProfessorDashboardPage() {
                     {myCourses.length}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {myCourses.length === 1 ? "Active course" : "Active courses"}
+                    {myCourses.length === 1
+                      ? "Active course"
+                      : "Active courses"}
                   </p>
                 </CardContent>
               </Card>
@@ -257,9 +267,7 @@ export default async function ProfessorDashboardPage() {
 
               <Card className="surface-elevated">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Quizzes
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Quizzes</CardTitle>
                   <HelpCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -334,7 +342,9 @@ export default async function ProfessorDashboardPage() {
           {/* Schedule Tab */}
           <TabsContent value="schedule" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Today&apos;s Teaching Schedule</h3>
+              <h3 className="text-lg font-semibold">
+                Today&apos;s Teaching Schedule
+              </h3>
             </div>
             <TeachingSchedule courses={myCourses} />
           </TabsContent>
@@ -355,8 +365,10 @@ export default async function ProfessorDashboardPage() {
                     <p className="mt-1 text-2xl font-bold tabular-nums">
                       {quizPerformance.length > 0
                         ? Math.round(
-                            quizPerformance.reduce((a, b) => a + b.averageScore, 0) /
-                              quizPerformance.length
+                            quizPerformance.reduce(
+                              (a, b) => a + b.averageScore,
+                              0
+                            ) / quizPerformance.length
                           )
                         : 0}
                       %
@@ -388,7 +400,9 @@ export default async function ProfessorDashboardPage() {
                     </p>
                     <p className="mt-1 text-2xl font-bold tabular-nums">
                       {quizPerformance.length > 0
-                        ? Math.max(...quizPerformance.map((p) => p.highestScore))
+                        ? Math.max(
+                            ...quizPerformance.map((p) => p.highestScore)
+                          )
                         : 0}
                       %
                     </p>
@@ -414,7 +428,9 @@ export default async function ProfessorDashboardPage() {
 
             <Card className="surface-elevated">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Quiz Performance by Course</CardTitle>
+                <CardTitle className="text-base">
+                  Quiz Performance by Course
+                </CardTitle>
                 <CardDescription>
                   Average scores across all your courses
                 </CardDescription>
@@ -425,7 +441,9 @@ export default async function ProfessorDashboardPage() {
                     quizPerformance.slice(0, 5).map((perf) => (
                       <div key={perf.quizId} className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="truncate text-sm font-medium">{perf.quizTitle}</p>
+                          <p className="truncate text-sm font-medium">
+                            {perf.quizTitle}
+                          </p>
                           <span className="text-xs text-muted-foreground">
                             {perf.courseTitle}
                           </span>
@@ -438,7 +456,10 @@ export default async function ProfessorDashboardPage() {
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <span className="font-semibold text-foreground">{perf.averageScore}%</span> avg
+                            <span className="font-semibold text-foreground">
+                              {perf.averageScore}%
+                            </span>{" "}
+                            avg
                           </span>
                           <span>{perf.totalAttempts} attempts</span>
                         </div>
@@ -458,10 +479,10 @@ export default async function ProfessorDashboardPage() {
 
             <Card className="surface-elevated">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Student Enrollment by Course</CardTitle>
-                <CardDescription>
-                  Current enrollment numbers
-                </CardDescription>
+                <CardTitle className="text-base">
+                  Student Enrollment by Course
+                </CardTitle>
+                <CardDescription>Current enrollment numbers</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -471,9 +492,13 @@ export default async function ProfessorDashboardPage() {
                     return (
                       <div key={course.id} className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="truncate text-sm font-medium">{course.title}</p>
+                          <p className="truncate text-sm font-medium">
+                            {course.title}
+                          </p>
                           <div className="flex items-center gap-2">
-                            <Badge variant={count > 0 ? "default" : "secondary"}>
+                            <Badge
+                              variant={count > 0 ? "default" : "secondary"}
+                            >
                               {count > 0 ? "Active" : "Empty"}
                             </Badge>
                             <span className="w-10 text-right text-sm font-semibold tabular-nums">
@@ -484,7 +509,9 @@ export default async function ProfessorDashboardPage() {
                         <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                           <div
                             className="h-full rounded-full bg-primary"
-                            style={{ width: `${Math.min((count / maxStudents) * 100, 100)}%` }}
+                            style={{
+                              width: `${Math.min((count / maxStudents) * 100, 100)}%`,
+                            }}
                           />
                         </div>
                       </div>
@@ -506,9 +533,7 @@ export default async function ProfessorDashboardPage() {
                 {announcements.map((announcement) => (
                   <Card
                     key={announcement.id}
-                    className={
-                      announcement.isPinned ? "bg-primary/3" : ""
-                    }
+                    className={announcement.isPinned ? "bg-primary/3" : ""}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start gap-2">

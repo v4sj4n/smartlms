@@ -9,18 +9,20 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import type { QuizPerformance } from "@/lib/actions/dashboard-intelligence"
-import { HelpCircle, TrendingUp, TrendingDown, Minus, Users } from "lucide-react"
+import {
+  HelpCircle,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Users,
+} from "lucide-react"
 
 interface QuizPerformanceCardProps {
   performances: QuizPerformance[]
   maxItems?: number
 }
 
-function PerformanceTrend({
-  average,
-}: {
-  average: number
-}) {
+function PerformanceTrend({ average }: { average: number }) {
   if (average >= 80) {
     return (
       <div className="flex items-center gap-1 text-emerald-600">
@@ -79,7 +81,7 @@ export function QuizPerformanceCard({
               <Link
                 key={performance.quizId}
                 href={performance.href}
-                className="group block rounded-lg border border-border/60 bg-background p-3 transition-colors hover:bg-muted/50 hover:border-border"
+                className="group block rounded-lg border border-border/60 bg-background p-3 transition-colors hover:border-border hover:bg-muted/50"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -98,15 +100,15 @@ export function QuizPerformanceCard({
                     <p className="text-lg font-semibold tabular-nums">
                       {performance.averageScore}%
                     </p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
                       Avg
                     </p>
                   </div>
                   <div className="rounded-md bg-muted/50 p-2 text-center">
-                    <p className="text-lg font-semibold tabular-nums text-emerald-600">
+                    <p className="text-lg font-semibold text-emerald-600 tabular-nums">
                       {performance.highestScore}%
                     </p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
                       High
                     </p>
                   </div>
@@ -117,7 +119,7 @@ export function QuizPerformanceCard({
                         {performance.totalAttempts}
                       </span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    <p className="text-[10px] tracking-wide text-muted-foreground uppercase">
                       Attempts
                     </p>
                   </div>

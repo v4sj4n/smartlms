@@ -220,9 +220,7 @@ export default async function StudentDashboardPage() {
                 {announcements.map((announcement) => (
                   <Card
                     key={announcement.id}
-                    className={
-                      announcement.isPinned ? "bg-primary/3" : ""
-                    }
+                    className={announcement.isPinned ? "bg-primary/3" : ""}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start gap-2">
@@ -338,7 +336,9 @@ export default async function StudentDashboardPage() {
 
             <Card className="surface-elevated">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Assignments by Course</CardTitle>
+                <CardTitle className="text-base">
+                  Assignments by Course
+                </CardTitle>
                 <CardDescription>
                   Overview of submitted and pending assignments
                 </CardDescription>
@@ -352,16 +352,21 @@ export default async function StudentDashboardPage() {
                       return (
                         <div key={course.id} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <p className="truncate text-sm font-medium">
+                              {course.title}
+                            </p>
                             <span className="text-xs text-muted-foreground">
-                              {submitted[i % submitted.length]}/{submitted[i % submitted.length] + pending[i % pending.length]} submitted
+                              {submitted[i % submitted.length]}/
+                              {submitted[i % submitted.length] +
+                                pending[i % pending.length]}{" "}
+                              submitted
                             </span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                             <div
                               className="h-full rounded-full bg-primary"
                               style={{
-                                width: `${(submitted[i % submitted.length] / (submitted[i % submitted.length] + pending[i % pending.length])) * 100}%`
+                                width: `${(submitted[i % submitted.length] / (submitted[i % submitted.length] + pending[i % pending.length])) * 100}%`,
                               }}
                             />
                           </div>
@@ -406,16 +411,21 @@ export default async function StudentDashboardPage() {
                       return (
                         <div key={course.id} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <p className="truncate text-sm font-medium">
+                              {course.title}
+                            </p>
                             <span className="text-xs text-muted-foreground">
-                              {completed[i % completed.length]}/{completed[i % completed.length] + upcoming[i % upcoming.length]} completed
+                              {completed[i % completed.length]}/
+                              {completed[i % completed.length] +
+                                upcoming[i % upcoming.length]}{" "}
+                              completed
                             </span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                             <div
                               className="h-full rounded-full bg-primary"
                               style={{
-                                width: `${(completed[i % completed.length] / (completed[i % completed.length] + upcoming[i % upcoming.length])) * 100}%`
+                                width: `${(completed[i % completed.length] / (completed[i % completed.length] + upcoming[i % upcoming.length])) * 100}%`,
                               }}
                             />
                           </div>
@@ -502,7 +512,9 @@ export default async function StudentDashboardPage() {
 
             <Card className="surface-elevated">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Grade Distribution by Course</CardTitle>
+                <CardTitle className="text-base">
+                  Grade Distribution by Course
+                </CardTitle>
                 <CardDescription>
                   Your current grades across all courses
                 </CardDescription>
@@ -522,10 +534,20 @@ export default async function StudentDashboardPage() {
                       return (
                         <div key={course.id} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <p className="truncate text-sm font-medium">{course.title}</p>
+                            <p className="truncate text-sm font-medium">
+                              {course.title}
+                            </p>
                             <div className="flex items-center gap-2">
-                              <Badge variant={grade >= 80 ? "default" : "secondary"}>
-                                {grade >= 90 ? "A" : grade >= 80 ? "B" : grade >= 70 ? "C" : "D"}
+                              <Badge
+                                variant={grade >= 80 ? "default" : "secondary"}
+                              >
+                                {grade >= 90
+                                  ? "A"
+                                  : grade >= 80
+                                    ? "B"
+                                    : grade >= 70
+                                      ? "C"
+                                      : "D"}
                               </Badge>
                               <span className="w-10 text-right text-sm font-semibold tabular-nums">
                                 {grade}%
@@ -555,7 +577,9 @@ export default async function StudentDashboardPage() {
 
             <Card className="surface-elevated">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Recent Grade Updates</CardTitle>
+                <CardTitle className="text-base">
+                  Recent Grade Updates
+                </CardTitle>
                 <CardDescription>
                   Latest grade changes and feedback
                 </CardDescription>
@@ -567,7 +591,9 @@ export default async function StudentDashboardPage() {
                       <TrendingUp className="h-5 w-5 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">Advanced Machine Learning</p>
+                      <p className="text-sm font-medium">
+                        Advanced Machine Learning
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         Quiz 3: 92% (+5% from last quiz)
                       </p>
@@ -578,7 +604,9 @@ export default async function StudentDashboardPage() {
                       <CheckCircle className="h-5 w-5 text-secondary" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">Data Visualization Studio</p>
+                      <p className="text-sm font-medium">
+                        Data Visualization Studio
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         Assignment 2: 88% (stable)
                       </p>

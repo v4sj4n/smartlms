@@ -2,13 +2,7 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import {
-  Plus,
-  FileText,
-  HelpCircle,
-  Megaphone,
-  Upload,
-} from "lucide-react"
+import { Plus, FileText, HelpCircle, Megaphone, Upload } from "lucide-react"
 
 interface QuickActionsBarProps {
   courseId: string

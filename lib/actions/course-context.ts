@@ -35,7 +35,7 @@ export async function getLecturerCourseContext(params: {
   }
 
   const selectedCourse = params.selectedCourseId
-    ? courses.find((course) => course.id === params.selectedCourseId) ?? null
+    ? (courses.find((course) => course.id === params.selectedCourseId) ?? null)
     : null
 
   if (selectedCourse) {

@@ -80,7 +80,7 @@ export function WeekCalendar() {
               aria-label={`${DOW[i]} ${day.getDate()}${isToday ? ", today" : ""}${isSelected ? ", selected" : ""}`}
               aria-pressed={isSelected}
               className={cn(
-                "flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-0.5 py-1 sm:px-1 sm:py-2.5 transition-[background-color,transform] duration-150 active:scale-[0.96]",
+                "flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl px-0.5 py-1 transition-[background-color,transform] duration-150 active:scale-[0.96] sm:px-1 sm:py-2.5",
                 isSelected && !isToday
                   ? "bg-primary/10"
                   : !isToday
@@ -102,8 +102,10 @@ export function WeekCalendar() {
               />
               <span
                 className={cn(
-                  "sm:mb-1.5 text-[9px] font-semibold tracking-wide uppercase",
-                  isToday ? "text-primary-foreground/60" : "text-muted-foreground"
+                  "text-[9px] font-semibold tracking-wide uppercase sm:mb-1.5",
+                  isToday
+                    ? "text-primary-foreground/60"
+                    : "text-muted-foreground"
                 )}
               >
                 {DOW[i]}

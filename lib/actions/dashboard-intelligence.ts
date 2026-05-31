@@ -121,7 +121,9 @@ export async function getStudentDashboardPriorities(userId: string) {
       makeItem({
         id: `learning-hub-${club.id}`,
         level: isUnread ? "important" : "notImportant",
-        title: isUnread ? `${club.name} has new activity` : `${club.name} is quiet`,
+        title: isUnread
+          ? `${club.name} has new activity`
+          : `${club.name} is quiet`,
         description: latestMessage.content,
         href: `/student/clubs/${club.id}`,
         source: "learning_hub",
@@ -176,7 +178,13 @@ export async function getPendingSubmissions(
   const submissionsData = await db.query.submissions.findMany({
     where: and(
       eq(submissions.status, "submitted"),
-      inArray(submissions.weekId, db.select({ id: courseWeeks.id }).from(courseWeeks).where(inArray(courseWeeks.courseId, courseIds)))
+      inArray(
+        submissions.weekId,
+        db
+          .select({ id: courseWeeks.id })
+          .from(courseWeeks)
+          .where(inArray(courseWeeks.courseId, courseIds))
+      )
     ),
     with: {
       student: {
@@ -227,10 +235,10 @@ export async function getUpcomingDeadlines(
   // Get weekIds for the courses
   const weekIdsResult = await db.query.courseWeeks.findMany({
     where: inArray(courseWeeks.courseId, courseIds),
-    columns: { id: true }
+    columns: { id: true },
   })
-  const weekIds = weekIdsResult.map(w => w.id)
-  
+  const weekIds = weekIdsResult.map((w) => w.id)
+
   if (weekIds.length === 0) return []
 
   const assignmentsData = await db.query.assignments.findMany({
@@ -274,10 +282,10 @@ export async function getQuizPerformance(
   // Get weekIds for the courses
   const weekIdsResult = await db.query.courseWeeks.findMany({
     where: inArray(courseWeeks.courseId, courseIds),
-    columns: { id: true }
+    columns: { id: true },
   })
-  const weekIds = weekIdsResult.map(w => w.id)
-  
+  const weekIds = weekIdsResult.map((w) => w.id)
+
   if (weekIds.length === 0) return []
 
   const quizzesData = await db.query.quizzes.findMany({
@@ -378,7 +386,8 @@ export async function getProfessorDashboardPriorities(userId: string) {
           id: `professor-empty-${course.id}`,
           level: "important",
           title: `Add course content for ${course.title}`,
-          description: "No week folders or seminar-ready learning content exist yet.",
+          description:
+            "No week folders or seminar-ready learning content exist yet.",
           href: `/professor/courses/${course.id}/folders/new`,
           courseId: course.id,
           courseTitle: course.title,

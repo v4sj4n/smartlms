@@ -6,7 +6,13 @@ import { ArrowLeft, BookOpen, Bot, FileCheck2, Users } from "lucide-react"
 import { authOptions } from "@/lib/auth"
 import { getCourseById } from "@/lib/actions/courses"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 export default async function NewAssignmentPage({
@@ -14,7 +20,11 @@ export default async function NewAssignmentPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ folderId?: string; mode?: "general" | "tailored"; source?: "quiz" | "ai" }>
+  searchParams: Promise<{
+    folderId?: string
+    mode?: "general" | "tailored"
+    source?: "quiz" | "ai"
+  }>
 }) {
   const { id } = await params
   const { folderId, mode, source } = await searchParams
@@ -35,14 +45,16 @@ export default async function NewAssignmentPage({
 
   const weeks = course.weeks ?? []
   const focusedWeek = folderId
-    ? weeks.find((week) => week.id === folderId) ?? null
+    ? (weeks.find((week) => week.id === folderId) ?? null)
     : null
   const selectedMode = mode === "general" || mode === "tailored" ? mode : null
 
   // Handle AI source - redirect to AI assignment creation page
   if (source === "ai" && selectedMode === "tailored") {
     if (!folderId) {
-      redirect(`/professor/courses/${id}/assignments/new?mode=tailored&message=Please select a folder first`)
+      redirect(
+        `/professor/courses/${id}/assignments/new?mode=tailored&message=Please select a folder first`
+      )
     }
     redirect(`/professor/courses/${id}/assignments/new/ai?folderId=${folderId}`)
   }
@@ -50,7 +62,9 @@ export default async function NewAssignmentPage({
   // Handle quiz source - redirect to quiz-based assignment (placeholder)
   if (source === "quiz" && selectedMode === "tailored") {
     // TODO: Implement quiz-based tailored assignment creation
-    redirect(`/professor/courses/${id}/assignments/new?mode=tailored&message=Quiz-based assignment creation coming soon`)
+    redirect(
+      `/professor/courses/${id}/assignments/new?mode=tailored&message=Quiz-based assignment creation coming soon`
+    )
   }
 
   return (
@@ -62,12 +76,16 @@ export default async function NewAssignmentPage({
           </Button>
         </Link>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Create Assignment</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Create Assignment
+          </h1>
           <p className="text-muted-foreground">
             Choose a shared assignment or build one that adapts after quiz
             results or with AI assistance.
           </p>
-          <p className="text-sm text-muted-foreground">Course: {course.title}</p>
+          <p className="text-sm text-muted-foreground">
+            Course: {course.title}
+          </p>
           {focusedWeek && (
             <p className="text-sm text-muted-foreground">
               Folder: Week {focusedWeek.weekNumber}: {focusedWeek.title}
@@ -91,14 +109,20 @@ export default async function NewAssignmentPage({
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <BookOpen className="h-6 w-6" />
               </div>
-              <CardTitle className="mt-4 text-2xl">General assignment</CardTitle>
+              <CardTitle className="mt-4 text-2xl">
+                General assignment
+              </CardTitle>
               <CardDescription>
-                Create one assignment that every student sees and submits in the same way.
+                Create one assignment that every student sees and submits in the
+                same way.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
               <p>Best for homework, essays, projects, and shared deadlines.</p>
-              <p>Use one set of instructions, one rubric, and one due date for the full class.</p>
+              <p>
+                Use one set of instructions, one rubric, and one due date for
+                the full class.
+              </p>
             </CardContent>
           </Card>
         </Link>
@@ -175,25 +199,26 @@ export default async function NewAssignmentPage({
               </>
             )}
             <Button variant="outline" asChild>
-              <Link href={`/professor/courses/${id}/assignments/new${folderId ? `?folderId=${folderId}` : ""}`}>
+              <Link
+                href={`/professor/courses/${id}/assignments/new${folderId ? `?folderId=${folderId}` : ""}`}
+              >
                 Change choice
               </Link>
             </Button>
             <Button asChild>
-              <Link href={`/professor/courses/${id}`}>
-                Back to course
-              </Link>
+              <Link href={`/professor/courses/${id}`}>Back to course</Link>
             </Button>
           </CardContent>
         </Card>
       ) : (
         <Card className="border-dashed border-border/60 bg-muted/10">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
+            <p className="text-sm font-medium tracking-[0.24em] text-muted-foreground uppercase">
               Start here
             </p>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Pick the assignment style first, then the builder can expand into the full creation flow.
+              Pick the assignment style first, then the builder can expand into
+              the full creation flow.
             </p>
           </CardContent>
         </Card>

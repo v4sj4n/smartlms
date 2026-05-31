@@ -685,11 +685,10 @@ export const assignmentOriginEnum = pgEnum("assignment_origin", [
   "ai_generated",
 ])
 
-export const assignmentSubmissionTypeEnum = pgEnum("assignment_submission_type", [
-  "text",
-  "file",
-  "both",
-])
+export const assignmentSubmissionTypeEnum = pgEnum(
+  "assignment_submission_type",
+  ["text", "file", "both"]
+)
 
 export const assignments = pgTable("assignments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -703,12 +702,16 @@ export const assignments = pgTable("assignments", {
   sourceFileId: uuid("source_file_id").references(() => files.id, {
     onDelete: "set null",
   }),
-  submissionType: assignmentSubmissionTypeEnum("submission_type").notNull().default("both"),
+  submissionType: assignmentSubmissionTypeEnum("submission_type")
+    .notNull()
+    .default("both"),
   maxScore: integer("max_score").notNull().default(100),
   dueDate: timestamp("due_date", { mode: "date" }),
   timeLimitMinutes: integer("time_limit_minutes"), // For timed assignments
   isPublished: boolean("is_published").default(false).notNull(),
-  allowLateSubmissions: boolean("allow_late_submissions").default(true).notNull(),
+  allowLateSubmissions: boolean("allow_late_submissions")
+    .default(true)
+    .notNull(),
   createdBy: uuid("created_by")
     .references(() => users.id, { onDelete: "set null" })
     .notNull(),

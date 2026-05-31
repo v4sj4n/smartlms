@@ -13,7 +13,12 @@ type GenerateContentBody = {
   contentType: "quiz" | "flashcards" | "assignment"
   focusPrompt?: string
   fileIds?: string[]
-  assignmentType?: "essay" | "project" | "homework" | "lab_report" | "presentation"
+  assignmentType?:
+    | "essay"
+    | "project"
+    | "homework"
+    | "lab_report"
+    | "presentation"
 }
 
 export async function POST(req: NextRequest) {
@@ -143,7 +148,7 @@ Output format:
     }
   }
 }`
-      : `
+        : `
 Output format:
 {
   "flashcards": [

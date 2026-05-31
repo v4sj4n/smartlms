@@ -10,9 +10,13 @@ export function AIComingSoonToast() {
 
   useEffect(() => {
     if (source === "ai") {
-      toast.info("AI assignment creation is coming soon! Using general assignment creation for now.")
+      toast.info(
+        "AI assignment creation is coming soon! Using general assignment creation for now."
+      )
     } else if (source === "quiz") {
-      toast.info("Quiz-based assignment creation is coming soon! Using general assignment creation for now.")
+      toast.info(
+        "Quiz-based assignment creation is coming soon! Using general assignment creation for now."
+      )
     }
   }, [source])
 

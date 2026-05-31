@@ -396,7 +396,7 @@ export default async function AdminDashboardPage() {
                 <Link href="/admin/clubs/new" className="mt-4">
                   <Button size="sm">
                     <Plus className="mr-2 h-4 w-4" />
-                      Create Group
+                    Create Group
                   </Button>
                 </Link>
               </CardContent>

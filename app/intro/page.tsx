@@ -32,7 +32,8 @@ export default function IntroPage() {
             See Optimo in Action
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-pretty text-muted-foreground">
-            Watch our introduction video with Albanian subtitles to learn more about the platform.
+            Watch our introduction video with Albanian subtitles to learn more
+            about the platform.
           </p>
         </div>
 

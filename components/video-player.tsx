@@ -1,7 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Pause, Volume2, VolumeX, Maximize, Subtitles } from "lucide-react"
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Subtitles,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 
@@ -38,7 +45,7 @@ export function VideoPlayer() {
     const handleTrackLoad = () => {
       const track = video.textTracks[0]
       if (!track) return
-      
+
       // Always hide native rendering
       track.mode = "hidden"
 
@@ -56,7 +63,7 @@ export function VideoPlayer() {
 
       track.addEventListener("cuechange", updateCue)
       track.addEventListener("change", enforceHiddenMode)
-      
+
       return () => {
         track.removeEventListener("cuechange", updateCue)
         track.removeEventListener("change", enforceHiddenMode)
@@ -73,7 +80,7 @@ export function VideoPlayer() {
 
     video.addEventListener("loadedmetadata", handleTrackLoad)
     document.addEventListener("fullscreenchange", handleFullscreenChange)
-    
+
     return () => {
       video.removeEventListener("loadedmetadata", handleTrackLoad)
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
@@ -166,15 +173,17 @@ export function VideoPlayer() {
 
       {/* Custom subtitle rendering */}
       {activeCue && subtitlesEnabled && (
-        <div className="absolute inset-x-0 bottom-24 flex justify-center pointer-events-none px-4">
-          <span className="bg-black/80 text-white text-sm rounded px-3 py-1 text-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-24 flex justify-center px-4">
+          <span className="rounded bg-black/80 px-3 py-1 text-center text-sm text-white">
             {activeCue}
           </span>
         </div>
       )}
 
       {/* YouTube-style overlay controls */}
-      <div className={`absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/60 to-transparent p-4 pt-16 transition-opacity duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+      <div
+        className={`absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/60 to-transparent p-4 pt-16 transition-opacity duration-300 ${isPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}
+      >
         {/* Progress Bar */}
         <div className="mb-3">
           <Slider

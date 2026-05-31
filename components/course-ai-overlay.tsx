@@ -380,7 +380,7 @@ export function CourseAiOverlay({
                               "max-w-[86%] rounded-3xl px-3 py-3 text-sm leading-6 shadow-sm",
                               isAssistant
                                 ? "border border-border/60 bg-background/85 text-foreground"
-                                : "break-words whitespace-pre-wrap bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(37,99,235,0.22)]"
+                                : "bg-primary break-words whitespace-pre-wrap text-primary-foreground shadow-[0_12px_30px_rgba(37,99,235,0.22)]"
                             )}
                           >
                             {isAssistant ? (
@@ -452,7 +452,7 @@ export function CourseAiOverlay({
                         ? "Ask about a lecture, topic, or file..."
                         : "AI assistant not available"
                     }
-                    className="min-h-16 flex-1 min-w-0 resize-none rounded-2xl border-border/70 bg-background/90 px-3 py-3 shadow-sm sm:min-h-24"
+                    className="min-h-16 min-w-0 flex-1 resize-none rounded-2xl border-border/70 bg-background/90 px-3 py-3 shadow-sm sm:min-h-24"
                     disabled={!canChat}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {

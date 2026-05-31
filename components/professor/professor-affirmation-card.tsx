@@ -15,7 +15,9 @@ const QUOTES = [
 ]
 
 export function ProfessorAffirmationCard() {
-  const [idx, setIdx] = useState(() => Math.floor(Math.random() * QUOTES.length))
+  const [idx, setIdx] = useState(() =>
+    Math.floor(Math.random() * QUOTES.length)
+  )
   const [fading, setFading] = useState(false)
 
   function flip() {

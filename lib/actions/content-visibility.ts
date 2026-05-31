@@ -63,7 +63,10 @@ export async function deleteWeekContentItem(input: {
       )
   } else if (input.item.kind === "quiz") {
     const quiz = await db.query.quizzes.findFirst({
-      where: and(eq(quizzes.id, input.item.id), eq(quizzes.weekId, input.weekId)),
+      where: and(
+        eq(quizzes.id, input.item.id),
+        eq(quizzes.weekId, input.weekId)
+      ),
       columns: { id: true },
     })
 
@@ -73,7 +76,9 @@ export async function deleteWeekContentItem(input: {
 
     await db
       .delete(quizzes)
-      .where(and(eq(quizzes.id, input.item.id), eq(quizzes.weekId, input.weekId)))
+      .where(
+        and(eq(quizzes.id, input.item.id), eq(quizzes.weekId, input.weekId))
+      )
   } else {
     const flashcardIds = input.item.memberIds ?? []
 

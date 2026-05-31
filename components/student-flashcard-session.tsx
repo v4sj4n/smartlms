@@ -50,7 +50,8 @@ function readFlashcardState(storageKey: string, flashcardCount: number) {
               Math.max(flashcardCount - 1, 0)
             )
           : 0,
-      isFlipped: typeof parsed.isFlipped === "boolean" ? parsed.isFlipped : false,
+      isFlipped:
+        typeof parsed.isFlipped === "boolean" ? parsed.isFlipped : false,
     }
   } catch {
     localStorage.removeItem(storageKey)

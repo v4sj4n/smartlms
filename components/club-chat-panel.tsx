@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
 
-import { getClubMessagesPage, sendClubMessage, getUserById } from "@/lib/actions/club-chat"
+import {
+  getClubMessagesPage,
+  sendClubMessage,
+  getUserById,
+} from "@/lib/actions/club-chat"
 import { useClubChatRealtime } from "@/hooks/use-club-chat-realtime"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -68,7 +72,12 @@ export function ClubChatPanel({
       const newMessage = typedPayload.new
 
       if (!newMessage || newMessage.club_id !== clubId) {
-        console.log("[ClubChat] Skipping message - clubId mismatch or no message. Expected:", clubId, "Got:", newMessage?.club_id)
+        console.log(
+          "[ClubChat] Skipping message - clubId mismatch or no message. Expected:",
+          clubId,
+          "Got:",
+          newMessage?.club_id
+        )
         return
       }
 
@@ -275,9 +284,7 @@ export function ClubChatPanel({
                     {new Date(message.createdAt).toLocaleString()}
                   </p>
                 </div>
-                <p className="text-sm text-foreground/90">
-                  {message.content}
-                </p>
+                <p className="text-sm text-foreground/90">{message.content}</p>
               </div>
             ))}
           </>

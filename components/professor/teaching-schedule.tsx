@@ -68,7 +68,10 @@ function getNextLectureIndex(courses: Course[]): number | null {
   return null
 }
 
-export function TeachingSchedule({ courses, activeCourseId }: TeachingScheduleProps) {
+export function TeachingSchedule({
+  courses,
+  activeCourseId,
+}: TeachingScheduleProps) {
   const nextIndex = getNextLectureIndex(courses)
 
   if (courses.length === 0) {
@@ -105,10 +108,10 @@ export function TeachingSchedule({ courses, activeCourseId }: TeachingSchedulePr
           <Link key={course.id} href={`/professor/courses/${course.id}`}>
             <div
               className={`relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-[box-shadow,transform] hover:bg-muted/50 ${
-                current ? "ring-1 ring-primary/30 bg-primary/2" : ""
+                current ? "bg-primary/2 ring-1 ring-primary/30" : ""
               } ${past ? "opacity-60" : ""} ${isActive ? "ring-1 ring-blue-400/40" : ""}`}
             >
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <div className="absolute top-1/2 left-3 -translate-y-1/2">
                 {current && (
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
@@ -123,7 +126,7 @@ export function TeachingSchedule({ courses, activeCourseId }: TeachingSchedulePr
                 )}
               </div>
 
-              <div className="flex items-start justify-between gap-4 pl-8 pr-5 pt-4 pb-4">
+              <div className="flex items-start justify-between gap-4 pt-4 pr-5 pb-4 pl-8">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2">
                     <span className="text-base font-semibold text-foreground">
@@ -136,7 +139,8 @@ export function TeachingSchedule({ courses, activeCourseId }: TeachingSchedulePr
                       ·
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      {studentCount} {studentCount === 1 ? "student" : "students"}
+                      {studentCount}{" "}
+                      {studentCount === 1 ? "student" : "students"}
                     </span>
                   </div>
 

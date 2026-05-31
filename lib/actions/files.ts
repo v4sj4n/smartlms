@@ -153,7 +153,7 @@ export async function createSignedUpload(input: unknown) {
           : "week-none",
     data.profileImage
       ? stamp
-      : data.clubId ?? data.learningHubGroupId ?? "club-none",
+      : (data.clubId ?? data.learningHubGroupId ?? "club-none"),
     user.id,
     stamp,
     `${crypto.randomUUID()}-${safeFileName(data.name)}`,
