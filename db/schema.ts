@@ -1099,6 +1099,7 @@ export const courseWeeksRelations = relations(courseWeeks, ({ one, many }) => ({
   materials: many(lectureMaterials),
   quizzes: many(quizzes),
   flashcards: many(flashcards),
+  assignments: many(assignments),
   submissions: many(submissions),
 }))
 

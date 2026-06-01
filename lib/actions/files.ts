@@ -316,3 +316,34 @@ export async function getSignedDownloadUrl(path: string) {
 
   return data.signedUrl
 }
+
+export async function getSignedUploadUrl(
+  fileName: string,
+  contentType: string
+) {
+  const user = await requireAuth()
+
+  if (!["ADMIN", "PROFESSOR", "STUDENT"].includes(user.role)) {
+    throw new Error("Forbidden")
+  }
+
+  const now = new Date()
+  const stamp = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`
+  const path = [
+    "submissions",
+    user.id,
+    stamp,
+    `${crypto.randomUUID()}-${fileName}`,
+  ].join("/")
+
+  const supabase = createSupabaseServiceClient()
+  const { data, error } = await supabase.storage
+    .from(UPLOAD_BUCKET)
+    .createSignedUploadUrl(path)
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create signed upload url")
+  }
+
+  return data.signedUrl
+}

@@ -78,7 +78,7 @@ export default async function StudentCoursesPage() {
                 <div className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-muted/30 p-3 text-sm font-medium text-muted-foreground">
                   <GraduationCap className="h-4.5 w-4.5 text-primary" />
                   <span className="truncate">
-                    Prof. {course.teacherName || "Unassigned"}
+                    {course.teacherName || "Unassigned"}
                   </span>
                 </div>
               </CardContent>

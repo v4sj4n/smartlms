@@ -29,6 +29,7 @@ import {
   HelpCircle,
   Layers,
   Sparkles,
+  ClipboardCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { CourseAiOverlay } from "@/components/course-ai-overlay"
@@ -328,6 +329,13 @@ export default async function ProfessorCourseDetailPage({
                             },
                           ]
                         : []),
+                      ...(week.assignments ?? []).map((assignment) => ({
+                        id: assignment.id,
+                        kind: "assignment" as const,
+                        title: assignment.title,
+                        detail: assignment.type,
+                        isPublished: assignment.isPublished,
+                      })),
                     ]
                   : []
                 const contentItemsKey = contentItems
@@ -394,6 +402,12 @@ export default async function ProfessorCourseDetailPage({
                               <Layers className="h-4 w-4" />
                               <span>
                                 {week?.flashcards?.length || 0} Flashcards
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <ClipboardCheck className="h-4 w-4" />
+                              <span>
+                                {week?.assignments?.length || 0} Assignments
                               </span>
                             </div>
                           </div>

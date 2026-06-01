@@ -329,7 +329,14 @@ export function AIAssignmentGeneratorDialog({
           </DialogHeader>
 
           {step === "setup" ? (
-            <div className="space-y-5 pt-4">
+            <div
+              className="space-y-5 pt-4"
+              onKeyDown={(event) => {
+                if (event.key === " ") {
+                  event.stopPropagation()
+                }
+              }}
+            >
               <div className="space-y-2">
                 <Label>Assignment type</Label>
                 <Select
@@ -459,7 +466,14 @@ export function AIAssignmentGeneratorDialog({
               )}
             </div>
           ) : (
-            <div className="space-y-5 pt-4">
+            <div
+              className="space-y-5 pt-4"
+              onKeyDown={(event) => {
+                if (event.key === " ") {
+                  event.stopPropagation()
+                }
+              }}
+            >
               <div className="space-y-2">
                 <Label htmlFor="draft-title">Title</Label>
                 <Input

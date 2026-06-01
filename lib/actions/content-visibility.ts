@@ -3,10 +3,16 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { courseWeeks, flashcards, lectureMaterials, quizzes } from "@/db/schema"
+import {
+  assignments,
+  courseWeeks,
+  flashcards,
+  lectureMaterials,
+  quizzes,
+} from "@/db/schema"
 import { requireRole } from "@/lib/auth-guard"
 
-type ContentKind = "material" | "quiz" | "flashcardSet"
+type ContentKind = "material" | "quiz" | "flashcardSet" | "assignment"
 
 type ContentItem = {
   id: string
@@ -79,7 +85,7 @@ export async function deleteWeekContentItem(input: {
       .where(
         and(eq(quizzes.id, input.item.id), eq(quizzes.weekId, input.weekId))
       )
-  } else {
+  } else if (input.item.kind === "flashcardSet") {
     const flashcardIds = input.item.memberIds ?? []
 
     if (flashcardIds.length === 0) {
@@ -92,6 +98,27 @@ export async function deleteWeekContentItem(input: {
         and(
           eq(flashcards.weekId, input.weekId),
           inArray(flashcards.id, flashcardIds)
+        )
+      )
+  } else {
+    const assignment = await db.query.assignments.findFirst({
+      where: and(
+        eq(assignments.id, input.item.id),
+        eq(assignments.weekId, input.weekId)
+      ),
+      columns: { id: true },
+    })
+
+    if (!assignment) {
+      throw new Error("Assignment not found")
+    }
+
+    await db
+      .delete(assignments)
+      .where(
+        and(
+          eq(assignments.id, input.item.id),
+          eq(assignments.weekId, input.weekId)
         )
       )
   }
@@ -143,6 +170,9 @@ export async function updateWeekContentPublicationState(input: {
   const flashcardIds = input.items.flatMap((item) =>
     item.kind === "flashcardSet" ? (item.memberIds ?? []) : []
   )
+  const assignmentIds = input.items
+    .filter((item) => item.kind === "assignment")
+    .map((item) => item.id)
 
   await db.transaction(async (tx) => {
     if (materialIds.length > 0) {
@@ -174,6 +204,18 @@ export async function updateWeekContentPublicationState(input: {
           and(
             eq(flashcards.weekId, input.weekId),
             inArray(flashcards.id, flashcardIds)
+          )
+        )
+    }
+
+    if (assignmentIds.length > 0) {
+      await tx
+        .update(assignments)
+        .set({ isPublished: input.isPublished })
+        .where(
+          and(
+            eq(assignments.weekId, input.weekId),
+            inArray(assignments.id, assignmentIds)
           )
         )
     }

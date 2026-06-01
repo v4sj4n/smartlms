@@ -261,6 +261,7 @@ export async function getCourseById(id: string) {
                 }
               : {}),
             ...(flashcardsSchemaCompatible ? { flashcards: true } : {}),
+            assignments: true,
           },
         },
         enrollments: {

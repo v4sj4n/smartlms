@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { FileText, HelpCircle, Layers, Trash2 } from "lucide-react"
+import {
+  FileText,
+  HelpCircle,
+  Layers,
+  Trash2,
+  ClipboardCheck,
+} from "lucide-react"
 import Link from "next/link"
 import {
   deleteWeekContentItem,
@@ -35,7 +41,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
-type ContentKind = "material" | "quiz" | "flashcardSet"
+type ContentKind = "material" | "quiz" | "flashcardSet" | "assignment"
 
 type WeekContentItem = {
   id: string
@@ -61,6 +67,7 @@ const kindMeta: Record<
   material: { label: "Material", icon: FileText },
   quiz: { label: "Quiz", icon: HelpCircle },
   flashcardSet: { label: "Flashcard Set", icon: Layers },
+  assignment: { label: "Assignment", icon: ClipboardCheck },
 }
 
 function sortItems(items: WeekContentItem[]) {
@@ -68,6 +75,7 @@ function sortItems(items: WeekContentItem[]) {
     material: 0,
     quiz: 1,
     flashcardSet: 2,
+    assignment: 3,
   }
 
   return [...items].sort((left, right) => {
@@ -174,7 +182,9 @@ export function WeekContentTable({
             ? "Material deleted"
             : item.kind === "quiz"
               ? "Quiz deleted"
-              : "Flashcard set deleted"
+              : item.kind === "assignment"
+                ? "Assignment deleted"
+                : "Flashcard set deleted"
         )
       } catch {
         toast.error("Failed to delete item")
@@ -294,8 +304,16 @@ export function WeekContentTable({
                       <div className="min-w-0">
                         <div className="truncate font-medium">{item.title}</div>
                         {item.detail && (
-                          <div className="truncate text-xs text-muted-foreground">
-                            {item.detail}
+                          <div className="truncate text-xs">
+                            {item.kind === "assignment" ? (
+                              <Badge variant="outline" className="text-xs">
+                                {item.detail}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {item.detail}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -319,13 +337,11 @@ export function WeekContentTable({
                           <Button asChild size="sm" className="rounded-full">
                             <Link href={item.actionHref}>Open flashcards</Link>
                           </Button>
-                        ) : (
-                          <Badge
-                            variant={item.isPublished ? "default" : "secondary"}
-                          >
-                            {item.isPublished ? "Published" : "Not published"}
-                          </Badge>
-                        )}
+                        ) : item.kind === "assignment" && item.actionHref ? (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={item.actionHref}>Open assignment</Link>
+                          </Button>
+                        ) : null}
                       </div>
                     ) : (
                       <Badge
@@ -385,7 +401,9 @@ export function WeekContentTable({
                                 ? "quiz"
                                 : item.kind === "flashcardSet"
                                   ? "flashcard set"
-                                  : "material"}
+                                  : item.kind === "assignment"
+                                    ? "assignment"
+                                    : "material"}
                               ?
                             </AlertDialogTitle>
                             <AlertDialogDescription>

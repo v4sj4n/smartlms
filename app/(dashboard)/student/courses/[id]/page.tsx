@@ -24,6 +24,7 @@ import {
   Layers,
   ArrowRight,
   Users,
+  ClipboardCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { CourseAiOverlay } from "@/components/course-ai-overlay"
@@ -138,6 +139,10 @@ export default async function StudentCourseDetailPage({
     (acc, week) => acc + (week.flashcards?.length || 0),
     0
   )
+  const totalAssignments = weeks.reduce(
+    (acc, week) => acc + (week.assignments?.length || 0),
+    0
+  )
 
   const weeksByNumber = new Map(weeks.map((week) => [week.weekNumber, week]))
   const semesterWeekSlots = semesterWindow
@@ -219,7 +224,7 @@ export default async function StudentCourseDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <Card className="rounded-2xl border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Weeks</CardTitle>
@@ -267,6 +272,18 @@ export default async function StudentCourseDetailPage({
             </div>
           </CardContent>
         </Card>
+
+        <Card className="rounded-2xl border-border/40 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Assignments</CardTitle>
+            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tabular-nums">
+              {totalAssignments}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="weeks" className="space-y-4 pt-2">
@@ -277,6 +294,7 @@ export default async function StudentCourseDetailPage({
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
             <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments</TabsTrigger>
           </TabsList>
         </div>
 
@@ -353,6 +371,12 @@ export default async function StudentCourseDetailPage({
                             {week?.flashcards?.length || 0} Flashcards
                           </span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <ClipboardCheck className="h-4 w-4" />
+                          <span>
+                            {week?.assignments?.length || 0} Assignments
+                          </span>
+                        </div>
                       </div>
 
                       {week &&
@@ -417,6 +441,16 @@ export default async function StudentCourseDetailPage({
                                   ]
                                 : []
                             })(),
+                            ...(week.assignments ?? [])
+                              .filter((assignment) => assignment.isPublished)
+                              .map((assignment) => ({
+                                id: assignment.id,
+                                kind: "assignment" as const,
+                                title: assignment.title,
+                                detail: assignment.type,
+                                isPublished: assignment.isPublished,
+                                actionHref: `/student/courses/${course.id}/assignments/${assignment.id}?weekId=${week.id}`,
+                              })),
                           ]
 
                           return (
@@ -575,6 +609,31 @@ export default async function StudentCourseDetailPage({
               <Button asChild className="rounded-full">
                 <Link href={`/student/courses/${course.id}/flashcards`}>
                   Open flashcards
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assignments" className="space-y-4">
+          <Card className="rounded-2xl border-border/40 shadow-sm">
+            <CardHeader>
+              <CardTitle>Assignments</CardTitle>
+              <CardDescription>
+                View and submit assignments for this course.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {totalAssignments} assignments are available across the course
+                  weeks.
+                </p>
+              </div>
+              <Button asChild className="rounded-full">
+                <Link href={`/student/courses/${course.id}/assignments`}>
+                  Open assignments
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>

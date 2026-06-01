@@ -902,7 +902,11 @@ export function AIContentGeneratorDialog({
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<"setup" | "edit">("setup")
   const [contentType, setContentType] = useState<"quiz" | "flashcards">("quiz")
+  const [generationMode, setGenerationMode] = useState<
+    "source_materials" | "prompt"
+  >("source_materials")
   const [focusPrompt, setFocusPrompt] = useState("")
+  const [customPrompt, setCustomPrompt] = useState("")
   const [title, setTitle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamedText, setStreamedText] = useState("")
@@ -945,12 +949,14 @@ export function AIContentGeneratorDialog({
       }
       if (!nextOpen) {
         setStep("setup")
+        setGenerationMode("source_materials")
         setQuizDraft([])
         setFlashcardDraft([])
         setIsGenerating(false)
         setStreamedText("")
         setStreamedItems([])
         setIsSaving(false)
+        setCustomPrompt("")
       }
     },
     [fetchFiles, hasFetchedFiles]
@@ -969,8 +975,13 @@ export function AIContentGeneratorDialog({
   }
 
   const handleGenerate = async () => {
-    if (selectedFileIds.size === 0) {
+    if (generationMode === "source_materials" && selectedFileIds.size === 0) {
       toast.error("Please select at least one source file")
+      return
+    }
+
+    if (generationMode === "prompt" && !customPrompt.trim()) {
+      toast.error("Please enter a custom prompt")
       return
     }
 
@@ -984,8 +995,14 @@ export function AIContentGeneratorDialog({
         body: JSON.stringify({
           weekId,
           contentType,
+          generationMode,
           focusPrompt: focusPrompt.trim() || undefined,
-          fileIds: Array.from(selectedFileIds),
+          customPrompt:
+            generationMode === "prompt" ? customPrompt.trim() : undefined,
+          fileIds:
+            generationMode === "source_materials"
+              ? Array.from(selectedFileIds)
+              : undefined,
         }),
       })
 
@@ -1220,21 +1237,52 @@ export function AIContentGeneratorDialog({
           </DialogHeader>
 
           {step === "setup" ? (
-            <div className="space-y-5 pt-4">
+            <div
+              className="space-y-5 pt-4"
+              onKeyDown={(event) => {
+                if (event.key === " ") {
+                  event.stopPropagation()
+                }
+              }}
+            >
               <div className="space-y-2">
                 <Label>What to generate</Label>
                 <Select
                   value={contentType}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
                     setContentType(value as "quiz" | "flashcards")
+                    setFocusPrompt("")
+                    setTitle("")
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quiz">Quiz</SelectItem>
+                    <SelectItem value="flashcards">Flashcards</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Generation method</Label>
+                <Select
+                  value={generationMode}
+                  onValueChange={(value) =>
+                    setGenerationMode(value as "source_materials" | "prompt")
                   }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="quiz">Quiz only</SelectItem>
-                    <SelectItem value="flashcards">Flashcards only</SelectItem>
+                    <SelectItem value="source_materials">
+                      Based on source materials
+                    </SelectItem>
+                    <SelectItem value="prompt">
+                      Based on custom prompt
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1251,73 +1299,96 @@ export function AIContentGeneratorDialog({
                 </div>
               ) : null}
 
-              <div className="space-y-2">
-                <Label htmlFor="ai-focus">
-                  Focus area / special instructions
-                  <span className="ml-1 text-muted-foreground">(optional)</span>
-                </Label>
-                <Textarea
-                  id="ai-focus"
-                  value={focusPrompt}
-                  onChange={(event) => setFocusPrompt(event.target.value)}
-                  placeholder="E.g. Focus on thermodynamics equations, ignore historical context..."
-                  rows={3}
-                />
-              </div>
+              {generationMode === "source_materials" && (
+                <div className="space-y-2">
+                  <Label htmlFor="ai-focus">
+                    Focus area / special instructions
+                    <span className="ml-1 text-muted-foreground">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="ai-focus"
+                    value={focusPrompt}
+                    onChange={(event) => setFocusPrompt(event.target.value)}
+                    placeholder="E.g. Focus on thermodynamics equations, ignore historical context..."
+                    rows={3}
+                  />
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Source materials</Label>
-                  {totalFiles > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {selectedCount} of {totalFiles} selected
-                    </Badge>
+              {generationMode === "prompt" && (
+                <div className="space-y-2">
+                  <Label htmlFor="ai-custom-prompt">
+                    Custom prompt
+                    <span className="ml-1 text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="ai-custom-prompt"
+                    value={customPrompt}
+                    onChange={(event) => setCustomPrompt(event.target.value)}
+                    placeholder="Describe the content you want to generate. E.g. Create a quiz about photosynthesis with 5 multiple choice questions covering the light-dependent reactions, Calvin cycle, and factors affecting photosynthesis rate..."
+                    rows={4}
+                    required
+                  />
+                </div>
+              )}
+
+              {generationMode === "source_materials" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Source materials</Label>
+                    {totalFiles > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedCount} of {totalFiles} selected
+                      </Badge>
+                    )}
+                  </div>
+
+                  {isFetchingFiles ? (
+                    <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading materials...
+                    </div>
+                  ) : files.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                      <FileText className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                      No materials found in this folder.
+                      <br />
+                      Upload files first before generating content.
+                    </div>
+                  ) : (
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
+                      {files.map((file) => (
+                        <label
+                          key={file.id}
+                          className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted"
+                        >
+                          <Checkbox
+                            checked={selectedFileIds.has(file.id)}
+                            onCheckedChange={() => toggleFile(file.id)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.status === "READY"
+                                ? "Ready for AI"
+                                : file.status === "PROCESSING"
+                                  ? "Processing..."
+                                  : file.status}
+                            </p>
+                          </div>
+                          {file.status === "READY" && (
+                            <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
                   )}
                 </div>
-
-                {isFetchingFiles ? (
-                  <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading materials...
-                  </div>
-                ) : files.length === 0 ? (
-                  <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                    <FileText className="mx-auto mb-2 h-6 w-6 opacity-50" />
-                    No materials found in this folder.
-                    <br />
-                    Upload files first before generating content.
-                  </div>
-                ) : (
-                  <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
-                    {files.map((file) => (
-                      <label
-                        key={file.id}
-                        className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted"
-                      >
-                        <Checkbox
-                          checked={selectedFileIds.has(file.id)}
-                          onCheckedChange={() => toggleFile(file.id)}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {file.status === "READY"
-                              ? "Ready for AI"
-                              : file.status === "PROCESSING"
-                                ? "Processing..."
-                                : file.status}
-                          </p>
-                        </div>
-                        {file.status === "READY" && (
-                          <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button
@@ -1402,7 +1473,14 @@ export function AIContentGeneratorDialog({
               )}
             </div>
           ) : (
-            <div className="pt-4">
+            <div
+              className="pt-4"
+              onKeyDown={(event) => {
+                if (event.key === " ") {
+                  event.stopPropagation()
+                }
+              }}
+            >
               {contentType === "quiz" ? (
                 <QuizDraftEditor
                   key={editorKey}
