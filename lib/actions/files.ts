@@ -10,7 +10,7 @@ import {
   learningHubGroupMembers,
 } from "@/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
-import { requireAuth } from "@/lib/auth-guard"
+import { requireAuth, requirePermission } from "@/lib/permissions/guards"
 import {
   createSignedUploadSchema,
   finalizeUploadSchema,
@@ -29,35 +29,42 @@ async function assertUploadPermission(input: {
   clubId?: string
   learningHubGroupId?: string
 }) {
-  if (["ADMIN", "PROFESSOR"].includes(input.role)) {
+  // Use the new permission system
+  try {
+    await requirePermission("files:upload")
     return
-  }
-
-  if (input.role === "STUDENT" && input.clubId) {
-    const membership = await db.query.clubMembers.findFirst({
-      where: and(
-        eq(clubMembers.clubId, input.clubId),
-        eq(clubMembers.userId, input.userId)
-      ),
-      columns: { id: true },
-    })
-
-    if (membership) {
+  } catch (error) {
+    // Fallback to manual checks for backward compatibility
+    if (["ADMIN", "PROFESSOR"].includes(input.role)) {
       return
     }
-  }
 
-  if (input.role === "STUDENT" && input.learningHubGroupId) {
-    const membership = await db.query.learningHubGroupMembers.findFirst({
-      where: and(
-        eq(learningHubGroupMembers.groupId, input.learningHubGroupId),
-        eq(learningHubGroupMembers.userId, input.userId)
-      ),
-      columns: { id: true },
-    })
+    if (input.role === "STUDENT" && input.clubId) {
+      const membership = await db.query.clubMembers.findFirst({
+        where: and(
+          eq(clubMembers.clubId, input.clubId),
+          eq(clubMembers.userId, input.userId)
+        ),
+        columns: { id: true },
+      })
 
-    if (membership) {
-      return
+      if (membership) {
+        return
+      }
+    }
+
+    if (input.role === "STUDENT" && input.learningHubGroupId) {
+      const membership = await db.query.learningHubGroupMembers.findFirst({
+        where: and(
+          eq(learningHubGroupMembers.groupId, input.learningHubGroupId),
+          eq(learningHubGroupMembers.userId, input.userId)
+        ),
+        columns: { id: true },
+      })
+
+      if (membership) {
+        return
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 "use server"
 
 import { client, db } from "@/db"
+import { requireCourseAccess } from "@/lib/permissions/route-guards"
 import {
   chatbots,
   courses,
@@ -8,6 +9,7 @@ import {
   courseEnrollments,
   lectureMaterials,
   semesters,
+  courseSchedules,
 } from "@/db/schema"
 import { eq, and, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -169,6 +171,9 @@ export async function getCourses(filters?: {
   semester?: "FIRST" | "SECOND"
   isPublished?: boolean
 }) {
+  // Check if user has permission to read courses
+  const user = await requireCourseAccess("", "read") // Empty courseId for general course access
+
   try {
     const query = db.query.courses.findMany({
       with: {
@@ -185,6 +190,7 @@ export async function getCourses(filters?: {
             },
           },
         },
+        schedules: true,
       },
       orderBy: [asc(courses.createdAt)],
     })
@@ -225,6 +231,9 @@ export async function getCourses(filters?: {
 }
 
 export async function getCourseById(id: string) {
+  // Check if user has permission to read this specific course
+  const user = await requireCourseAccess(id, "read")
+
   try {
     const {
       lectureMaterialsTableExists,
@@ -272,6 +281,7 @@ export async function getCourseById(id: string) {
           },
         },
         chatbots: true,
+        schedules: true,
       },
     })
 

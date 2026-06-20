@@ -1,6 +1,4 @@
-import { getServerSession } from "next-auth"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
+import { requireAdminOnly } from "@/lib/permissions/guards"
 import { getSchoolYears } from "@/lib/actions/academic"
 import { getCourses } from "@/lib/actions/courses"
 import { getClubs } from "@/lib/actions/clubs"
@@ -16,8 +14,9 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getUserDisplayName } from "@/lib/display-name"
 import { DashboardPriorityPanel } from "@/components/dashboard-priority-panel"
+import { AdminSettingsPanel } from "@/components/admin-settings"
+import { PermissionManagementPanel } from "@/components/permission-management"
 import {
   Users,
   BookOpen,
@@ -28,17 +27,13 @@ import {
   ArrowRight,
   GraduationCap,
   Users2,
+  Settings,
+  Shield,
 } from "lucide-react"
 import Link from "next/link"
 
 export default async function AdminDashboardPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session || session.user.role !== "ADMIN") {
-    redirect("/sign-in")
-  }
-
-  const displayName = getUserDisplayName(session.user)
+  await requireAdminOnly()
 
   const [
     { data: schoolYears },
@@ -79,11 +74,23 @@ export default async function AdminDashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
             Admin Dashboard
           </h1>
-          <p className="mt-1 text-pretty text-muted-foreground">
-            Welcome back, {displayName}. Here&apos;s what&apos;s happening.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/academic/groups">
+            <Button variant="outline" size="sm">
+              Groups
+            </Button>
+          </Link>
+          <Link href="/admin/academic/assignments">
+            <Button variant="outline" size="sm">
+              Assignments
+            </Button>
+          </Link>
+          <Link href="/admin/academic/schedules">
+            <Button variant="outline" size="sm">
+              Schedules
+            </Button>
+          </Link>
           <Link href="/admin/academic/school-years/new">
             <Button
               variant="outline"
@@ -205,6 +212,8 @@ export default async function AdminDashboardPage() {
           <TabsTrigger value="courses">Recent Courses</TabsTrigger>
           <TabsTrigger value="clubs">Clubs</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="permissions">Permissions</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="announcements" className="space-y-4">
@@ -465,6 +474,45 @@ export default async function AdminDashboardPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">System Settings</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage AI configuration, system settings, and platform
+                preferences
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Settings className="h-3 w-3" />
+                Admin Only
+              </Badge>
+            </div>
+          </div>
+
+          <AdminSettingsPanel />
+        </TabsContent>
+
+        <TabsContent value="permissions" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Permission Management</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage user roles, permissions, and access controls
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Admin Only
+              </Badge>
+            </div>
+          </div>
+
+          <PermissionManagementPanel />
         </TabsContent>
       </Tabs>
     </div>

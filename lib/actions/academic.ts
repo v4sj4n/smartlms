@@ -55,6 +55,35 @@ export async function getSchoolYears() {
   }
 }
 
+export async function getSchoolYearById(id: string) {
+  try {
+    const schoolYear = await db.query.schoolYears.findFirst({
+      where: eq(schoolYears.id, id),
+      with: {
+        semesters: true,
+        studyPrograms: {
+          with: {
+            studentGroups: true,
+            studentProgramEnrollments: true,
+            courses: true,
+          },
+        },
+        studentProgramEnrollments: true,
+        courses: true,
+      },
+    })
+
+    if (!schoolYear) {
+      return { success: false, error: "School year not found" }
+    }
+
+    return { success: true, data: schoolYear }
+  } catch (error) {
+    console.error("Failed to fetch school year:", error)
+    return { success: false, error: "Failed to fetch school year" }
+  }
+}
+
 export async function setActiveSchoolYear(id: string) {
   try {
     await db.transaction(async (tx) => {
@@ -66,6 +95,8 @@ export async function setActiveSchoolYear(id: string) {
     })
 
     revalidatePath("/admin/academic")
+    revalidatePath("/admin/academic/school-years")
+    revalidatePath(`/admin/academic/school-years/${id}`)
     return { success: true }
   } catch (error) {
     console.error("Failed to set active school year:", error)

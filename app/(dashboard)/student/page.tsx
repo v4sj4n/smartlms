@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getUserDisplayName } from "@/lib/display-name"
 import { DashboardPriorityPanel } from "@/components/dashboard-priority-panel"
 import {
   BookOpen,
@@ -23,8 +22,6 @@ import {
   CheckCircle,
   Clock,
   Pin,
-  Sparkles,
-  Target,
   FileText,
   BarChart3,
   GraduationCap,
@@ -35,6 +32,7 @@ import Link from "next/link"
 import { AffirmationCard } from "@/components/student/affirmation-card"
 import { WeekCalendar } from "@/components/student/week-calendar"
 import { ScheduleList } from "@/components/student/schedule-list"
+import { getStudentProgressSummary } from "@/lib/data/student-progress"
 
 export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -42,8 +40,6 @@ export default async function StudentDashboardPage() {
   if (!session || session.user.role !== "STUDENT") {
     redirect("/sign-in")
   }
-
-  const displayName = getUserDisplayName(session.user)
 
   const [{ data: allCourses }, { data: announcements }] = await Promise.all([
     getCourses(),
@@ -53,6 +49,8 @@ export default async function StudentDashboardPage() {
   const { important, notImportant } = await getStudentDashboardPriorities(
     session.user.id
   )
+
+  const progressSummary = await getStudentProgressSummary(session.user.id)
 
   // Filter courses where student is enrolled
   const enrolledCourses =
@@ -65,44 +63,6 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="flex-1 space-y-6">
-      {/* Welcome Header */}
-      <div
-        className="reveal-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        style={{ animationDelay: "0ms" }}
-      >
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
-            Welcome back, {displayName}!
-          </h1>
-          <p className="mt-1 text-pretty text-muted-foreground">
-            Here&apos;s what&apos;s happening with your courses today.
-          </p>
-        </div>
-        <div className="flex flex-col items-start gap-0.5 sm:items-end">
-          <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-            {(() => {
-              const d = new Date()
-              const day = d.getUTCDay() || 7
-              const tmp = new Date(
-                Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-              )
-              tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
-              const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
-              const week = Math.ceil(
-                ((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-              )
-              return `Week ${week} / ${d.getFullYear()}`
-            })()}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            <span className="font-mono font-semibold text-foreground tabular-nums">
-              {enrolledCourses.length}
-            </span>{" "}
-            {enrolledCourses.length === 1 ? "class" : "classes"} today
-          </span>
-        </div>
-      </div>
-
       {/* Week Calendar */}
       <div className="reveal-in" style={{ animationDelay: "120ms" }}>
         <WeekCalendar />
@@ -303,7 +263,9 @@ export default async function StudentDashboardPage() {
                     <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                       Submitted Assignments
                     </p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">8</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                      {progressSummary.submittedAssignments}
+                    </p>
                   </div>
                   <FileText className="h-5 w-5 text-primary" />
                 </CardContent>
@@ -315,23 +277,29 @@ export default async function StudentDashboardPage() {
                     <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                       Course Progress
                     </p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">73%</p>
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                      {progressSummary.courseProgressPercent}%
+                    </p>
                   </div>
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </CardContent>
               </Card>
 
-              <Card className="surface-elevated">
-                <CardContent className="flex items-center justify-between p-5">
-                  <div>
-                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                      Attendance Rate
-                    </p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums">94%</p>
-                  </div>
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                </CardContent>
-              </Card>
+              {progressSummary.averageGradePercent !== null && (
+                <Card className="surface-elevated">
+                  <CardContent className="flex items-center justify-between p-5">
+                    <div>
+                      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                        Average Grade
+                      </p>
+                      <p className="mt-1 text-2xl font-bold tabular-nums">
+                        {progressSummary.averageGradePercent}%
+                      </p>
+                    </div>
+                    <Award className="h-5 w-5 text-primary" />
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             <Card className="surface-elevated">

@@ -12,6 +12,9 @@ import { stepCountIs, streamText, tool } from "ai"
 import { chatModel } from "@/lib/ai/models"
 import { z } from "zod"
 import { getUserAIPersonalizationPrompt } from "@/lib/data/profile-settings"
+import { buildAIContext } from "@/lib/ai/context-provider"
+import { getCachedResponse, cacheResponse } from "@/lib/ai/semantic-cache"
+import { createHash } from "crypto"
 
 type ChatBody = {
   conversationId: string
@@ -108,10 +111,41 @@ export async function POST(req: NextRequest) {
     session.user.id
   )
 
+  const userContext = {
+    userId: session.user.id,
+    role: session.user.role as "ADMIN" | "PROFESSOR" | "STUDENT",
+    name: session.user.name ?? "User",
+  }
+  const aiContextBlock = await buildAIContext(userContext)
+  const contextHash = createHash("sha256")
+    .update(`${conversation.chatbot.subjectId}:${aiContextBlock.slice(0, 500)}`)
+    .digest("hex")
+
+  const cachedResponse = await getCachedResponse(
+    body.message,
+    contextHash,
+    session.user.role
+  )
+
+  if (cachedResponse) {
+    await db.insert(chatbotMessages).values({
+      conversationId: conversation.id,
+      role: "assistant",
+      content: cachedResponse,
+    })
+    return new Response(cachedResponse, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-AI-Cache": "hit",
+      },
+    })
+  }
+
   // Combine the routing agent instructions with any chatbot-specific prompt
   // and optional per-request system instructions (e.g. week context).
   const systemPrompt = [
     ROUTING_AGENT_INSTRUCTIONS,
+    aiContextBlock,
     aiPersonalizationPrompt,
     conversation.chatbot.systemPrompt,
     body.systemInstructions?.trim(),
@@ -172,6 +206,7 @@ export async function POST(req: NextRequest) {
           fileId: chunk.fileId,
         })),
       })
+      await cacheResponse(body.message, contextHash, text, session.user.role)
     },
   })
 

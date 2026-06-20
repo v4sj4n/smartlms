@@ -14,7 +14,6 @@ import {
   deleteWeekContentItem,
   updateWeekContentPublicationState,
 } from "@/lib/actions/content-visibility"
-import { getSignedDownloadUrl } from "@/lib/actions/files"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -204,8 +203,7 @@ export function WeekContentTable({
     setViewingId(item.id)
     void (async () => {
       try {
-        const signedUrl = await getSignedDownloadUrl(actionHref)
-        window.open(signedUrl, "_blank", "noopener,noreferrer")
+        window.open(actionHref, "_blank", "noopener,noreferrer")
       } catch {
         toast.error("Failed to open material")
       } finally {

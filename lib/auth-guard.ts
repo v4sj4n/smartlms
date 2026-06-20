@@ -29,3 +29,6 @@ export async function requireRole(
   }
   return user
 }
+
+// Re-export new permission system for backward compatibility
+export * from "./permissions"

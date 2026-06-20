@@ -59,6 +59,20 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("STUDENT"),
   fullName: text("full_name"),
   phone: varchar("phone", { length: 256 }),
+  // Professor availability fields
+  availability:
+    jsonb("availability").$type<
+      Array<{ dayOfWeek: string; startTime: string; endTime: string }>
+    >(),
+  maxWeeklyHours: integer("max_weekly_hours").default(20),
+  preferredTimeSlots: jsonb("preferred_time_slots").$type<
+    Array<{
+      dayOfWeek: string
+      startTime: string
+      endTime: string
+      priority: number
+    }>
+  >(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -141,6 +155,58 @@ export const courseWeeks = pgTable("course_weeks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
+// Schedule for courses — day of week, time, location
+export const dayOfWeekEnum = pgEnum("day_of_week", [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+])
+
+export const sessionTypeEnum = pgEnum("session_type", ["lecture", "seminar"])
+
+export const courseSchedules = pgTable(
+  "course_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courseId: uuid("course_id")
+      .references(() => courses.id, { onDelete: "cascade" })
+      .notNull(),
+    dayOfWeek: dayOfWeekEnum("day_of_week").notNull(),
+    startTime: text("start_time").notNull(), // Format: "HH:MM" (24h)
+    endTime: text("end_time").notNull(), // Format: "HH:MM" (24h)
+    room: text("room"),
+    building: text("building"),
+    // New academic structure fields
+    groupId: uuid("group_id").references(() => studentGroups.id, {
+      onDelete: "set null",
+    }),
+    subjectAssignmentId: uuid("subject_assignment_id").references(
+      () => subjectAssignments.id,
+      { onDelete: "set null" }
+    ),
+    academicYearId: uuid("academic_year_id").references(() => schoolYears.id, {
+      onDelete: "set null",
+    }),
+    sessionType: sessionTypeEnum("session_type").default("lecture"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_schedules_group").on(t.groupId),
+    index("idx_schedules_subject_assignment").on(t.subjectAssignmentId),
+    index("idx_schedules_academic_year").on(t.academicYearId),
+    index("idx_schedules_year_day_time").on(
+      t.academicYearId,
+      t.dayOfWeek,
+      t.startTime
+    ),
+  ]
+)
+
 /* ==========================================================================
    3. QUIZZES DOMAIN
    ========================================================================== */
@@ -215,6 +281,13 @@ export const questions = pgTable("questions", {
   content: text("content").notNull(),
   points: integer("points").default(1).notNull(),
   orderIndex: integer("order_index").notNull(),
+  sourceChunkIds: jsonb("source_chunk_ids")
+    .$type<string[]>()
+    .default([])
+    .notNull(),
+  sourceFileId: uuid("source_file_id").references(() => files.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -243,6 +316,18 @@ export const quizAttempts = pgTable(
       .notNull(),
     score: integer("score").default(0).notNull(),
     completedAt: timestamp("completed_at").notNull(),
+    reviewSuggestions: jsonb("review_suggestions")
+      .$type<
+        {
+          materialId: string
+          title: string
+          type: string
+          href: string
+          reason: string
+          missedQuestionCount: number
+        }[]
+      >()
+      .default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -647,6 +732,65 @@ export const courseEnrollments = pgTable(
 )
 
 /* ==========================================================================
+   6b. STUDENT GROUPS & SUBJECT ASSIGNMENTS
+   Enhanced academic structure for scheduling
+   ========================================================================== */
+
+export const studentGroups = pgTable("student_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  studyProgramId: uuid("study_program_id")
+    .references(() => studyPrograms.id, { onDelete: "cascade" })
+    .notNull(),
+  yearLevel: integer("year_level").notNull().default(1),
+  capacity: integer("capacity").default(30),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+export const studentGroupMembers = pgTable(
+  "student_group_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .references(() => studentGroups.id, { onDelete: "cascade" })
+      .notNull(),
+    studentId: uuid("student_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("unq_group_student").on(t.groupId, t.studentId)]
+)
+
+export const subjectAssignments = pgTable(
+  "subject_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    professorId: uuid("professor_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    courseId: uuid("course_id")
+      .references(() => courses.id, { onDelete: "cascade" })
+      .notNull(),
+    groupId: uuid("group_id")
+      .references(() => studentGroups.id, { onDelete: "cascade" })
+      .notNull(),
+    requiredHours: integer("required_hours").notNull().default(2),
+    sessionType: sessionTypeEnum("session_type").notNull().default("lecture"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("unq_professor_course_group").on(
+      t.professorId,
+      t.courseId,
+      t.groupId
+    ),
+  ]
+)
+
+/* ==========================================================================
    7. LECTURE MATERIALS DOMAIN
    Weekly content: lectures, PDFs, videos, links, attachments
    ========================================================================== */
@@ -776,6 +920,33 @@ export const announcements = pgTable("announcements", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "grade",
+  "assignment_due",
+  "announcement",
+  "general",
+])
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    type: notificationTypeEnum("type").notNull().default("general"),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    href: text("href"),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_notifications_user").on(t.userId),
+    index("idx_notifications_user_unread").on(t.userId, t.readAt),
+  ]
+)
 
 /* ==========================================================================
    10. CLUB POSTS DOMAIN
@@ -1022,6 +1193,54 @@ export const aiSettings = pgTable("ai_settings", {
 })
 
 /* ==========================================================================
+   11b. AI SEMANTIC CACHE
+   Cached AI responses with vector similarity search
+   ========================================================================== */
+
+export const aiResponseCache = pgTable(
+  "ai_response_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    question: text("question").notNull(),
+    embedding: vector("embedding", { dimensions: 768 }).notNull(),
+    response: text("response").notNull(),
+    contextHash: text("context_hash").notNull(),
+    hitCount: integer("hit_count").default(1).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    userRole: text("user_role"), // ADMIN, PROFESSOR, STUDENT or NULL for universal
+  },
+  (t) => [
+    index("idx_ai_cache_embedding").on(t.embedding),
+    index("idx_ai_cache_expires").on(t.expiresAt),
+    index("idx_ai_cache_context").on(t.contextHash),
+    index("idx_ai_cache_user_role").on(t.userRole),
+  ]
+)
+
+/* ==========================================================================
+   11c. SCHEDULE VALIDATIONS
+   Audit history of schedule validation runs
+   ========================================================================== */
+
+export const scheduleValidations = pgTable("schedule_validations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  academicYearId: uuid("academic_year_id")
+    .references(() => schoolYears.id, { onDelete: "cascade" })
+    .notNull(),
+  validatedAt: timestamp("validated_at").defaultNow().notNull(),
+  isValid: boolean("is_valid").notNull(),
+  conflicts: jsonb("conflicts").default([]).notNull(),
+  conflictCount: integer("conflict_count").default(0).notNull(),
+  generatedBy: uuid("generated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  generationMode: text("generation_mode").default("manual"), // manual, random, optimized
+  validationDurationMs: integer("validation_duration_ms"),
+  metadata: jsonb("metadata").default({}),
+})
+
+/* ==========================================================================
    RELATIONS
    ========================================================================== */
 
@@ -1048,6 +1267,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   clubMessageReactions: many(clubMessageReactions),
   clubMessageReads: many(clubMessageReads),
   chatbotConversations: many(chatbotConversations),
+  // New academic structure relations
+  subjectAssignments: many(subjectAssignments),
+  studentGroupMemberships: many(studentGroupMembers),
+  scheduleValidations: many(scheduleValidations),
+  notifications: many(notifications),
 }))
 
 export const userAuthRelations = relations(userAuth, ({ one }) => ({
@@ -1089,6 +1313,8 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
   enrollments: many(courseEnrollments),
   files: many(files),
   chatbots: many(chatbots),
+  schedules: many(courseSchedules),
+  subjectAssignments: many(subjectAssignments),
 }))
 
 export const courseWeeksRelations = relations(courseWeeks, ({ one, many }) => ({
@@ -1102,6 +1328,28 @@ export const courseWeeksRelations = relations(courseWeeks, ({ one, many }) => ({
   assignments: many(assignments),
   submissions: many(submissions),
 }))
+
+export const courseSchedulesRelations = relations(
+  courseSchedules,
+  ({ one }) => ({
+    course: one(courses, {
+      fields: [courseSchedules.courseId],
+      references: [courses.id],
+    }),
+    group: one(studentGroups, {
+      fields: [courseSchedules.groupId],
+      references: [studentGroups.id],
+    }),
+    subjectAssignment: one(subjectAssignments, {
+      fields: [courseSchedules.subjectAssignmentId],
+      references: [subjectAssignments.id],
+    }),
+    academicYear: one(schoolYears, {
+      fields: [courseSchedules.academicYearId],
+      references: [schoolYears.id],
+    }),
+  })
+)
 
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   week: one(courseWeeks, {
@@ -1182,6 +1430,7 @@ export const schoolYearsRelations = relations(schoolYears, ({ many }) => ({
   studentProgramEnrollments: many(studentProgramEnrollments),
   courses: many(courses),
   clubs: many(clubs),
+  scheduleValidations: many(scheduleValidations),
 }))
 
 export const semestersRelations = relations(semesters, ({ one }) => ({
@@ -1200,6 +1449,7 @@ export const studyProgramsRelations = relations(
     }),
     studentProgramEnrollments: many(studentProgramEnrollments),
     courses: many(courses),
+    studentGroups: many(studentGroups),
   })
 )
 
@@ -1543,3 +1793,70 @@ export const aiModelsRelations = relations(aiModels, ({ one }) => ({
     references: [aiProviders.id],
   }),
 }))
+
+/* ==========================================================================
+   NEW ACADEMIC STRUCTURE RELATIONS
+   ========================================================================== */
+
+export const studentGroupsRelations = relations(
+  studentGroups,
+  ({ one, many }) => ({
+    studyProgram: one(studyPrograms, {
+      fields: [studentGroups.studyProgramId],
+      references: [studyPrograms.id],
+    }),
+    members: many(studentGroupMembers),
+    subjectAssignments: many(subjectAssignments),
+  })
+)
+
+export const studentGroupMembersRelations = relations(
+  studentGroupMembers,
+  ({ one }) => ({
+    group: one(studentGroups, {
+      fields: [studentGroupMembers.groupId],
+      references: [studentGroups.id],
+    }),
+    student: one(users, {
+      fields: [studentGroupMembers.studentId],
+      references: [users.id],
+    }),
+  })
+)
+
+export const subjectAssignmentsRelations = relations(
+  subjectAssignments,
+  ({ one, many }) => ({
+    professor: one(users, {
+      fields: [subjectAssignments.professorId],
+      references: [users.id],
+    }),
+    course: one(courses, {
+      fields: [subjectAssignments.courseId],
+      references: [courses.id],
+    }),
+    group: one(studentGroups, {
+      fields: [subjectAssignments.groupId],
+      references: [studentGroups.id],
+    }),
+    schedules: many(courseSchedules),
+  })
+)
+
+export const aiResponseCacheRelations = relations(aiResponseCache, () => ({
+  // No relations - standalone cache table
+}))
+
+export const scheduleValidationsRelations = relations(
+  scheduleValidations,
+  ({ one }) => ({
+    academicYear: one(schoolYears, {
+      fields: [scheduleValidations.academicYearId],
+      references: [schoolYears.id],
+    }),
+    generator: one(users, {
+      fields: [scheduleValidations.generatedBy],
+      references: [users.id],
+    }),
+  })
+)

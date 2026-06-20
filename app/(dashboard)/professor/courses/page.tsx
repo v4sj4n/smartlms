@@ -1,5 +1,5 @@
 import * as React from "react"
-import { requireRole } from "@/lib/auth-guard"
+import { requireCourseAccess } from "@/lib/permissions/route-guards"
 import { getCourses } from "@/lib/actions/courses"
 import {
   Card,
@@ -12,7 +12,7 @@ import { BookOpen, Clock, LayoutGrid, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 export default async function ProfessorCoursesPage() {
-  const user = await requireRole(["PROFESSOR"])
+  const user = await requireCourseAccess("", "read") // Empty courseId for general course access
 
   const { data: taughtCourses } = await getCourses({ teacherId: user.id })
 

@@ -282,6 +282,7 @@ export default async function ProfessorCourseDetailPage({
           <TabsList className="w-max min-w-full sm:w-auto">
             <TabsTrigger value="weeks">Course Folders</TabsTrigger>
             <TabsTrigger value="students">Enrolled Students</TabsTrigger>
+            <TabsTrigger value="submissions">Submissions</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
         </div>
@@ -557,6 +558,24 @@ export default async function ProfessorCourseDetailPage({
                   No students enrolled yet.
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="submissions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assignment submissions</CardTitle>
+              <CardDescription>
+                Review and grade student work for this course.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="rounded-full">
+                <Link href={`/professor/courses/${course.id}/submissions`}>
+                  Open submission inbox
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

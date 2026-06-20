@@ -17,6 +17,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { submitQuizAttempt } from "@/lib/actions/quizzes"
+import { QuizReviewSuggestions } from "@/components/student/quiz-review-suggestions"
+import type { LectureReviewSuggestion } from "@/lib/quiz/review-suggestions"
 
 type QuizOption = {
   id: string
@@ -49,6 +51,7 @@ type QuizResult = {
   score: number
   maxScore: number
   completedAt: string
+  reviewSuggestions?: LectureReviewSuggestion[]
 }
 
 type SavedQuizAttempt = QuizResult | null
@@ -218,6 +221,7 @@ export function QuizSession({
       score: response.data.score,
       maxScore: response.data.maxScore,
       completedAt,
+      reviewSuggestions: response.data.reviewSuggestions ?? [],
     })
     setStatus("finished")
     toast.success(
@@ -331,6 +335,11 @@ export function QuizSession({
                   </p>
                 </div>
               </div>
+
+              <QuizReviewSuggestions
+                suggestions={result.reviewSuggestions ?? []}
+                perfectScore={percentage === 100}
+              />
 
               <div className="flex flex-wrap gap-3">
                 <Button asChild className="rounded-full">

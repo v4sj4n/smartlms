@@ -9,6 +9,7 @@ import {
   courses,
   courseEnrollments,
   courseWeeks,
+  courseSchedules,
   quizzes,
   questions,
   questionOptions,
@@ -217,6 +218,53 @@ async function main() {
     {
       studentId: studentVasjan.id,
       courseId: visualizationCourse.id,
+    },
+  ])
+
+  console.log("📅 Seeding course schedules...")
+  await db.insert(courseSchedules).values([
+    // Machine Learning - Mon/Wed 10:00-12:00
+    {
+      courseId: machineLearningCourse.id,
+      dayOfWeek: "MONDAY",
+      startTime: "10:00",
+      endTime: "12:00",
+      room: "Lab 3",
+      building: "Engineering Block C",
+    },
+    {
+      courseId: machineLearningCourse.id,
+      dayOfWeek: "WEDNESDAY",
+      startTime: "10:00",
+      endTime: "12:00",
+      room: "Lab 3",
+      building: "Engineering Block C",
+    },
+    // Web Engineering - Tue/Thu 14:00-16:00
+    {
+      courseId: webEngineeringCourse.id,
+      dayOfWeek: "TUESDAY",
+      startTime: "14:00",
+      endTime: "16:00",
+      room: "Computer Lab 1",
+      building: "Main Building",
+    },
+    {
+      courseId: webEngineeringCourse.id,
+      dayOfWeek: "THURSDAY",
+      startTime: "14:00",
+      endTime: "16:00",
+      room: "Computer Lab 1",
+      building: "Main Building",
+    },
+    // Data Visualization - Fri 09:00-12:00
+    {
+      courseId: visualizationCourse.id,
+      dayOfWeek: "FRIDAY",
+      startTime: "09:00",
+      endTime: "12:00",
+      room: "Design Studio",
+      building: "Arts Block",
     },
   ])
 

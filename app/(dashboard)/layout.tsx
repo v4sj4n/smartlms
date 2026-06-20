@@ -15,7 +15,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Bell, Moon, Search, Sun } from "lucide-react"
+import { Moon, Search, Sun } from "lucide-react"
+import { NotificationsDropdown } from "@/components/notifications-dropdown"
 import { useTheme } from "next-themes"
 import {
   BreadcrumbLabelsProvider,
@@ -180,16 +181,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-transform duration-300 dark:scale-100 dark:rotate-0" />
               </Button>
 
-              {/* Notifications Button */}
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative h-9 w-9 rounded-full border-border/40 text-foreground transition-[background-color,border-color,transform] duration-200 hover:bg-muted/60 active:scale-[0.96]"
-                aria-label="View Notifications"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 h-2 w-2 animate-pulse rounded-full bg-destructive" />
-              </Button>
+              <NotificationsDropdown />
             </div>
           </header>
 

@@ -13,7 +13,8 @@ import {
 } from "@/db/schema"
 import { and, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-import { requireAuth } from "@/lib/auth-guard"
+import { requireAuth, requireRole } from "@/lib/auth-guard"
+import { computeReviewSuggestions } from "@/lib/quiz/review-suggestions"
 
 // ============================================================================
 // QUIZ ACTIONS
@@ -327,6 +328,11 @@ export async function submitQuizAttempt(input: {
       0
     )
 
+    const maxScore = quiz.questions.reduce(
+      (total, question) => total + question.points,
+      0
+    )
+
     const attempt = await db.transaction(async (tx) => {
       const [createdAttempt] = await tx
         .insert(quizAttempts)
@@ -354,6 +360,19 @@ export async function submitQuizAttempt(input: {
       return createdAttempt
     })
 
+    const reviewSuggestions = await computeReviewSuggestions(
+      attempt.id,
+      quiz.week.course.id,
+      quiz.weekId
+    )
+
+    if (reviewSuggestions.length > 0) {
+      await db
+        .update(quizAttempts)
+        .set({ reviewSuggestions })
+        .where(eq(quizAttempts.id, attempt.id))
+    }
+
     revalidatePath(`/student/courses/${quiz.week.course.id}/quizzes/${quiz.id}`)
     revalidatePath(`/student/courses/${quiz.week.course.id}/quizzes`)
     revalidatePath(`/student/courses/${quiz.week.course.id}`)
@@ -363,10 +382,8 @@ export async function submitQuizAttempt(input: {
       data: {
         attempt,
         score,
-        maxScore: quiz.questions.reduce(
-          (total, question) => total + question.points,
-          0
-        ),
+        maxScore,
+        reviewSuggestions,
       },
     }
   } catch (error) {
@@ -443,6 +460,7 @@ export async function getCurrentUserQuizAttempt(quizId: string) {
           0
         ),
         completedAt: attempt.completedAt.toISOString(),
+        reviewSuggestions: attempt.reviewSuggestions ?? [],
       },
     }
   } catch (error) {

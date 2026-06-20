@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getUserDisplayName } from "@/lib/display-name"
 import {
   BookOpen,
   Users,
@@ -48,8 +47,6 @@ export default async function ProfessorDashboardPage() {
   if (!session || session.user.role !== "PROFESSOR") {
     redirect("/sign-in")
   }
-
-  const displayName = getUserDisplayName(session.user)
 
   const [{ data: courses }, priorities, { data: announcements }] =
     await Promise.all([
@@ -100,20 +97,6 @@ export default async function ProfessorDashboardPage() {
   if (myCourses.length === 0) {
     return (
       <div className="flex-1 space-y-6">
-        <div
-          className="reveal-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-          style={{ animationDelay: "0ms" }}
-        >
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
-              Welcome back, {displayName}!
-            </h1>
-            <p className="mt-1 text-pretty text-muted-foreground">
-              Ready to inspire and guide your students today.
-            </p>
-          </div>
-        </div>
-
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
@@ -134,48 +117,6 @@ export default async function ProfessorDashboardPage() {
 
   return (
     <div className="flex-1 space-y-6">
-      {/* Welcome Header - Same pattern as student */}
-      <div
-        className="reveal-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        style={{ animationDelay: "0ms" }}
-      >
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
-            Welcome back, {displayName}!
-          </h1>
-          <p className="mt-1 text-pretty text-muted-foreground">
-            Here&apos;s what&apos;s happening with your teaching today.
-          </p>
-        </div>
-        <div className="flex flex-col items-start gap-0.5 sm:items-end">
-          <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
-            {(() => {
-              const d = new Date()
-              const day = d.getUTCDay() || 7
-              const tmp = new Date(
-                Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-              )
-              tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
-              const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
-              const week = Math.ceil(
-                ((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-              )
-              return `Week ${week} / ${d.getFullYear()}`
-            })()}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            <span className="font-mono font-semibold text-foreground tabular-nums">
-              {myCourses.length}
-            </span>{" "}
-            {myCourses.length === 1 ? "course" : "courses"} ·{" "}
-            <span className="font-mono font-semibold text-foreground tabular-nums">
-              {totalStudents}
-            </span>{" "}
-            {totalStudents === 1 ? "student" : "students"}
-          </span>
-        </div>
-      </div>
-
       {/* Week Calendar - Same as student */}
       <div className="reveal-in" style={{ animationDelay: "120ms" }}>
         <WeekCalendar />

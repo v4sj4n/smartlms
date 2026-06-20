@@ -1,5 +1,5 @@
 import * as React from "react"
-import { requireRole } from "@/lib/auth-guard"
+import { requireCourseAccess } from "@/lib/permissions/route-guards"
 import { db } from "@/db"
 import { courseEnrollments, courses, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
@@ -16,7 +16,7 @@ import { BookOpen, GraduationCap, ArrowRight, LayoutGrid } from "lucide-react"
 import Link from "next/link"
 
 export default async function StudentCoursesPage() {
-  const user = await requireRole(["STUDENT"])
+  const user = await requireCourseAccess("", "read") // Empty courseId for general course access
 
   // Fetch enrolled courses
   const enrolledCourses = await db

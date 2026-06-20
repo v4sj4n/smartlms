@@ -43,10 +43,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { getUserDisplayName } from "@/lib/display-name"
+import { usePermissions } from "@/lib/permissions/hooks"
 
 export function AppSidebar() {
   const { data: session } = useSession()
   const pathname = usePathname()
+  const { canAccessModule, hasRole } = usePermissions()
 
   const user = session?.user
   const role = user?.role ?? "STUDENT"
@@ -58,95 +60,86 @@ export function AppSidebar() {
         ? "/student/settings"
         : "/admin/settings"
 
-  // Define navigation items per role
+  // Define navigation items based on permissions
   const getNavItems = () => {
-    switch (role) {
-      case "ADMIN":
-        return [
-          {
-            title: "Dashboard",
-            url: "/admin",
-            icon: LayoutDashboard,
-          },
-          {
-            title: "Courses",
-            url: "/admin/courses",
-            icon: BookOpen,
-          },
-          {
-            title: "Academic",
-            url: "/admin/academic",
-            icon: School,
-          },
-          {
-            title: "Users",
-            url: "/admin/users",
-            icon: Users,
-          },
-          {
-            title: "Clubs",
-            url: "/admin/clubs",
-            icon: Compass,
-          },
-          {
-            title: "Settings",
-            url: "/admin/settings",
-            icon: Settings,
-          },
-        ]
-      case "PROFESSOR":
-        return [
-          {
-            title: "Dashboard",
-            url: "/professor",
-            icon: LayoutDashboard,
-          },
-          {
-            title: "My Courses",
-            url: "/professor/courses",
-            icon: BookOpen,
-          },
-          {
-            title: "Clubs",
-            url: "/professor/clubs",
-            icon: Compass,
-          },
-          {
-            title: "Settings",
-            url: "/professor/settings",
-            icon: Settings,
-          },
-        ]
-      case "STUDENT":
-      default:
-        return [
-          {
-            title: "Dashboard",
-            url: "/student",
-            icon: LayoutDashboard,
-          },
-          {
-            title: "My Courses",
-            url: "/student/courses",
-            icon: BookOpen,
-          },
-          {
-            title: "Clubs",
-            url: "/student/clubs",
-            icon: Compass,
-          },
-          {
-            title: "Learning Hub",
-            url: "/student/learning-hub",
-            icon: Sparkles,
-          },
-          {
-            title: "Settings",
-            url: "/student/settings",
-            icon: Settings,
-          },
-        ]
+    const navItems = []
+
+    // Dashboard - everyone has access
+    if (canAccessModule("dashboard")) {
+      navItems.push({
+        title: "Dashboard",
+        url: hasRole("ADMIN")
+          ? "/admin"
+          : hasRole("PROFESSOR")
+            ? "/professor"
+            : "/student",
+        icon: LayoutDashboard,
+      })
     }
+
+    // Courses
+    if (canAccessModule("courses")) {
+      navItems.push({
+        title: hasRole("PROFESSOR") ? "My Courses" : "Courses",
+        url: hasRole("ADMIN")
+          ? "/admin/courses"
+          : hasRole("PROFESSOR")
+            ? "/professor/courses"
+            : "/student/courses",
+        icon: BookOpen,
+      })
+    }
+
+    // Academic - Admin only
+    if (hasRole("ADMIN") && canAccessModule("academic")) {
+      navItems.push({
+        title: "Academic",
+        url: "/admin/academic",
+        icon: School,
+      })
+    }
+
+    // Users - Admin only
+    if (hasRole("ADMIN") && canAccessModule("users")) {
+      navItems.push({
+        title: "Users",
+        url: "/admin/users",
+        icon: Users,
+      })
+    }
+
+    // Clubs
+    if (canAccessModule("clubs")) {
+      navItems.push({
+        title: "Clubs",
+        url: hasRole("ADMIN")
+          ? "/admin/clubs"
+          : hasRole("PROFESSOR")
+            ? "/professor/clubs"
+            : "/student/clubs",
+        icon: Compass,
+      })
+    }
+
+    // Learning Hub - Students primarily
+    if (canAccessModule("learning_hub")) {
+      navItems.push({
+        title: "Learning Hub",
+        url: "/student/learning-hub",
+        icon: Sparkles,
+      })
+    }
+
+    // Settings - everyone has access
+    if (canAccessModule("settings")) {
+      navItems.push({
+        title: "Settings",
+        url: settingsUrl,
+        icon: Settings,
+      })
+    }
+
+    return navItems
   }
 
   const navItems = getNavItems()

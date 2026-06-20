@@ -1,6 +1,7 @@
 "use server"
 
 import { db } from "@/db"
+import { requireClubAccess } from "@/lib/permissions/route-guards"
 import {
   clubs,
   clubMembers,
@@ -41,6 +42,9 @@ export async function createClub(data: {
 }
 
 export async function getClubs() {
+  // Check if user has permission to read clubs
+  const user = await requireClubAccess("", "read") // Empty clubId for general club access
+
   try {
     const data = await db.query.clubs.findMany({
       orderBy: [desc(clubs.createdAt)],
