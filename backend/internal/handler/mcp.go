@@ -13,22 +13,22 @@ import (
 )
 
 /*
-The SmartLMS MCP server, over the Streamable HTTP transport (JSON responses, no
+The OptimoLMS MCP server, over the Streamable HTTP transport (JSON responses, no
 SSE stream): a client POSTs JSON-RPC 2.0 to /api/mcp and gets JSON-RPC back.
 
 The tools are the ones in mcp_tools.go — the backend's own content actions. The
 same registry feeds the assistant's chat loop, so an MCP client and the in-app
 assistant can do exactly the same things, with exactly the same permissions.
 
-Identity travels the way the rest of this API travels today: user_id in the query
-string or the X-SmartLMS-User header. That is the placeholder for the session
-cookie described in docs/STATUS.md item 1 — once auth lands, the caller's id
-comes from the session and the parameter disappears.
+Identity comes from the session (`withSessions` in session.go), never from the
+request body, the query string or a header: an MCP client signs in like anyone
+else and carries the cookie, or sends the token from sign-in as
+`Authorization: Bearer <token>`.
 */
 
 const mcpProtocolVersion = "2025-06-18"
 
-const mcpInstructions = "SmartLMS tools create and read the school's content: subjects, course weeks, " +
+const mcpInstructions = "OptimoLMS tools create and read the school's content: subjects, course weeks, " +
 	"lectures, assignments, quizzes, flashcards and course forum threads. Call list_subjects first to " +
 	"learn the subject ids. Every call runs as the signed-in user and is refused when their permissions " +
 	"do not cover the action."
@@ -74,14 +74,6 @@ func jsonText(value any) string {
 	return string(encoded)
 }
 
-// mcpCallerID reads who is calling: the query string first, then the header.
-func mcpCallerID(r *http.Request) string {
-	if id := strings.TrimSpace(r.URL.Query().Get("user_id")); id != "" {
-		return id
-	}
-	return strings.TrimSpace(r.Header.Get("X-SmartLMS-User"))
-}
-
 func mcpInitializeResult() map[string]any {
 	return map[string]any{
 		"protocolVersion": mcpProtocolVersion,
@@ -90,7 +82,7 @@ func mcpInitializeResult() map[string]any {
 		},
 		"serverInfo": map[string]any{
 			"name":    mcpServerKey,
-			"title":   "SmartLMS",
+			"title":   "OptimoLMS",
 			"version": "1.0.0",
 		},
 		"instructions": mcpInstructions,
@@ -185,13 +177,7 @@ func dispatchMCPMessage(r *http.Request, db *sql.DB, userID string, scope access
 func registerMCP(mux *http.ServeMux, db *sql.DB) {
 	// POST /api/mcp — the MCP endpoint itself.
 	mux.HandleFunc("POST /api/mcp", func(w http.ResponseWriter, r *http.Request) {
-		userID := mcpCallerID(r)
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "user_id is required (query string or X-SmartLMS-User header)",
-			})
-			return
-		}
+		userID := callerFrom(r).ID
 		scope, err := loadAccessScope(r.Context(), db, userID)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusUnauthorized, mcpJSONRPCResponse{
@@ -281,11 +267,7 @@ func registerMCP(mux *http.ServeMux, db *sql.DB) {
 	// GET /api/mcp/tools — the catalogue the MCP tab draws: what the server can
 	// do, which permissions each tool needs, and what this person is allowed.
 	mux.HandleFunc("GET /api/mcp/tools", func(w http.ResponseWriter, r *http.Request) {
-		userID := mcpCallerID(r)
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		userID := callerFrom(r).ID
 		scope, err := loadAccessScope(r.Context(), db, userID)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
@@ -321,7 +303,7 @@ func registerMCP(mux *http.ServeMux, db *sql.DB) {
 
 		writeJSON(w, http.StatusOK, map[string]any{
 			"server":       mcpServerKey,
-			"name":         "SmartLMS",
+			"name":         "OptimoLMS",
 			"endpoint":     "/api/mcp",
 			"protocol":     mcpProtocolVersion,
 			"connected":    connected,

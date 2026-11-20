@@ -102,7 +102,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
 
 	const download = () => {
 		const body = [
-			"SmartLMS recovery codes",
+			"OptimoLMS recovery codes",
 			"",
 			"Each code signs you in once, when the authenticator app is not available.",
 			"",
@@ -112,7 +112,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
 		const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
 		const link = document.createElement("a");
 		link.href = url;
-		link.download = "smartlms-recovery-codes.txt";
+		link.download = "optimolms-recovery-codes.txt";
 		link.click();
 		URL.revokeObjectURL(url);
 	};

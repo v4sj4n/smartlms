@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 /** "Stats for nerds": per-browser toggle for the stats line under replies. */
-const STATS_KEY = "smartlms.ai.statsNerds";
-const STATS_EVENT = "smartlms:stats-nerds";
+const STATS_KEY = "optimolms.ai.statsNerds";
+const STATS_EVENT = "optimolms:stats-nerds";
 
 export function readStatsNerds(): boolean {
 	try {

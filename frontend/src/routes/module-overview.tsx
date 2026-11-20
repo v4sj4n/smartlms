@@ -39,9 +39,9 @@ const SUBJECT_CONTENT: Record<
 	},
 	flashcards: {
 		tab: "flashcards",
-		count: "flashcards",
-		noun: ["card", "cards"],
-		lead: "Flashcard decks belong to a subject. Pick one to study its cards.",
+		count: "flashcard_sets",
+		noun: ["set", "sets"],
+		lead: "Flashcard sets belong to a subject. Pick one to study its cards.",
 	},
 	forums: {
 		tab: "forums",
@@ -94,52 +94,57 @@ function SubjectHub({ moduleKey }: { moduleKey: string }) {
 					/>
 				</Card>
 			) : (
-				<Card className="card--flush">
-					<ul
-						className="people-list"
-						aria-label={`Subjects with ${moduleLabel(moduleKey)}`}
-					>
-						{list.map((subject) => {
-							const count = content.count
-								? subject.counts[content.count]
-								: undefined;
-							return (
-								<li key={subject.id}>
-									<Link
-										to="/subjects/$subjectId"
-										params={{ subjectId: subject.id }}
-										search={
-											content.tab === "lectures" ? {} : { tab: content.tab }
-										}
-										className="people-list__row"
+				<ul
+					className="subject-grid"
+					aria-label={`Subjects with ${moduleLabel(moduleKey)}`}
+				>
+					{list.map((subject) => {
+						const count = content.count
+							? subject.counts[content.count]
+							: undefined;
+						return (
+							<li key={subject.id}>
+								<Link
+									to="/subjects/$subjectId"
+									params={{ subjectId: subject.id }}
+									search={
+										content.tab === "lectures" ? {} : { tab: content.tab }
+									}
+									className="subject-card"
+								>
+									<span
+										className="agenda__icon agenda__icon--lecture"
+										aria-hidden="true"
 									>
-										<span
-											className="agenda__icon agenda__icon--lecture"
-											aria-hidden="true"
-										>
-											<Icon size={16} weight="regular" />
+										<Icon size={16} weight="regular" />
+									</span>
+									<span className="subject-card__text">
+										<span className="subject-card__name">{subject.name}</span>
+										<span className="subject-card__meta">
+											{[subject.code, subject.lecturer_name]
+												.filter(Boolean)
+												.join(" · ")}
 										</span>
-										<span className="people-list__text">
-											<span className="people-list__name">{subject.name}</span>
-											<span className="people-list__email">
-												{[subject.code, subject.lecturer_name]
-													.filter(Boolean)
-													.join(" · ")}
-											</span>
-										</span>
+									</span>
+									<span className="subject-card__foot">
 										{count !== undefined ? (
-											<span className="people-list__action num">
+											<span className="subject-card__count num">
 												{count}{" "}
 												{count === 1 ? content.noun[0] : content.noun[1]}
 											</span>
 										) : null}
-										<CaretRight size={14} weight="bold" aria-hidden="true" />
-									</Link>
-								</li>
-							);
-						})}
-					</ul>
-				</Card>
+										<CaretRight
+											size={14}
+											weight="bold"
+											aria-hidden="true"
+											className="subject-card__caret"
+										/>
+									</span>
+								</Link>
+							</li>
+						);
+					})}
+				</ul>
 			)}
 		</>
 	);

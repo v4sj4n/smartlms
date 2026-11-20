@@ -11,10 +11,13 @@ import { WeekField } from "./WeekField";
 /** Add or edit a quiz: title, description and an optional time limit. */
 export function QuizFormDialog({
 	subjectId,
+	weekId,
 	quiz,
 	onClose,
 }: {
 	subjectId: string;
+	/** Week this content is filed into on create, when opened from a week. */
+	weekId?: string;
 	quiz?: Quiz;
 	onClose: () => void;
 }) {
@@ -27,7 +30,7 @@ export function QuizFormDialog({
 			title: quiz?.title ?? "",
 			description: quiz?.description ?? "",
 			time_limit_minutes: quiz ? String(quiz.time_limit_minutes) : "",
-			week_id: quiz?.week_id ?? "",
+			week_id: quiz?.week_id ?? weekId ?? "",
 		},
 		onSubmit: async ({ value }) => {
 			setServerError(null);

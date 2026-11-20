@@ -1,1 +1,0 @@
-ALTER TABLE "chatbots" ALTER COLUMN "model" SET DEFAULT 'gemini-3.5-flash';

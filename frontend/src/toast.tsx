@@ -71,7 +71,7 @@ export function toastApiError(
 		if (error.status === 0) {
 			toastError(
 				"Cannot reach the server",
-				"The SmartLMS backend on :8081 did not respond.",
+				"The OptimoLMS backend on :8081 did not respond.",
 			);
 			return;
 		}
@@ -84,5 +84,5 @@ export function toastApiError(
 	toastError(fallback, error instanceof Error ? error.message : undefined);
 }
 
-export { sonner as toast };
 export type { ToastT };
+export { sonner as toast };

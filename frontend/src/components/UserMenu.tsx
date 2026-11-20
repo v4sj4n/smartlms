@@ -1,6 +1,6 @@
 import {
-	Bell,
 	BellSlash,
+	CaretDown,
 	CaretUp,
 	CircleNotch,
 	Moon,
@@ -26,7 +26,6 @@ import { formatRelative, initials } from "../format";
 import { useNotificationMutations, useNotifications } from "../queries";
 import { useTheme } from "../theme";
 import { toastApiError, toastSuccess } from "../toast";
-import { Badge } from "./ui";
 
 const PANEL_WIDTH = 320;
 
@@ -58,14 +57,13 @@ function NotificationButton({
 						: `${notification.title}, unread. Mark as read`
 				}
 			>
-				<span className="notif__dot" aria-hidden="true" />
-				<span className="notif__text">
+				<span className="notif__head">
 					<span className="notif__title">{notification.title}</span>
-					<span className="notif__message">{notification.message}</span>
 					<span className="notif__time num">
 						{formatRelative(notification.created_at)}
 					</span>
 				</span>
+				<span className="notif__message">{notification.message}</span>
 			</button>
 		</li>
 	);
@@ -80,6 +78,7 @@ export function UserMenu() {
 	const { session, signOut, isAdmin } = useAuth();
 	const navigate = useNavigate();
 	const [open, setOpen] = useState(false);
+	const [notifOpen, setNotifOpen] = useState(false);
 	const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
 	const containerRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -225,82 +224,89 @@ export function UserMenu() {
 						</span>
 						<div className="user-menu__identity">
 							<p className="user-menu__name">{session.user.name}</p>
-							<p className="user-menu__email">{session.user.email}</p>
-							<Badge tone={isAdmin ? "primary" : "outline"}>
-								{session.user.role}
-							</Badge>
+							<p className="user-menu__email" title={session.user.email}>
+								{session.user.email}
+							</p>
 						</div>
+						<span
+							className={isAdmin ? "role-pill role-pill--admin" : "role-pill"}
+						>
+							{session.user.role}
+						</span>
 					</div>
 
-					<p className="user-menu__stats num">
-						{session.modules.length} modules · {session.permissions.length}{" "}
-						permissions
-					</p>
-
-					<div className="user-menu__row">
-						<span className="user-menu__row-label">Account</span>
+					<div className="user-menu__actions">
 						<button
 							type="button"
 							role="menuitem"
-							className="appearance-button"
+							className="menu-item"
 							onClick={() => {
 								setOpen(false);
 								void navigate({ to: "/settings/profile" });
 							}}
 						>
-							<User size={15} weight="regular" aria-hidden="true" />
-							<span>Profile and security</span>
+							<User size={16} weight="regular" aria-hidden="true" />
+							<span className="menu-item__label">Profile and security</span>
 						</button>
-					</div>
-
-					<div className="user-menu__row">
-						<span className="user-menu__row-label">Assistant</span>
 						<button
 							type="button"
 							role="menuitem"
-							className="appearance-button"
+							className="menu-item"
 							onClick={() => {
 								setOpen(false);
 								void navigate({ to: "/assistant" });
 							}}
 						>
-							<Sparkle size={15} weight="regular" aria-hidden="true" />
-							<span>AI settings</span>
+							<Sparkle size={16} weight="regular" aria-hidden="true" />
+							<span className="menu-item__label">AI settings</span>
 						</button>
-					</div>
-
-					{/* The one and only appearance control: flips light <-> dark. */}
-					<div className="user-menu__row">
-						<span className="user-menu__row-label">Appearance</span>
+						{/* The one and only appearance control: flips light <-> dark. */}
 						<button
 							type="button"
 							role="menuitem"
-							className="appearance-button"
+							className="menu-item"
 							onClick={() =>
 								saveAppearance({ theme: theme === "dark" ? "light" : "dark" })
 							}
 							aria-label={
 								theme === "dark"
-									? "Switch to light theme"
-									: "Switch to dark theme"
+									? "Theme: dark. Switch to light"
+									: "Theme: light. Switch to dark"
 							}
 						>
 							{theme === "dark" ? (
-								<Moon size={15} weight="regular" aria-hidden="true" />
+								<Moon size={16} weight="regular" aria-hidden="true" />
 							) : (
-								<Sun size={15} weight="regular" aria-hidden="true" />
+								<Sun size={16} weight="regular" aria-hidden="true" />
 							)}
-							<span>{theme === "dark" ? "Dark" : "Light"}</span>
+							<span className="menu-item__label">Theme</span>
+							<span className="menu-item__hint">
+								{theme === "dark" ? "Dark" : "Light"}
+							</span>
 						</button>
 					</div>
 
 					<div className="user-menu__section">
 						<div className="user-menu__section-head">
-							<span className="user-menu__section-title">
-								<Bell size={14} weight="regular" aria-hidden="true" />
-								Notifications
-								{unread > 0 ? <Badge tone="primary">{unread}</Badge> : null}
-							</span>
+							<button
+								type="button"
+								role="menuitem"
+								className="user-menu__section-toggle"
+								aria-expanded={notifOpen}
+								aria-controls="user-menu-notifications"
+								onClick={() => setNotifOpen((value) => !value)}
+							>
+								<CaretDown
+									size={12}
+									weight="bold"
+									className="user-menu__section-caret"
+									aria-hidden="true"
+								/>
+								<span className="user-menu__section-title">Notifications</span>
+								{unread > 0 ? (
+									<span className="user-menu__count num">{unread} new</span>
+								) : null}
+							</button>
 							<button
 								type="button"
 								role="menuitem"
@@ -312,60 +318,67 @@ export function UserMenu() {
 							</button>
 						</div>
 
-						{notifications.isPending ? (
-							<p className="user-menu__empty">
-								<CircleNotch
-									size={14}
-									weight="bold"
-									className="spinner"
-									aria-hidden="true"
-								/>
-								Loading notifications…
-							</p>
-						) : notifications.isError ? (
-							<div className="user-menu__error" role="alert">
-								<span className="row row--tight">
-									<WarningCircle
-										size={14}
-										weight="regular"
-										aria-hidden="true"
-									/>
-									{errorMessage(notifications.error)}
-								</span>
-								<button
-									type="button"
-									role="menuitem"
-									className="link-button"
-									onClick={() => void notifications.refetch()}
-								>
-									Retry
-								</button>
+						{notifOpen ? (
+							<div
+								id="user-menu-notifications"
+								className="user-menu__section-body"
+							>
+								{notifications.isPending ? (
+									<p className="user-menu__empty">
+										<CircleNotch
+											size={14}
+											weight="bold"
+											className="spinner"
+											aria-hidden="true"
+										/>
+										Loading notifications…
+									</p>
+								) : notifications.isError ? (
+									<div className="user-menu__error" role="alert">
+										<span className="row row--tight">
+											<WarningCircle
+												size={14}
+												weight="regular"
+												aria-hidden="true"
+											/>
+											{errorMessage(notifications.error)}
+										</span>
+										<button
+											type="button"
+											role="menuitem"
+											className="link-button"
+											onClick={() => void notifications.refetch()}
+										>
+											Retry
+										</button>
+									</div>
+								) : items.length === 0 ? (
+									<p className="user-menu__empty">
+										<BellSlash size={14} weight="regular" aria-hidden="true" />
+										No notifications
+									</p>
+								) : (
+									<ul className="notif-list">
+										{items.map((notification) => (
+											<NotificationButton
+												key={notification.id}
+												notification={notification}
+												pending={markRead.isPending}
+												onRead={() =>
+													markRead.mutate(notification.id, {
+														onError: (error) =>
+															toastApiError(
+																error,
+																"Notification could not be marked read",
+															),
+													})
+												}
+											/>
+										))}
+									</ul>
+								)}
 							</div>
-						) : items.length === 0 ? (
-							<p className="user-menu__empty">
-								<BellSlash size={14} weight="regular" aria-hidden="true" />
-								No notifications
-							</p>
-						) : (
-							<ul className="notif-list">
-								{items.map((notification) => (
-									<NotificationButton
-										key={notification.id}
-										notification={notification}
-										pending={markRead.isPending}
-										onRead={() =>
-											markRead.mutate(notification.id, {
-												onError: (error) =>
-													toastApiError(
-														error,
-														"Notification could not be marked read",
-													),
-											})
-										}
-									/>
-								))}
-							</ul>
-						)}
+						) : null}
 					</div>
 
 					<div className="user-menu__footer">
@@ -375,7 +388,7 @@ export function UserMenu() {
 							className="user-menu__logout"
 							onClick={handleSignOut}
 						>
-							<SignOut size={15} weight="regular" aria-hidden="true" />
+							<SignOut size={16} weight="regular" aria-hidden="true" />
 							Log out
 						</button>
 					</div>

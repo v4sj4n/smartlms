@@ -2,14 +2,18 @@ import {
 	Buildings,
 	Check,
 	CheckCircle,
+	CircleHalf,
 	CircleNotch,
+	FileArrowUp,
 	GearSix,
 	LockKey,
 	Monitor,
 	Moon,
 	PaintBrush,
+	Palette,
 	Plugs,
 	ShieldCheck,
+	SlidersHorizontal,
 	Sparkle,
 	Sun,
 	TextAa,
@@ -38,21 +42,36 @@ import { useAuth } from "../auth";
 import { NoAccessPage } from "../components/ModuleGate";
 import { TwoFactorCard } from "../components/profile/TwoFactorCard";
 import {
+	BadgeInput,
+	type BadgeInputHandle,
+} from "../components/settings/BadgeInput";
+import {
 	Badge,
 	Button,
 	Card,
 	CardHeader,
 	ErrorState,
-	InlineNote,
 	PageHeader,
 	SkeletonStack,
+	TextField,
 } from "../components/ui";
 import { formatDateTime, humanize, initials } from "../format";
 import { moduleIcon } from "../modules";
 import { isDirty, permissionSignature } from "../permissions";
-import { queryKeys, useMeta } from "../queries";
-import { FONT_OPTIONS, THEME_OPTIONS } from "../theme";
-import { toast, toastApiError } from "../toast";
+import {
+	queryKeys,
+	useGeneralSettings,
+	useMeta,
+	useUpdateGeneralSettings,
+} from "../queries";
+import {
+	ACCENT_OPTIONS,
+	CONTRAST_OPTIONS,
+	FONT_OPTIONS,
+	THEME_OPTIONS,
+	useTheme,
+} from "../theme";
+import { toast, toastApiError, toastSuccess } from "../toast";
 import { appLayoutRoute } from "./app-layout";
 
 function PermissionCheckbox({
@@ -503,13 +522,15 @@ function AiPage() {
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
 
 function AppearancePage() {
-	const { themePreference, font, save, saving } = useSaveAppearance();
+	const { themePreference, font, accent, contrastPreference, save, saving } =
+		useSaveAppearance();
+	const { theme, contrast } = useTheme();
 
 	return (
 		<>
 			<PageHeader
 				title="Appearance"
-				description="Theme and reading font for your account. Changes apply right away and follow you to any device you sign in on."
+				description="Theme, accent color, contrast and reading font for your account. Changes apply right away and follow you to any device you sign in on."
 				actions={saving ? <Badge tone="outline">Saving…</Badge> : null}
 			/>
 
@@ -551,6 +572,83 @@ function AppearancePage() {
 								</label>
 							);
 						})}
+					</fieldset>
+				</Card>
+
+				<Card>
+					<CardHeader
+						title="Accent color"
+						icon={<Palette size={16} weight="regular" aria-hidden="true" />}
+					/>
+					<div className="card__body stack--sm">
+						<fieldset className="accent-picker">
+							<legend className="visually-hidden">Accent color</legend>
+							{ACCENT_OPTIONS.map((option) => (
+								<label
+									key={option.value}
+									className="accent-option"
+									title={option.label}
+								>
+									<input
+										type="radio"
+										name="accent"
+										value={option.value}
+										checked={accent === option.value}
+										onChange={() => save({ accent: option.value })}
+										className="accent-option__input"
+									/>
+									<span
+										className="accent-option__swatch"
+										style={{ background: option.swatch[theme] }}
+										aria-hidden="true"
+									/>
+									<span className="accent-option__label">{option.label}</span>
+								</label>
+							))}
+						</fieldset>
+						<div className="accent-preview" aria-hidden="true">
+							<span className="accent-preview__button">Primary</span>
+							<span className="accent-preview__link">Link text</span>
+							<span className="accent-preview__soft">Selected</span>
+							<span className="accent-preview__check">
+								<Check size={11} weight="bold" />
+							</span>
+						</div>
+						<p className="field__description">
+							Every accent meets WCAG contrast in light and dark mode
+							{contrast === "high" ? ", at AAA (7:1) for text" : ""}. Status
+							colors (success, warning, error) keep their meaning whatever the
+							accent.
+						</p>
+					</div>
+				</Card>
+
+				<Card>
+					<CardHeader
+						title="Contrast"
+						icon={<CircleHalf size={16} weight="regular" aria-hidden="true" />}
+					/>
+					<fieldset className="card__body choice-grid">
+						<legend className="visually-hidden">Contrast</legend>
+						{CONTRAST_OPTIONS.map((option) => (
+							<label key={option.value} className="choice choice--font">
+								<input
+									type="radio"
+									name="contrast"
+									value={option.value}
+									checked={contrastPreference === option.value}
+									onChange={() => save({ contrast: option.value })}
+									className="choice__input"
+								/>
+								<span className="choice__label">{option.label}</span>
+								<span className="choice__description">
+									{option.description}
+								</span>
+								<span className="choice__check" aria-hidden="true">
+									<Check size={12} weight="bold" />
+								</span>
+							</label>
+						))}
 					</fieldset>
 				</Card>
 
@@ -660,13 +758,14 @@ function ProfilePage() {
 						title="Connected apps"
 						icon={<Plugs size={16} weight="regular" aria-hidden="true" />}
 					/>
-					<div className="card__body card__body--tight">
-						<InlineNote>
+					<div className="card__body">
+						<p className="settings-copy">
 							Apps the assistant can act through for you are connected on the AI
 							assistant page, under its MCP tab.
-						</InlineNote>
+						</p>
 					</div>
-					<footer className="card__footer">
+					<footer className="card__footer card__footer--actions">
+						<span>Connections are per account.</span>
 						<Link to="/assistant" className="btn btn--secondary btn--sm">
 							Manage MCP apps
 						</Link>
@@ -677,39 +776,322 @@ function ProfilePage() {
 	);
 }
 
+/* --- General: the limits every assignment hand-in is checked against ------ */
+
+const MIN_SUBMISSION_MB = 1;
+const MAX_SUBMISSION_MB = 100;
+
+/**
+ * One comparable string for a limits pair, so "did this change?" is a string
+ * comparison rather than a diff of two shapes. The list is sorted first: the
+ * server stores an allow-list, and its order carries no meaning.
+ */
+function submissionKey(types: string[], maxSizeMb: number | string): string {
+	return JSON.stringify({
+		types: [...types].sort((a, b) => a.localeCompare(b)),
+		maxSizeMb: String(maxSizeMb).trim(),
+	});
+}
+
+function GeneralPage() {
+	const settings = useGeneralSettings();
+	const update = useUpdateGeneralSettings();
+	const badges = useRef<BadgeInputHandle>(null);
+
+	const [types, setTypes] = useState<string[]>([]);
+	const [maxSize, setMaxSize] = useState("");
+	// What is typed in the badge field but not yet a badge: still unsaved work,
+	// so it counts as a change and Save commits it before writing.
+	const [pendingType, setPendingType] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	// The pair that is actually stored, as of the last successful save: it is
+	// what tells "Saved" apart from "Unsaved changes" after the query re-seeds.
+	const [savedKey, setSavedKey] = useState<string | null>(null);
+
+	// The server's answer seeds the draft, and re-seeds it after a save, so the
+	// form never drifts from what the API says is stored.
+	useEffect(() => {
+		if (!settings.data) return;
+		setTypes(settings.data.submission_allowed_file_types);
+		setMaxSize(String(settings.data.submission_max_file_mb));
+	}, [settings.data]);
+
+	const serverKey = settings.data
+		? submissionKey(
+				settings.data.submission_allowed_file_types,
+				settings.data.submission_max_file_mb,
+			)
+		: null;
+	const draftKey = submissionKey(types, maxSize);
+	const hasPendingType = pendingType.trim() !== "";
+	const dirty = serverKey !== null && draftKey !== serverKey;
+	const changed = dirty || hasPendingType;
+
+	// Validate against the same bounds the API enforces, so a save is refused
+	// here with a field-level reason instead of coming back as a 400.
+	const sizeNumber = Number(maxSize);
+	const sizeError = !maxSize.trim()
+		? "Enter a maximum size in MB."
+		: !Number.isFinite(sizeNumber) || !Number.isInteger(sizeNumber)
+			? "Use a whole number of megabytes."
+			: sizeNumber < MIN_SUBMISSION_MB || sizeNumber > MAX_SUBMISSION_MB
+				? `Between ${MIN_SUBMISSION_MB} and ${MAX_SUBMISSION_MB} MB.`
+				: "";
+	const typesError =
+		types.length === 0 ? "Keep at least one allowed file type." : "";
+
+	const pending = update.isPending;
+	const canSave = changed && !typesError && !sizeError && !pending;
+	const saved = !changed && savedKey !== null && savedKey === draftKey;
+
+	const save = async () => {
+		if (!canSave) return;
+		// A type still sitting in the text field is part of what is being saved.
+		const committed = badges.current?.flush() ?? types;
+		if (committed === null) return; // Refused; the field says why.
+		setPendingType("");
+		setError(null);
+
+		const payload = {
+			submission_allowed_file_types: [...committed].sort((a, b) =>
+				a.localeCompare(b),
+			),
+			submission_max_file_mb: sizeNumber,
+		};
+		try {
+			await update.mutateAsync(payload);
+			setSavedKey(
+				submissionKey(
+					payload.submission_allowed_file_types,
+					payload.submission_max_file_mb,
+				),
+			);
+			toastSuccess(
+				"Submission limits saved",
+				"Every assignment hand-in is measured against them from now on.",
+			);
+		} catch (caught) {
+			setSavedKey(null);
+			setError(errorMessage(caught));
+			toastApiError(caught, "The limits could not be saved");
+		}
+	};
+
+	return (
+		<>
+			<PageHeader
+				title="General"
+				description="School-wide limits for assignment hand-ins: which files a student may upload, and how large one file may be."
+			/>
+
+			{settings.isPending ? (
+				<Card>
+					<SkeletonStack rows={4} />
+				</Card>
+			) : settings.isError ? (
+				<Card>
+					<ErrorState
+						title="Limits could not be loaded"
+						message={errorMessage(settings.error)}
+						onRetry={() => void settings.refetch()}
+					/>
+				</Card>
+			) : (
+				<div className="stack">
+					<Card>
+						<CardHeader
+							title="Submission limits"
+							hint="Applies to every assignment"
+							icon={
+								<FileArrowUp size={16} weight="regular" aria-hidden="true" />
+							}
+						/>
+						<div className="card__body stack--sm">
+							<BadgeInput
+								ref={badges}
+								label="Allowed file types"
+								values={types}
+								onChange={(next) => {
+									setTypes(next);
+									setError(null);
+								}}
+								onDraftChange={setPendingType}
+								error={typesError}
+								max={50}
+								disabled={pending}
+								hint="The extensions a student may hand in. Spreadsheets, documents, archives and images by default — Tab, Enter or a comma adds one."
+							/>
+
+							<TextField
+								label="Maximum file size"
+								type="number"
+								min={MIN_SUBMISSION_MB}
+								inputMode="numeric"
+								value={maxSize}
+								onChange={(value) => {
+									setMaxSize(value);
+									setError(null);
+								}}
+								error={sizeError}
+								disabled={pending}
+								trailing={<span className="field__suffix">MB</span>}
+								hint={`Between ${MIN_SUBMISSION_MB} and ${MAX_SUBMISSION_MB} MB per file. 25 MB covers a photographed worksheet without inviting a video.`}
+							/>
+							{error ? (
+								<span className="form-note" role="alert">
+									{error}
+								</span>
+							) : null}
+						</div>
+						<footer className="card__footer card__footer--actions">
+							<span
+								className={
+									saved
+										? "perm-actions__status perm-actions__status--saved"
+										: "perm-actions__status"
+								}
+								role="status"
+							>
+								{saved ? (
+									<>
+										<CheckCircle size={14} weight="fill" aria-hidden="true" />
+										Saved
+									</>
+								) : changed ? (
+									"Unsaved changes"
+								) : (
+									"Up to date with the server"
+								)}
+							</span>
+							<Button
+								variant="primary"
+								size="sm"
+								onClick={() => void save()}
+								disabled={!canSave}
+								icon={
+									pending ? (
+										<CircleNotch
+											size={14}
+											weight="bold"
+											className="spinner"
+											aria-hidden="true"
+										/>
+									) : null
+								}
+							>
+								Save changes
+							</Button>
+						</footer>
+					</Card>
+
+					<Card>
+						<CardHeader
+							title="How these limits apply"
+							hint="Read-only"
+							icon={
+								<ShieldCheck size={16} weight="regular" aria-hidden="true" />
+							}
+						/>
+						<div className="card__body stack--sm">
+							<p className="settings-copy">
+								These two limits apply to assignment hand-ins, across the whole
+								school — not per subject and not per assignment.
+							</p>
+							<ul className="check-list">
+								<li>
+									<CheckCircle size={16} weight="fill" aria-hidden="true" />
+									An upload is sniffed by content type: the bytes must match the
+									extension, so a renamed executable or a web page never gets
+									in.
+								</li>
+								<li>
+									<CheckCircle size={16} weight="fill" aria-hidden="true" />
+									Dangerous types are always rejected, even if they reach this
+									list: html, svg, scripts and executables.
+								</li>
+								<li>
+									<CheckCircle size={16} weight="fill" aria-hidden="true" />
+									Files already handed in are untouched; the new limits apply to
+									the next upload.
+								</li>
+								<li>
+									<CheckCircle size={16} weight="fill" aria-hidden="true" />
+									Students see the list and the cap in the upload picker before
+									they choose a file.
+								</li>
+							</ul>
+						</div>
+						<footer className="card__footer">
+							Only holders of the settings.manage permission can change these
+							limits.
+						</footer>
+					</Card>
+				</div>
+			)}
+		</>
+	);
+}
+
 /* --- Settings shell: local sidebar + section content ---------------------- */
 
-const SETTINGS_SECTIONS: {
+/**
+ * The settings sections, and what each one asks for.
+ *
+ * Two kinds live here, and the distinction is the whole point of this list:
+ *
+ * - Per-person screens (`profile`, `appearance`) change only the signed-in
+ *   account — name and role are read-only there, theme and reading font are
+ *   saved under `/api/me`. Every role keeps them, so they ask for nothing.
+ * - School-wide screens (`general`, `permissions`, `ai`) change what everyone
+ *   gets, and ask for `settings.manage` — which ADMIN holds and students and
+ *   lecturers do not.
+ *
+ * One list drives both the navigation and the gate below, so a section can
+ * never be advertised to a role that would be refused on arrival.
+ */
+type SettingsSection = {
 	to: string;
 	label: string;
 	icon: SectionIcon;
-	adminOnly?: boolean;
-}[] = [
+	/** Permission the section needs on top of being signed in; omitted = any. */
+	permission?: string;
+};
+
+const SETTINGS_SECTIONS: SettingsSection[] = [
 	{ to: "/settings/profile", label: "Profile", icon: User },
 	{ to: "/settings/appearance", label: "Appearance", icon: PaintBrush },
+	{
+		to: "/settings/general",
+		label: "General",
+		icon: SlidersHorizontal,
+		permission: "settings.manage",
+	},
 	{
 		to: "/settings/permissions",
 		label: "Permissions",
 		icon: ShieldCheck,
-		adminOnly: true,
+		permission: "settings.manage",
 	},
-	{ to: "/settings/ai", label: "AI", icon: Sparkle, adminOnly: true },
+	{
+		to: "/settings/ai",
+		label: "AI",
+		icon: Sparkle,
+		permission: "settings.manage",
+	},
 ];
 
 function SettingsSidebar({
 	pathname,
-	canManage,
+	reaches,
 }: {
 	pathname: string;
-	canManage: boolean;
+	reaches: (section: SettingsSection) => boolean;
 }) {
 	return (
 		<aside className="settings__sidebar">
 			<nav className="settings__nav" aria-label="Settings sections">
 				<span className="settings__nav-label">Settings</span>
-				{SETTINGS_SECTIONS.filter(
-					(section) => canManage || !section.adminOnly,
-				).map((section) => {
+				{SETTINGS_SECTIONS.filter(reaches).map((section) => {
 					const active =
 						pathname === section.to || pathname.startsWith(`${section.to}/`);
 					const Icon = section.icon;
@@ -740,29 +1122,46 @@ function SettingsSidebar({
 }
 
 function SettingsLayout() {
-	const { session, isAdmin, hasPermission } = useAuth();
+	const { isAdmin, hasPermission } = useAuth();
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
 
-	const canManage = isAdmin || hasPermission("settings.manage");
-	const onAdminSection = SETTINGS_SECTIONS.some(
-		(section) => section.adminOnly && pathname.startsWith(section.to),
-	);
+	// ADMIN holds every permission; for everybody else the key decides.
+	const reaches = (section: SettingsSection) =>
+		!section.permission || isAdmin || hasPermission(section.permission);
 
-	if (!canManage && onAdminSection) {
+	// The section this URL belongs to, if it is one we know: a visitor who types
+	// an address gets the same answer the sidebar would have given them.
+	const target = SETTINGS_SECTIONS.find(
+		(section) =>
+			pathname === section.to || pathname.startsWith(`${section.to}/`),
+	);
+	const refusal = target && !reaches(target) ? target : null;
+
+	if (refusal) {
 		return (
 			<NoAccessPage
 				moduleKey="settings"
 				label="Settings"
-				body="Settings need the settings.manage permission. Your role does not hold it."
+				body={
+					<>
+						The <strong>{refusal.label}</strong> section needs the{" "}
+						<code>{refusal.permission}</code> permission. Your role does not
+						hold it — your own{" "}
+						<Link to="/settings/profile" className="link-btn">
+							profile
+						</Link>{" "}
+						and appearance are still yours to change.
+					</>
+				}
 			/>
 		);
 	}
 
 	return (
 		<div className="settings">
-			<SettingsSidebar pathname={pathname} canManage={canManage} />
+			<SettingsSidebar pathname={pathname} reaches={reaches} />
 			<div className="settings__main">
 				<Outlet />
 			</div>
@@ -795,6 +1194,12 @@ export const settingsAppearanceRoute = createRoute({
 	component: AppearancePage,
 });
 
+export const settingsGeneralRoute = createRoute({
+	getParentRoute: () => settingsRoute,
+	path: "general",
+	component: GeneralPage,
+});
+
 export const settingsPermissionsRoute = createRoute({
 	getParentRoute: () => settingsRoute,
 	path: "permissions",
@@ -811,6 +1216,7 @@ export const settingsTree = settingsRoute.addChildren([
 	settingsIndexRoute,
 	settingsProfileRoute,
 	settingsAppearanceRoute,
+	settingsGeneralRoute,
 	settingsPermissionsRoute,
 	settingsAiRoute,
 ]);

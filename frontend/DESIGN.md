@@ -1,6 +1,6 @@
-# SmartLMS Design System
+# OptimoLMS Design System
 
-SmartLMS follows Apple's **Human Interface Guidelines (HIG)**, adapted for a web admin app. The HIG is the reference for every visual and interaction decision. This file records how we apply it. Every token lives in `src/styles.css` under `:root`, and component CSS uses those tokens only.
+OptimoLMS follows Apple's **Human Interface Guidelines (HIG)**, adapted for a web admin app. The HIG is the reference for every visual and interaction decision. This file records how we apply it. Every token lives in `src/styles.css` under `:root`, and component CSS uses those tokens only.
 
 ---
 
@@ -8,13 +8,14 @@ SmartLMS follows Apple's **Human Interface Guidelines (HIG)**, adapted for a web
 
 The HIG's three themes, and what each means here:
 
-| HIG theme | What it means in SmartLMS |
-|---|---|
-| **Clarity** | Text is legible at every size, icons are precise, and decoration is minimal. Content such as courses, rooms and permissions is the hero, not the chrome around it. |
-| **Deference** | The interface steps back. Translucent sidebar and top bar, quiet greys, no heavy borders. Colour is reserved for meaning and action. |
-| **Depth** | Layering shows hierarchy: frosted bars sit above content, cards rest on the canvas, and motion confirms where things come from. |
+| HIG theme     | What it means in OptimoLMS                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Clarity**   | Text is legible at every size, icons are precise, and decoration is minimal. Content such as courses, rooms and permissions is the hero, not the chrome around it. |
+| **Deference** | The interface steps back. Translucent sidebar and top bar, quiet greys, no heavy borders. Colour is reserved for meaning and action.                               |
+| **Depth**     | Layering shows hierarchy: frosted bars sit above content, cards rest on the canvas, and motion confirms where things come from.                                    |
 
 Supporting rules:
+
 - **Consistency.** Use the platform conventions people already know (macOS source-list sidebar, pill buttons, inset tables).
 - **Feedback.** Every press, hover, load and error has a visible response.
 - **Restraint.** If a style doesn't help someone understand or act, remove it.
@@ -24,25 +25,29 @@ Supporting rules:
 ## 2. Colour
 
 ### System colours
+
 These are the HIG's dynamic system colours. Light and dark values switch automatically.
 
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `--system-blue` / `--primary` | `#007AFF` / `#0071E3` | `#0A84FF` | Actions, links, selection |
-| `--system-green` | `#34C759` | `#30D158` | Success, active |
-| `--system-orange` | `#FF9500` | `#FF9F0A` | Warning |
-| `--system-red` | `#FF3B30` | `#FF453A` | Errors, destructive actions |
-| `--system-indigo` | `#5856D6` | `#5E5CE6` | Accent in the brand gradient |
-| `--system-teal` | `#30B0C7` | `#40C8E0` | Secondary data |
+| Token                         | Light                 | Dark      | Use                          |
+| ----------------------------- | --------------------- | --------- | ---------------------------- |
+| `--system-blue` / `--primary` | `#007AFF` / `#0071E3` | `#0A84FF` | Actions, links, selection    |
+| `--system-green`              | `#34C759`             | `#30D158` | Success, active              |
+| `--system-orange`             | `#FF9500`             | `#FF9F0A` | Warning                      |
+| `--system-red`                | `#FF3B30`             | `#FF453A` | Errors, destructive actions  |
+| `--system-indigo`             | `#5856D6`             | `#5E5CE6` | Accent in the brand gradient |
+| `--system-teal`               | `#30B0C7`             | `#40C8E0` | Secondary data               |
 
 ### Semantic colours
+
 Use the semantic name, never a hex value:
+
 - **Backgrounds:** `--bg-canvas` (system grouped background, `#F5F5F7` / `#000`), `--bg-surface` (secondary grouped, `#FFF` / `#1C1C1E`), `--bg-subtle`.
 - **Labels:** `--text-primary` (label), `--text-secondary` (secondary label), `--text-muted` (tertiary).
 - **Fills:** `--fill`, `--secondary-fill`, `--tertiary-fill` for control backgrounds.
 - **Separators:** `--divider`, `--divider-strong`, `--separator`.
 
 ### Rules
+
 - Never use colour as the only signal. Pair it with an icon or text (a badge reads "Active", not just green).
 - The tint colour (blue) means "this is interactive". Don't use it for decoration.
 - Body text contrast is at least 4.5:1, and large text and UI elements at least 3:1.
@@ -53,16 +58,16 @@ Use the semantic name, never a hex value:
 
 The font is **SF Pro** through the system stack (`-apple-system`), falling back to Inter and Helvetica Neue. SF Pro **Display** is used at 20px and up, SF Pro **Text** below that. Tracking tightens as size grows (−0.01em for body, −0.03em for display).
 
-| HIG style | Token | Size | Weight | Use |
-|---|---|---|---|---|
-| Large Title | `--fs-xl` | 34 | Bold | Page header |
-| Title 1 | `--fs-title1` | 28 | Bold | Login, empty pages, metrics |
-| Title 2 | `--fs-lg` | 22 | Semibold | Section headers |
-| Title 3 | `--fs-title3` | 20 | Semibold | Sub-sections |
-| Headline | `--fs-md` | 15 | Semibold | Card titles |
-| Body | `--fs-base` | 14 | Regular | Default text |
-| Footnote / Caption 1 | `--fs-sm` | 12 | Regular | Hints, metadata |
-| Caption 2 | `--fs-xs` | 11 | Medium | Badges, table headers |
+| HIG style            | Token         | Size | Weight   | Use                         |
+| -------------------- | ------------- | ---- | -------- | --------------------------- |
+| Large Title          | `--fs-xl`     | 34   | Bold     | Page header                 |
+| Title 1              | `--fs-title1` | 28   | Bold     | Login, empty pages, metrics |
+| Title 2              | `--fs-lg`     | 22   | Semibold | Section headers             |
+| Title 3              | `--fs-title3` | 20   | Semibold | Sub-sections                |
+| Headline             | `--fs-md`     | 15   | Semibold | Card titles                 |
+| Body                 | `--fs-base`   | 14   | Regular  | Default text                |
+| Footnote / Caption 1 | `--fs-sm`     | 12   | Regular  | Hints, metadata             |
+| Caption 2            | `--fs-xs`     | 11   | Medium   | Badges, table headers       |
 
 Body sizes are about 3pt smaller than iOS defaults, matching the denser macOS scale.
 
@@ -84,17 +89,17 @@ Body sizes are about 3pt smaller than iOS defaults, matching the denser macOS sc
 
 ## 5. Shape, materials & depth
 
-| Token | Value | Use |
-|---|---|---|
-| `--r-sm` | 6 | Inline code, focus ring |
-| `--r-md` | 10 | Nav items |
-| `--r-lg` | 14 | Alerts, small containers |
-| `--r-xl` | 20 | Cards |
-| `--r-pill` | 980 | Buttons, badges, chips |
+| Token      | Value | Use                      |
+| ---------- | ----- | ------------------------ |
+| `--r-sm`   | 6     | Inline code, focus ring  |
+| `--r-md`   | 10    | Nav items                |
+| `--r-lg`   | 14    | Alerts, small containers |
+| `--r-xl`   | 20    | Cards                    |
+| `--r-pill` | 980   | Buttons, badges, chips   |
 
 Nested corners are **concentric**: inner radius = outer radius − padding.
 
-**Materials.** The sidebar and top bar use a *regular material*: `--bg-glass` plus `backdrop-filter: saturate(180%) blur(20px)`. With **Reduce Transparency** they fall back to a solid surface.
+**Materials.** The sidebar and top bar use a _regular material_: `--bg-glass` plus `backdrop-filter: saturate(180%) blur(20px)`. With **Reduce Transparency** they fall back to a solid surface.
 
 **Elevation.** `--shadow-1` is for resting cards and `--shadow-2` for raised or hovered cards and the login sheet. In dark mode depth comes from lighter surfaces, not shadows.
 
@@ -103,9 +108,10 @@ Nested corners are **concentric**: inner radius = outer radius − padding.
 ## 6. Components
 
 **Buttons** are pill-shaped and 36px tall (30px for `--sm`).
-- *Primary (filled):* one per view, for the main action.
-- *Secondary (gray fill):* supporting actions.
-- *Ghost (plain):* tertiary actions and toolbars.
+
+- _Primary (filled):_ one per view, for the main action.
+- _Secondary (gray fill):_ supporting actions.
+- _Ghost (plain):_ tertiary actions and toolbars.
 - They scale to 0.97 when pressed. When disabled they drop to 55% opacity and keep their label.
 
 **Sidebar (source list):** a tinted selection (blue at 16% with a blue label), a 36px row height, an icon plus label, and section headers in sentence case.
@@ -128,13 +134,13 @@ Nested corners are **concentric**: inner radius = outer radius − padding.
 
 The HIG asks for motion that is purposeful, brief and realistic.
 
-| Token | Value | Use |
-|---|---|---|
-| `--dur-fast` | 150ms | Press, hover |
-| `--dur-base` | 250ms | Colour and state changes |
-| `--dur-slow` | 450ms | Page entrance |
-| `--ease` | `cubic-bezier(.25,.1,.25,1)` | Standard |
-| `--ease-spring` | `cubic-bezier(.32,.72,0,1)` | Spring-like settle |
+| Token           | Value                        | Use                      |
+| --------------- | ---------------------------- | ------------------------ |
+| `--dur-fast`    | 150ms                        | Press, hover             |
+| `--dur-base`    | 250ms                        | Colour and state changes |
+| `--dur-slow`    | 450ms                        | Page entrance            |
+| `--ease`        | `cubic-bezier(.25,.1,.25,1)` | Standard                 |
+| `--ease-spring` | `cubic-bezier(.32,.72,0,1)`  | Spring-like settle       |
 
 - Page content rises 8px and fades in. Cards lift 2px on hover.
 - Animate only `transform` and `opacity`.
@@ -155,6 +161,7 @@ The HIG asks for motion that is purposeful, brief and realistic.
 ## 9. Writing
 
 Follow the HIG voice: **clear, direct, friendly.**
+
 - Use sentence case for titles, buttons and labels ("Add course", not "Add Course").
 - Button labels are verbs. Avoid "OK" and "Submit" when a specific verb fits.
 - Errors say what happened and how to fix it, and never blame the user.

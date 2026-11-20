@@ -102,6 +102,245 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
 	);
 }
 
+const LATEX_SYMBOLS: Record<string, string> = {
+	alpha: "α",
+	beta: "β",
+	gamma: "γ",
+	delta: "δ",
+	epsilon: "ε",
+	varepsilon: "ε",
+	zeta: "ζ",
+	eta: "η",
+	theta: "θ",
+	lambda: "λ",
+	mu: "μ",
+	nu: "ν",
+	xi: "ξ",
+	pi: "π",
+	rho: "ρ",
+	sigma: "σ",
+	tau: "τ",
+	phi: "φ",
+	varphi: "φ",
+	chi: "χ",
+	psi: "ψ",
+	omega: "ω",
+	Gamma: "Γ",
+	Delta: "Δ",
+	Theta: "Θ",
+	Lambda: "Λ",
+	Pi: "Π",
+	Sigma: "Σ",
+	Phi: "Φ",
+	Psi: "Ψ",
+	Omega: "Ω",
+	pm: "±",
+	mp: "∓",
+	times: "×",
+	cdot: "·",
+	div: "÷",
+	le: "≤",
+	leq: "≤",
+	ge: "≥",
+	geq: "≥",
+	ne: "≠",
+	neq: "≠",
+	approx: "≈",
+	equiv: "≡",
+	sim: "∼",
+	infty: "∞",
+	partial: "∂",
+	nabla: "∇",
+	sum: "∑",
+	prod: "∏",
+	int: "∫",
+	oint: "∮",
+	to: "→",
+	rightarrow: "→",
+	leftarrow: "←",
+	Rightarrow: "⇒",
+	Leftrightarrow: "⇔",
+	in: "∈",
+	notin: "∉",
+	subset: "⊂",
+	subseteq: "⊆",
+	cup: "∪",
+	cap: "∩",
+	forall: "∀",
+	exists: "∃",
+	emptyset: "∅",
+	hbar: "ℏ",
+	ldots: "…",
+	cdots: "⋯",
+	degree: "°",
+	circ: "∘",
+	neg: "¬",
+	land: "∧",
+	lor: "∨",
+	quad: " ",
+	qquad: "  ",
+};
+const SUPERSCRIPT: Record<string, string> = {
+	"0": "⁰",
+	"1": "¹",
+	"2": "²",
+	"3": "³",
+	"4": "⁴",
+	"5": "⁵",
+	"6": "⁶",
+	"7": "⁷",
+	"8": "⁸",
+	"9": "⁹",
+	"+": "⁺",
+	"-": "⁻",
+	"=": "⁼",
+	"(": "⁽",
+	")": "⁾",
+	n: "ⁿ",
+	i: "ⁱ",
+	x: "ˣ",
+	y: "ʸ",
+	a: "ᵃ",
+	b: "ᵇ",
+	c: "ᶜ",
+	d: "ᵈ",
+	e: "ᵉ",
+	k: "ᵏ",
+	m: "ᵐ",
+	t: "ᵗ",
+	T: "ᵀ",
+};
+const SUBSCRIPT: Record<string, string> = {
+	"0": "₀",
+	"1": "₁",
+	"2": "₂",
+	"3": "₃",
+	"4": "₄",
+	"5": "₅",
+	"6": "₆",
+	"7": "₇",
+	"8": "₈",
+	"9": "₉",
+	"+": "₊",
+	"-": "₋",
+	"=": "₌",
+	"(": "₍",
+	")": "₎",
+	a: "ₐ",
+	e: "ₑ",
+	i: "ᵢ",
+	j: "ⱼ",
+	k: "ₖ",
+	n: "ₙ",
+	o: "ₒ",
+	r: "ᵣ",
+	t: "ₜ",
+	x: "ₓ",
+};
+
+/** `{...}` group or single token right after `start`; returns [body, end]. */
+function readArg(src: string, start: number): [string, number] {
+	if (src[start] === "{") {
+		let depth = 0;
+		for (let i = start; i < src.length; i++) {
+			if (src[i] === "{") depth++;
+			else if (src[i] === "}" && --depth === 0)
+				return [src.slice(start + 1, i), i + 1];
+		}
+		return [src.slice(start + 1), src.length];
+	}
+	const cmd = /^\\[a-zA-Z]+/.exec(src.slice(start));
+	if (cmd) return [cmd[0], start + cmd[0].length];
+	return [src[start] ?? "", start + 1];
+}
+
+function scripted(body: string, map: Record<string, string>, mark: string) {
+	const text = latexToUnicode(body);
+	const chars = [...text];
+	return chars.every((c) => map[c])
+		? chars.map((c) => map[c]).join("")
+		: `${mark}(${text})`;
+}
+
+/** Wraps compound terms in parentheses so a flattened fraction stays correct. */
+const group = (text: string) =>
+	/^[\w.αβγδθλμπσφωΩ²³]+$/.test(text) ? text : `(${text})`;
+
+/**
+ * Flattens LaTeX to readable Unicode (x = (−b ± √(b² − 4ac)) / 2a). Mermaid's
+ * own math support mis-measures nodes, so diagram labels get plain text.
+ */
+function latexToUnicode(src: string): string {
+	let out = "";
+	for (let i = 0; i < src.length; ) {
+		const ch = src[i];
+		if (ch === "\\") {
+			const name = /^\\([a-zA-Z]+|.)/.exec(src.slice(i))?.[1] ?? "";
+			i += name.length + 1;
+			if (name === "frac" || name === "dfrac" || name === "tfrac") {
+				const [num, a] = readArg(src, i);
+				const [den, b] = readArg(src, a);
+				out += `${group(latexToUnicode(num))}/${group(latexToUnicode(den))}`;
+				i = b;
+			} else if (name === "sqrt") {
+				const [body, end] = readArg(src, i);
+				out += `√${group(latexToUnicode(body))}`;
+				i = end;
+			} else if (
+				/^(text|mathrm|mathbf|mathit|operatorname|textbf|vec|hat|bar|overline|mathbb|mathcal)$/.test(
+					name,
+				)
+			) {
+				const [body, end] = readArg(src, i);
+				out += latexToUnicode(body);
+				i = end;
+			} else if (
+				name === "left" ||
+				name === "right" ||
+				name === "," ||
+				name === ";" ||
+				name === "!"
+			) {
+				out += name === "," || name === ";" ? " " : "";
+			} else if (name === "\\") {
+				out += " ";
+			} else {
+				out += LATEX_SYMBOLS[name] ?? (name.length === 1 ? name : name);
+			}
+		} else if (ch === "^" || ch === "_") {
+			const [body, end] = readArg(src, i + 1);
+			out +=
+				ch === "^"
+					? scripted(body, SUPERSCRIPT, "^")
+					: scripted(body, SUBSCRIPT, "_");
+			i = end;
+		} else if (ch === "{" || ch === "}") {
+			i++;
+		} else if (ch === "-") {
+			out += "−";
+			i++;
+		} else {
+			out += ch;
+			i++;
+		}
+	}
+	return (
+		out
+			.replace(/\s*([=±<>≤≥≠≈→+−×·])\s*/g, " $1 ")
+			.replace(/\s+/g, " ")
+			.trim()
+			// A minus that opens a group or the label is a sign, not an operator.
+			.replace(/(^|\(|[=±] ) ?([−+]) /g, "$1$2")
+	);
+}
+
+/** Replaces `$$…$$` / `$…$` math inside Mermaid source with Unicode text. */
+function flattenMermaidMath(code: string): string {
+	return code
+		.replace(/\$\$([\s\S]+?)\$\$/g, (_, body: string) => latexToUnicode(body))
+		.replace(/\$([^$\n]+?)\$/g, (_, body: string) => latexToUnicode(body));
+}
+
 let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
 
 function MermaidBlock({ code }: { code: string }) {
@@ -149,7 +388,7 @@ function MermaidBlock({ code }: { code: string }) {
 				});
 				const result = await mermaid.render(
 					`mermaid-${id}-${Date.now()}`,
-					code,
+					flattenMermaidMath(code),
 				);
 				if (!cancelled) {
 					setSvg(result.svg);

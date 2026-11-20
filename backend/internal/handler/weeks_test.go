@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"smartlms/backend/internal/db"
+	"optimolms/backend/internal/db"
 )
 
 // weekAPI builds the week and subject endpoints over a throwaway database, so
@@ -227,15 +227,17 @@ func TestMovingContentBetweenWeeks(t *testing.T) {
 	first := addWeek(t, mux, subjectID, map[string]any{"week_number": 1, "season": "FALL"})
 	second := addWeek(t, mux, subjectID, map[string]any{"week_number": 2, "season": "FALL"})
 
-	recorder := call(t, mux, http.MethodPost, "/api/subjects/"+subjectID+"/flashcards", map[string]any{
-		"front": "What is the derivative of x^2?", "back": "2x", "week_id": first.ID,
+	recorder := call(t, mux, http.MethodPost, "/api/subjects/"+subjectID+"/flashcard-sets", map[string]any{
+		"title":   "Derivatives",
+		"week_id": first.ID,
+		"cards":   []map[string]string{{"front": "What is the derivative of x^2?", "back": "2x"}},
 	})
-	var card flashcardOut
+	var card flashcardSetOut
 	if err := json.NewDecoder(recorder.Body).Decode(&card); err != nil {
-		t.Fatalf("decode flashcard: %v", err)
+		t.Fatalf("decode flashcard set: %v", err)
 	}
 
-	recorder = call(t, mux, http.MethodPatch, "/api/flashcards/"+card.ID, map[string]any{
+	recorder = call(t, mux, http.MethodPatch, "/api/flashcard-sets/"+card.ID, map[string]any{
 		"week_id": second.ID,
 	})
 	if recorder.Code != http.StatusNoContent {
@@ -245,19 +247,65 @@ func TestMovingContentBetweenWeeks(t *testing.T) {
 	weeks := subjectWeeks(t, mux, subjectID)
 	for _, week := range weeks.Weeks {
 		if week.ID == second.ID && len(week.Items) != 1 {
-			t.Fatalf("second week should hold the card, got %+v", week.Items)
+			t.Fatalf("second week should hold the set, got %+v", week.Items)
 		}
 		if week.ID == first.ID && len(week.Items) != 0 {
 			t.Fatalf("first week should be empty, got %+v", week.Items)
 		}
 	}
 
-	recorder = call(t, mux, http.MethodPatch, "/api/flashcards/"+card.ID, map[string]any{"week_id": ""})
+	recorder = call(t, mux, http.MethodPatch, "/api/flashcard-sets/"+card.ID, map[string]any{"week_id": ""})
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("clear week: status %d body %s", recorder.Code, recorder.Body.String())
 	}
 	weeks = subjectWeeks(t, mux, subjectID)
 	if len(weeks.Unscheduled) != 1 {
 		t.Fatalf("unscheduled after clearing the week: %+v", weeks.Unscheduled)
+	}
+}
+
+// A set is saved with its cards in order; patching cards replaces the deck,
+// and a half-filled card is refused.
+func TestFlashcardSetCards(t *testing.T) {
+	_, mux := weekAPI(t)
+	subjectID := createCourse(t, mux, "Mathematics I")
+
+	recorder := call(t, mux, http.MethodPost, "/api/subjects/"+subjectID+"/flashcard-sets", map[string]any{
+		"title": "Limits",
+		"cards": []map[string]string{{"front": "lim sin(x)/x", "back": "1"}, {"front": "lim 1/x, x→∞", "back": "0"}},
+	})
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("create set: status %d body %s", recorder.Code, recorder.Body.String())
+	}
+	var set flashcardSetOut
+	if err := json.NewDecoder(recorder.Body).Decode(&set); err != nil {
+		t.Fatalf("decode set: %v", err)
+	}
+	if len(set.Cards) != 2 || set.Cards[1].Back != "0" {
+		t.Fatalf("cards not saved in order: %+v", set.Cards)
+	}
+
+	recorder = call(t, mux, http.MethodPatch, "/api/flashcard-sets/"+set.ID, map[string]any{
+		"cards": []map[string]string{{"front": "Only card", "back": "Back"}},
+	})
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("replace cards: status %d body %s", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = call(t, mux, http.MethodPatch, "/api/flashcard-sets/"+set.ID, map[string]any{
+		"cards": []map[string]string{{"front": "No back", "back": " "}},
+	})
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("half-filled card accepted: status %d", recorder.Code)
+	}
+
+	recorder = call(t, mux, http.MethodGet, "/api/subjects/"+subjectID, nil)
+	var detail subjectDetailOut
+	if err := json.NewDecoder(recorder.Body).Decode(&detail); err != nil {
+		t.Fatalf("decode subject: %v", err)
+	}
+	if len(detail.FlashcardSets) != 1 || len(detail.FlashcardSets[0].Cards) != 1 ||
+		detail.FlashcardSets[0].Cards[0].Front != "Only card" {
+		t.Fatalf("subject detail sets: %+v", detail.FlashcardSets)
 	}
 }

@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/util"
 )
 
-// mcpAPI opens a seeded database and returns the mux plus the demo users by role.
-func mcpAPI(t *testing.T) (*http.ServeMux, map[string]string) {
-	mux, users, _ := mcpAPIWithDB(t)
-	return mux, users
+// mcpAPI opens a seeded database and returns the mux, the demo users by role
+// and the database (the caller for each request is resolved from it).
+func mcpAPI(t *testing.T) (*http.ServeMux, map[string]string, *sql.DB) {
+	return mcpAPIWithDB(t)
 }
 
 func mcpAPIWithDB(t *testing.T) (*http.ServeMux, map[string]string, *sql.DB) {
@@ -35,7 +35,7 @@ func mcpAPIWithDB(t *testing.T) (*http.ServeMux, map[string]string, *sql.DB) {
 		t.Fatalf("seed: %v", err)
 	}
 	users := map[string]string{}
-	rows, err := database.QueryContext(ctx, `SELECT u.id, r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.email LIKE '%@smartlms.dev'`)
+	rows, err := database.QueryContext(ctx, `SELECT u.id, r.name FROM users u JOIN roles r ON r.id = u.role_id WHERE u.email LIKE '%@optimolms.dev'`)
 	if err != nil {
 		t.Fatalf("users: %v", err)
 	}
@@ -57,11 +57,14 @@ type mcpReply struct {
 	Error  *mcpJSONRPCError `json:"error"`
 }
 
-func mcpPost(t *testing.T, mux *http.ServeMux, userID, body string) (int, mcpReply) {
+func mcpPost(t *testing.T, database *sql.DB, mux *http.ServeMux, userID, body string) (int, mcpReply) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(body))
 	if userID != "" {
-		req.Header.Set("X-SmartLMS-User", userID)
+		// Who is calling comes from the session in production; here the caller is
+		// put in the request context by hand, which is the same thing the
+		// middleware does.
+		req = asUser(t, database, userID, req)
 	}
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -72,9 +75,9 @@ func mcpPost(t *testing.T, mux *http.ServeMux, userID, body string) (int, mcpRep
 	return rec.Code, reply
 }
 
-func listedTools(t *testing.T, mux *http.ServeMux, userID string) map[string]bool {
+func listedTools(t *testing.T, database *sql.DB, mux *http.ServeMux, userID string) map[string]bool {
 	t.Helper()
-	_, reply := mcpPost(t, mux, userID, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)
+	_, reply := mcpPost(t, database, mux, userID, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)
 	var out struct {
 		Tools []struct{ Name string } `json:"tools"`
 	}
@@ -88,10 +91,10 @@ func listedTools(t *testing.T, mux *http.ServeMux, userID string) map[string]boo
 	return names
 }
 
-func callTool(t *testing.T, mux *http.ServeMux, userID, name, args string) (isError bool, text string) {
+func callTool(t *testing.T, database *sql.DB, mux *http.ServeMux, userID, name, args string) (isError bool, text string) {
 	t.Helper()
 	body := `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"` + name + `","arguments":` + args + `}}`
-	_, reply := mcpPost(t, mux, userID, body)
+	_, reply := mcpPost(t, database, mux, userID, body)
 	var out struct {
 		IsError bool                    `json:"isError"`
 		Content []struct{ Text string } `json:"content"`
@@ -106,19 +109,26 @@ func callTool(t *testing.T, mux *http.ServeMux, userID, name, args string) (isEr
 }
 
 func TestMCPRejectsMissingAndUnknownCallers(t *testing.T) {
-	mux, _ := mcpAPI(t)
-	if code, _ := mcpPost(t, mux, "", `{"jsonrpc":"2.0","id":1,"method":"ping"}`); code != http.StatusBadRequest {
-		t.Fatalf("no caller: status %d, want 400", code)
+	mux, _, database := mcpAPI(t)
+	// Without a session the middleware answers 401 before this endpoint runs; a
+	// caller that slipped through as an empty id is unknown, not anonymous.
+	if code, _ := mcpPost(t, database, mux, "", `{"jsonrpc":"2.0","id":1,"method":"ping"}`); code != http.StatusUnauthorized {
+		t.Fatalf("no caller: status %d, want 401", code)
 	}
-	if code, _ := mcpPost(t, mux, "nobody", `{"jsonrpc":"2.0","id":1,"method":"ping"}`); code != http.StatusUnauthorized {
-		t.Fatalf("unknown caller: status %d, want 401", code)
+	// An id that matches no account cannot resolve to a caller.
+	unknown := httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+	unknown = unknown.WithContext(withCaller(unknown.Context(), &caller{ID: "nobody"}))
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, unknown)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("unknown caller: status %d, want 401", recorder.Code)
 	}
 }
 
 func TestMCPToolsListFollowsPermissions(t *testing.T) {
-	mux, users := mcpAPI(t)
+	mux, users, database := mcpAPI(t)
 
-	student := listedTools(t, mux, users["STUDENT"])
+	student := listedTools(t, database, mux, users["STUDENT"])
 	if student["create_subject"] || student["create_quiz"] || student["create_forum_thread"] {
 		t.Fatalf("student sees management tools: %v", student)
 	}
@@ -126,7 +136,7 @@ func TestMCPToolsListFollowsPermissions(t *testing.T) {
 		t.Fatalf("student should see post_forum_reply: %v", student)
 	}
 
-	lecturer := listedTools(t, mux, users["LECTURER"])
+	lecturer := listedTools(t, database, mux, users["LECTURER"])
 	for _, name := range []string{"create_subject", "create_quiz", "create_forum_thread", "post_forum_reply"} {
 		if !lecturer[name] {
 			t.Fatalf("lecturer missing %s: %v", name, lecturer)
@@ -135,23 +145,23 @@ func TestMCPToolsListFollowsPermissions(t *testing.T) {
 }
 
 func TestMCPToolsCallEnforcesPermission(t *testing.T) {
-	mux, users := mcpAPI(t)
+	mux, users, database := mcpAPI(t)
 
 	// Hidden from the list is not enough: calling by name must be refused too.
-	isError, text := callTool(t, mux, users["STUDENT"], "create_subject", `{"name":"Hacked","code":"HX1"}`)
+	isError, text := callTool(t, database, mux, users["STUDENT"], "create_subject", `{"name":"Hacked","code":"HX1"}`)
 	if !isError || !strings.Contains(text, "subjects.manage") {
 		t.Fatalf("student create_subject: isError=%v text=%q", isError, text)
 	}
 
-	isError, text = callTool(t, mux, users["ADMIN"], "list_subjects", `{}`)
+	isError, text = callTool(t, database, mux, users["ADMIN"], "list_subjects", `{}`)
 	if isError {
 		t.Fatalf("admin list_subjects failed: %s", text)
 	}
 }
 
 func TestMCPNotificationGetsNoBody(t *testing.T) {
-	mux, users := mcpAPI(t)
-	code, _ := mcpPost(t, mux, users["ADMIN"], `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
+	mux, users, database := mcpAPI(t)
+	code, _ := mcpPost(t, database, mux, users["ADMIN"], `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
 	if code != http.StatusAccepted {
 		t.Fatalf("notification: status %d, want 202", code)
 	}
@@ -181,10 +191,10 @@ func scopedFixture(t *testing.T, database *sql.DB, users map[string]string) (min
 }
 
 func TestMCPEachRoleGetsItsOwnToolset(t *testing.T) {
-	mux, users := mcpAPI(t)
-	student := listedTools(t, mux, users["STUDENT"])
-	lecturer := listedTools(t, mux, users["LECTURER"])
-	admin := listedTools(t, mux, users["ADMIN"])
+	mux, users, database := mcpAPI(t)
+	student := listedTools(t, database, mux, users["STUDENT"])
+	lecturer := listedTools(t, database, mux, users["LECTURER"])
+	admin := listedTools(t, database, mux, users["ADMIN"])
 
 	for _, name := range []string{"list_my_courses", "list_my_assignments", "submit_assignment", "my_grades",
 		"list_quizzes", "study_flashcards", "list_forum_threads", "read_forum_thread", "post_forum_reply"} {
@@ -219,23 +229,23 @@ func TestMCPRowsAreScopedToTheCaller(t *testing.T) {
 	mine, theirs, assignment := scopedFixture(t, database, users)
 
 	// Lecturer: authors on their own subject, refused on someone else's.
-	if isError, text := callTool(t, mux, users["LECTURER"], "create_lecture",
+	if isError, text := callTool(t, database, mux, users["LECTURER"], "create_lecture",
 		`{"subject_id":"`+mine+`","title":"Intro"}`); isError {
 		t.Fatalf("lecturer on own subject: %s", text)
 	}
-	if isError, _ := callTool(t, mux, users["LECTURER"], "create_lecture",
+	if isError, _ := callTool(t, database, mux, users["LECTURER"], "create_lecture",
 		`{"subject_id":"`+theirs+`","title":"Hijack"}`); !isError {
 		t.Fatal("lecturer created a lecture in another lecturer's subject")
 	}
 
 	// Student: reads enrolled subjects only, submits own work.
-	if isError, text := callTool(t, mux, users["STUDENT"], "study_flashcards", `{"subject_id":"`+mine+`"}`); isError {
+	if isError, text := callTool(t, database, mux, users["STUDENT"], "study_flashcards", `{"subject_id":"`+mine+`"}`); isError {
 		t.Fatalf("student on enrolled subject: %s", text)
 	}
-	if isError, _ := callTool(t, mux, users["STUDENT"], "study_flashcards", `{"subject_id":"`+theirs+`"}`); !isError {
+	if isError, _ := callTool(t, database, mux, users["STUDENT"], "study_flashcards", `{"subject_id":"`+theirs+`"}`); !isError {
 		t.Fatal("student read a subject they are not enrolled in")
 	}
-	if isError, text := callTool(t, mux, users["STUDENT"], "submit_assignment",
+	if isError, text := callTool(t, database, mux, users["STUDENT"], "submit_assignment",
 		`{"assignment_id":"`+assignment+`","content":"My essay"}`); isError {
 		t.Fatalf("student submit: %s", text)
 	}
@@ -246,18 +256,18 @@ func TestMCPRowsAreScopedToTheCaller(t *testing.T) {
 		Scan(&submissionID); err != nil {
 		t.Fatal(err)
 	}
-	if isError, _ := callTool(t, mux, users["STUDENT"], "grade_submission",
+	if isError, _ := callTool(t, database, mux, users["STUDENT"], "grade_submission",
 		`{"submission_id":"`+submissionID+`","score":100}`); !isError {
 		t.Fatal("student graded their own submission")
 	}
-	if isError, text := callTool(t, mux, users["LECTURER"], "grade_submission",
+	if isError, text := callTool(t, database, mux, users["LECTURER"], "grade_submission",
 		`{"submission_id":"`+submissionID+`","score":88,"feedback":"Good"}`); isError {
 		t.Fatalf("lecturer grade: %s", text)
 	}
 
 	// list_my_courses differs per role.
 	courses := func(user string) string {
-		_, text := callTool(t, mux, user, "list_my_courses", `{}`)
+		_, text := callTool(t, database, mux, user, "list_my_courses", `{}`)
 		return text
 	}
 	if c := courses(users["STUDENT"]); !strings.Contains(c, mine) || strings.Contains(c, theirs) {

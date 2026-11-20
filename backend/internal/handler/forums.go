@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 /* ============================================================================
@@ -97,7 +97,6 @@ func createForum(db *sql.DB) http.HandlerFunc {
 		subjectID := r.PathValue("id")
 
 		var body struct {
-			UserID      string `json:"user_id"`
 			Title       string `json:"title"`
 			Description string `json:"description"`
 		}
@@ -105,7 +104,8 @@ func createForum(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if err := requireSubjectStaff(ctx, db, body.UserID, subjectID); err != nil {
+		userID := callerFrom(r).ID
+		if err := requireSubjectStaff(ctx, db, userID, subjectID); err != nil {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
@@ -118,7 +118,7 @@ func createForum(db *sql.DB) http.HandlerFunc {
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO forums (id, subject_id, title, description, is_locked, created_by, created_at, updated_at)
 			VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
-			id, subjectID, strings.TrimSpace(body.Title), body.Description, nullIfEmpty(body.UserID), now, now); err != nil {
+			id, subjectID, strings.TrimSpace(body.Title), body.Description, nullIfEmpty(userID), now, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -182,15 +182,15 @@ func createThread(db *sql.DB) http.HandlerFunc {
 		}
 
 		var body struct {
-			UserID string `json:"user_id"`
-			Title  string `json:"title"`
-			Body   string `json:"body"`
+			Title string `json:"title"`
+			Body  string `json:"body"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if err := requireSubjectStaff(ctx, db, body.UserID, subjectID); err != nil {
+		userID := callerFrom(r).ID
+		if err := requireSubjectStaff(ctx, db, userID, subjectID); err != nil {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
@@ -207,7 +207,7 @@ func createThread(db *sql.DB) http.HandlerFunc {
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO forum_threads (id, forum_id, title, body, author_id, is_pinned, is_locked, last_post_at, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`,
-			id, forumID, strings.TrimSpace(body.Title), strings.TrimSpace(body.Body), body.UserID, now, now, now); err != nil {
+			id, forumID, strings.TrimSpace(body.Title), strings.TrimSpace(body.Body), userID, now, now, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -283,15 +283,14 @@ func patchThread(db *sql.DB) http.HandlerFunc {
 		}
 
 		var body struct {
-			UserID   string `json:"user_id"`
-			IsPinned *bool  `json:"is_pinned"`
-			IsLocked *bool  `json:"is_locked"`
+			IsPinned *bool `json:"is_pinned"`
+			IsLocked *bool `json:"is_locked"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if err := requireSubjectStaff(ctx, db, body.UserID, subjectID); err != nil {
+		if err := requireSubjectStaff(ctx, db, callerFrom(r).ID, subjectID); err != nil {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
@@ -350,8 +349,7 @@ func createPost(db *sql.DB) http.HandlerFunc {
 		}
 
 		var body struct {
-			UserID string `json:"user_id"`
-			Body   string `json:"body"`
+			Body string `json:"body"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
@@ -362,16 +360,12 @@ func createPost(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		role, err := roleOf(ctx, db, body.UserID)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown user"})
-			return
-		}
-		if role != "ADMIN" && role != "LECTURER" {
+		user := callerFrom(r)
+		if user.Role != "ADMIN" && user.Role != "LECTURER" {
 			var enrolled int
 			if err := db.QueryRowContext(ctx,
 				`SELECT COUNT(*) FROM enrollments WHERE subject_id = ? AND student_id = ?`,
-				subjectID, body.UserID).Scan(&enrolled); err != nil || enrolled == 0 {
+				subjectID, user.ID).Scan(&enrolled); err != nil || enrolled == 0 {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "you are not enrolled in this subject"})
 				return
 			}
@@ -381,7 +375,7 @@ func createPost(db *sql.DB) http.HandlerFunc {
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO forum_posts (id, thread_id, author_id, body, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?)`,
-			id, threadID, body.UserID, strings.TrimSpace(body.Body), now, now); err != nil {
+			id, threadID, user.ID, strings.TrimSpace(body.Body), now, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -400,11 +394,7 @@ func deletePost(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		postID := r.PathValue("id")
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		userID := callerFrom(r).ID
 
 		var authorID, subjectID string
 		err := db.QueryRowContext(ctx, `

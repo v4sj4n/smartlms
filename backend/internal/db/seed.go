@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"time"
 
-	"smartlms/backend/internal/auth"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/auth"
+	"optimolms/backend/internal/util"
 )
 
 // module key -> human name
 var seedModules = map[string]string{
 	"dashboard":    "Dashboard",
+	"timetable":    "Timetable",
 	"users":        "User management",
 	"campuses":     "Campuses, stories & classes",
 	"academic":     "Academic structure",
@@ -128,6 +129,12 @@ var seedRoleGrants = map[string][]string{
 	},
 	"STUDENT": {
 		"dashboard.view",
+		// Students read subject metadata (name, code, lecturer) to reach the
+		// weeks, lectures and grades of the subjects they are enrolled in. This
+		// is the read permission the API checks; the subjects *module* below is
+		// what puts the page in their sidebar, and it stays read-only because
+		// subjects.manage is not granted.
+		"subjects.view",
 		"lectures.view",
 		"assignments.view", "assignments.submit",
 		"quizzes.view", "quizzes.take",
@@ -141,9 +148,13 @@ var seedRoleGrants = map[string][]string{
 
 // role -> module keys the role can access (ADMIN is additionally a wildcard in code)
 var seedRoleModules = map[string][]string{
-	"ADMIN":    {"dashboard", "users", "campuses", "academic", "school-years", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "settings", "assistant"},
-	"LECTURER": {"dashboard", "academic", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "assistant"},
-	"STUDENT":  {"dashboard", "lectures", "assignments", "quizzes", "flashcards", "grades", "forums", "records", "assistant"},
+	"ADMIN":    {"dashboard", "timetable", "users", "campuses", "academic", "school-years", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "settings", "assistant"},
+	"LECTURER": {"dashboard", "timetable", "academic", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "assistant"},
+	// Students get Subjects read-only: the module opens the list and the subject
+	// page, and subjects.view (below) is the permission both the route policy and
+	// the page's own gate ask for. Every write lives behind a *.manage key the
+	// role does not hold.
+	"STUDENT": {"dashboard", "timetable", "subjects", "lectures", "assignments", "quizzes", "flashcards", "grades", "forums", "records", "assistant"},
 }
 
 type seedUser struct {
@@ -154,9 +165,9 @@ type seedUser struct {
 }
 
 var seedUsers = []seedUser{
-	{"admin@smartlms.dev", "admin123", "Admin User", "ADMIN"},
-	{"lecturer@smartlms.dev", "lecturer123", "Lecturer User", "LECTURER"},
-	{"student@smartlms.dev", "student123", "Student User", "STUDENT"},
+	{"admin@optimolms.dev", "admin123", "Admin User", "ADMIN"},
+	{"lecturer@optimolms.dev", "lecturer123", "Lecturer User", "LECTURER"},
+	{"student@optimolms.dev", "student123", "Student User", "STUDENT"},
 }
 
 // Seed inserts the predefined roles, modules, permissions, role_modules and the
@@ -265,6 +276,12 @@ func Seed(ctx context.Context, db *sql.DB) error {
 	if err := seedSample(ctx, db, roleID); err != nil {
 		return err
 	}
+	// Every floor of every campus carries rooms: a database seeded before the
+	// campus data was filled in gains its missing classes here, and reruns add
+	// nothing.
+	if err := seedCampusRooms(ctx, db); err != nil {
+		return err
+	}
 	// The structure is seeded after the sample courses so the demo subjects can
 	// be attached to the programme that teaches them.
 	if err := seedAcademicStructure(ctx, db); err != nil {
@@ -322,17 +339,17 @@ type seedMcpConnection struct {
 }
 
 var seedMcpConnections = map[string][]seedMcpConnection{
-	"admin@smartlms.dev": {
+	"admin@optimolms.dev": {
 		{"github", 2, true},
 		{"google-drive", 9, true},
 		{"slack", 21, false},
 	},
-	"lecturer@smartlms.dev": {
+	"lecturer@optimolms.dev": {
 		{"google-drive", 4, true},
 		{"notion", 12, true},
 		{"google-calendar", 30, true},
 	},
-	"student@smartlms.dev": {
+	"student@optimolms.dev": {
 		{"github", 6, true},
 		{"notion", 15, false},
 	},
@@ -391,7 +408,7 @@ func seedMcpApps(ctx context.Context, db *sql.DB, createdUserIDs map[string]stri
 func seedNotifications(ctx context.Context, db *sql.DB) error {
 	feeds := map[string][][2]string{
 		"ADMIN": {
-			{"Welcome to SmartLMS", "You have full access to every module and permission."},
+			{"Welcome to OptimoLMS", "You have full access to every module and permission."},
 			{"Campus ready", "Main Campus and its rooms are ready for scheduling."},
 		},
 		"LECTURER": {
@@ -399,7 +416,7 @@ func seedNotifications(ctx context.Context, db *sql.DB) error {
 			{"Student enrolled", "Student User enrolled in Mathematics I."},
 		},
 		"STUDENT": {
-			{"Welcome to SmartLMS", "Your Mathematics I enrollment is active."},
+			{"Welcome to OptimoLMS", "Your Mathematics I enrollment is active."},
 			{"New quiz available", "Limits basics is open — 10 minutes, 2 questions."},
 		},
 	}
@@ -476,6 +493,77 @@ func mustJSON(v any) string {
 	return string(b)
 }
 
+// The rooms every floor is seeded with, ground floor first: a lecture hall for
+// the big cohorts, a seminar room, a computer lab and somewhere small to study.
+// The name of a room is built from its floor, so floor 2 gets "B201".."B205".
+var seedFloorRooms = []struct {
+	suffix   string
+	capacity int
+	tags     []string
+}{
+	{"01", 80, []string{"lecture hall", "projector"}},
+	{"02", 45, []string{"lecture hall", "whiteboard"}},
+	{"03", 30, []string{"seminar", "whiteboard"}},
+	{"04", 24, []string{"computers", "lab"}},
+	{"05", 18, []string{"study room"}},
+}
+
+// seedRoomName builds the name a room is shown under: the floor's letter and
+// number followed by the room's place on that floor ("B201" on floor 2).
+func seedRoomName(floor int, suffix string) string {
+	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	index := floor - 1
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(letters) {
+		index = len(letters) - 1
+	}
+	return fmt.Sprintf("%c%d%s", letters[index], floor, suffix)
+}
+
+// seedCampusRooms gives every floor of every campus the block of rooms above.
+// It writes only the rooms a floor is missing, so a database that has been in
+// use for a while fills up on the next boot, rooms an administrator added or
+// edited keep their place, and a second boot changes nothing.
+func seedCampusRooms(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `SELECT id, floor_number FROM stories ORDER BY campus_id, floor_number`)
+	if err != nil {
+		return fmt.Errorf("seed campus rooms: %w", err)
+	}
+	defer rows.Close()
+	type floor struct {
+		id    string
+		level int
+	}
+	var floors []floor
+	for rows.Next() {
+		var f floor
+		if err := rows.Scan(&f.id, &f.level); err != nil {
+			return fmt.Errorf("seed campus rooms: %w", err)
+		}
+		floors = append(floors, f)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("seed campus rooms: %w", err)
+	}
+
+	now := util.Now()
+	for _, f := range floors {
+		for _, room := range seedFloorRooms {
+			name := seedRoomName(f.level, room.suffix)
+			if _, err := db.ExecContext(ctx, `
+				INSERT OR IGNORE INTO classes (id, story_id, name, capacity, tags, created_at, updated_at)
+				SELECT ?, ?, ?, ?, ?, ?, ?
+				WHERE NOT EXISTS (SELECT 1 FROM classes WHERE story_id = ? AND name = ?)`,
+				util.NewID(), f.id, name, room.capacity, mustJSON(room.tags), now, now, f.id, name); err != nil {
+				return fmt.Errorf("seed room %s: %w", name, err)
+			}
+		}
+	}
+	return nil
+}
+
 // seedSample creates one campus with stories/classes, one subject taught by the
 // lecturer, a lecture, a seminar, a quiz with questions, flashcards, and enrolls
 // the demo student. Skipped entirely once any campus exists.
@@ -528,6 +616,13 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 			tags     []string
 		}{
 			{"B201", 60, []string{"projector", "whiteboard"}},
+		}},
+		{3, "Second floor", []struct {
+			name     string
+			capacity int
+			tags     []string
+		}{
+			{"C301", 120, []string{"lecture hall", "projector"}},
 		}},
 	}
 	for _, s := range storyDefs {
@@ -607,13 +702,18 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 		}
 	}
 
+	flashcardSetID := util.NewID()
+	if _, err := db.ExecContext(ctx, `INSERT INTO flashcard_sets (id, subject_id, title, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		flashcardSetID, subjectID, "Derivatives and integrals", "The basic rules, front to back.", now, now); err != nil {
+		return err
+	}
 	flashcards := [][2]string{
 		{"What is the derivative of x^2?", "2x"},
 		{"What is the integral of 2x?", "x^2 + C"},
 	}
-	for _, f := range flashcards {
-		if _, err := db.ExecContext(ctx, `INSERT INTO flashcards (id, subject_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			util.NewID(), subjectID, f[0], f[1], now, now); err != nil {
+	for position, f := range flashcards {
+		if _, err := db.ExecContext(ctx, `INSERT INTO flashcards (id, subject_id, set_id, position, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			util.NewID(), subjectID, flashcardSetID, position, f[0], f[1], now, now); err != nil {
 			return err
 		}
 	}

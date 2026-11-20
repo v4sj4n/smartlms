@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // The demo university: faculties hold departments, departments hold the
@@ -152,7 +152,7 @@ func seedAcademicStructure(ctx context.Context, db *sql.DB) error {
 	}
 
 	if id, ok := programmeID[seedDemoStudentProgramme]; ok {
-		if err := admitStudent(ctx, db, id, "student@smartlms.dev", seedCurrentYear(ctx, db), 1); err != nil {
+		if err := admitStudent(ctx, db, id, "student@optimolms.dev", seedCurrentYear(ctx, db), 1); err != nil {
 			return err
 		}
 	}

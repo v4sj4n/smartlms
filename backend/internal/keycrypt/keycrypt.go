@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	hkdfSalt = "smartlms:ai:keys:v1"
+	hkdfSalt = "optimolms:ai:keys:v1"
 	hkdfInfo = "ai-provider-api-key"
 )
 

@@ -1,0 +1,1412 @@
+/* ==========================================================================
+   OptimoLMS landing · page CSS
+   Only what sits inside a visual (the product's own screens, drawn in HTML) and
+   the few spacing rules the kit's recipes ask a page to set. The shell, the grid,
+   the type scale and every token come from the kit's system.css.
+   ========================================================================== */
+
+:is(.app, .mock, .sheet, .chat, .gb, .weights) {
+	--rule: color-mix(in oklab, var(--ink) 11%, transparent);
+	--rule-soft: color-mix(in oklab, var(--ink) 7%, transparent);
+	--tint: color-mix(in oklab, var(--accent) 11%, transparent);
+	--tint-line: color-mix(in oklab, var(--accent) 30%, transparent);
+	color: var(--ink);
+	font-family: var(--font-text);
+	text-align: left;
+}
+
+/* --------------------------------------------------------------- the app --- */
+/* The product's own screen, drawn as live HTML: the real shell, the real rail of
+   weeks, the real week pane. Reads at 13px like the app does. */
+.app {
+	background: var(--surface);
+	border-radius: 14px;
+	overflow: clip;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 1px 2px color-mix(in oklab, var(--ink) 8%, transparent),
+		0 18px 40px -24px color-mix(in oklab, var(--ink) 40%, transparent);
+	font-size: 13px;
+	line-height: 1.35;
+}
+.app__bar {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	height: 40px;
+	padding: 0 14px;
+	border-bottom: 1px solid var(--rule-soft);
+	color: var(--muted);
+	font-size: 12.5px;
+}
+.app__dots {
+	display: inline-flex;
+	gap: 5px;
+}
+.app__dots i {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: color-mix(in oklab, var(--ink) 18%, transparent);
+}
+.app__title {
+	color: var(--ink);
+	font-weight: 500;
+}
+.app__sp {
+	flex: 1;
+}
+.app__chip {
+	padding: 3px 9px;
+	border-radius: 99px;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	font-size: 11.5px;
+}
+.app__body {
+	display: grid;
+	grid-template-columns: 164px 212px minmax(0, 1fr);
+	min-height: 0;
+}
+.app--wide .app__body {
+	grid-template-columns: 200px minmax(0, 1fr) 268px;
+	height: 512px;
+}
+.app__side {
+	display: grid;
+	align-content: start;
+	gap: 2px;
+	padding: 12px 8px;
+	border-right: 1px solid var(--rule-soft);
+}
+.app__mod {
+	padding: 7px 10px;
+	border-radius: 8px;
+	color: var(--muted);
+	font-size: 13px;
+}
+.app__mod.is-on {
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 62%, var(--ink));
+	font-weight: 500;
+}
+.app__weeks {
+	padding: 12px;
+	border-right: 1px solid var(--rule-soft);
+	display: grid;
+	align-content: start;
+	gap: 1px;
+}
+.app__weeks-h {
+	margin: 0 0 8px;
+	padding-inline: 8px;
+	color: var(--muted);
+	font: 500 11px / 1.2 var(--font-mono);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.wk {
+	display: flex;
+	gap: 9px;
+	align-items: baseline;
+	padding: 6px 8px;
+	border-radius: 7px;
+	color: var(--muted);
+	font-size: 12.5px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.wk b {
+	font: 500 11px / 1 var(--font-mono);
+	color: color-mix(in oklab, var(--ink) 42%, transparent);
+}
+.wk.is-on {
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--tint-line);
+	color: var(--ink);
+	font-weight: 500;
+}
+.wk.is-on b {
+	color: var(--accent);
+}
+.app__main {
+	padding: 16px 18px;
+	min-width: 0;
+}
+.app__eyebrow {
+	margin: 0 0 6px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.app__h {
+	margin: 0 0 14px;
+	font: 500 19px / 1.2 var(--font-display);
+	letter-spacing: -0.02em;
+}
+.app--hero .app__h {
+	font-size: 17px;
+	margin-bottom: 10px;
+}
+.app__row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 0;
+	border-top: 1px solid var(--rule-soft);
+	font-size: 12.5px;
+}
+.app__row:first-of-type {
+	border-top: 0;
+}
+.app__ic {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	font: 500 11px / 1 var(--font-mono);
+	flex: none;
+}
+.app__meta {
+	margin-left: auto;
+	color: var(--muted);
+	white-space: nowrap;
+}
+.app__main--pane {
+	padding: 18px 22px;
+}
+.pane-list {
+	margin: 0 0 18px;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 1px;
+}
+.pane-list li {
+	display: flex;
+	gap: 11px;
+	align-items: flex-start;
+	padding: 10px 0;
+	border-top: 1px solid var(--rule-soft);
+}
+.pane-list li:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+.pane-list__ic {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 7px;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	font: 500 10.5px / 1 var(--font-mono);
+	flex: none;
+}
+.pane-list b {
+	display: block;
+	font-weight: 500;
+	font-size: 13px;
+}
+.pane-list i {
+	font-style: normal;
+	color: var(--muted);
+	font-size: 12px;
+}
+.app__eyebrow--gap {
+	margin-top: 4px;
+}
+.pane-quiz {
+	margin: 0;
+	padding-left: 18px;
+	display: grid;
+	gap: 7px;
+	color: var(--ink);
+	font-size: 12.5px;
+}
+.pane-quiz li::marker {
+	color: var(--muted);
+	font-family: var(--font-mono);
+	font-size: 11px;
+}
+.app__dock {
+	padding: 14px;
+	border-left: 1px solid var(--rule-soft);
+	background: color-mix(in oklab, var(--ink) 2.5%, var(--surface));
+	display: grid;
+	align-content: start;
+	gap: 9px;
+}
+.pane-cards {
+	margin: 0;
+	color: var(--muted);
+	font-size: 12.5px;
+	line-height: 1.6;
+}
+.acts--dock {
+	padding-left: 0;
+	margin-top: var(--s-2);
+}
+.acts--dock span {
+	font-size: 12px;
+	padding: 5px 10px;
+}
+.app__foot {
+	margin: 4px 0 0;
+	color: var(--muted);
+	font-size: 11.5px;
+}
+
+/* ------------------------------------------------------- fragments in a card --- */
+.mock {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	align-content: center;
+	gap: 10px;
+	padding: 22px;
+	font-size: 13px;
+}
+.mock--card {
+	position: static;
+	inset: auto;
+	padding: 18px;
+	gap: 8px;
+}
+.mock__q {
+	margin: 0;
+	padding: 9px 12px;
+	border-radius: 10px 10px 10px 3px;
+	background: var(--tint);
+	font-size: 12.5px;
+	line-height: 1.4;
+}
+.mock__tool {
+	margin: 0;
+	padding: 7px 11px;
+	border-radius: 8px;
+	border: 1px dashed color-mix(in oklab, var(--ink) 22%, transparent);
+	color: var(--muted);
+	font: 400 11.5px / 1.4 var(--font-mono);
+	background: none;
+}
+.mock__a {
+	margin: 0;
+	padding: 9px 12px;
+	border-radius: 10px 10px 3px 10px;
+	background: color-mix(in oklab, var(--ink) 5%, var(--surface));
+	font-size: 12.5px;
+	line-height: 1.45;
+}
+.mock__label {
+	margin: 0;
+	color: var(--muted);
+	font-size: 12px;
+}
+.mock__hint {
+	margin: 0;
+	color: var(--muted);
+	font-size: 11.5px;
+}
+
+/* permissions */
+.mock--perm {
+	gap: 0;
+	padding: 18px 22px;
+}
+.perm {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 0;
+	border-top: 1px solid var(--rule-soft);
+}
+.perm:first-child {
+	border-top: 0;
+}
+.perm code {
+	flex: 1;
+	color: var(--ink);
+	font: 400 12px / 1.3 var(--font-mono);
+}
+.tag {
+	padding: 3px 8px;
+	border-radius: 99px;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 68%, var(--ink));
+	font-size: 11px;
+	font-weight: 500;
+}
+.tag--off {
+	background: none;
+	box-shadow: inset 0 0 0 1px var(--rule);
+	color: var(--muted);
+	font-weight: 400;
+}
+
+/* two-factor */
+.mock--totp {
+	justify-items: center;
+	text-align: center;
+	gap: 12px;
+}
+.otp {
+	display: flex;
+	gap: 8px;
+}
+.otp span {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 50px;
+	border-radius: 9px;
+	box-shadow: inset 0 0 0 1px var(--rule);
+	font: 500 20px / 1 var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+.otp span:first-child {
+	box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* appearance */
+.mock--prefs {
+	gap: 0;
+	padding: 18px 22px;
+}
+.pref {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 0;
+	border-top: 1px solid var(--rule-soft);
+	font-size: 12.5px;
+}
+.pref:first-child {
+	border-top: 0;
+}
+.seg {
+	display: inline-flex;
+	padding: 3px;
+	border-radius: 9px;
+	background: color-mix(in oklab, var(--ink) 6%, var(--surface));
+	gap: 2px;
+}
+.seg b,
+.seg i {
+	padding: 4px 9px;
+	border-radius: 7px;
+	font-style: normal;
+	font-weight: 400;
+	font-size: 11.5px;
+	color: var(--muted);
+}
+.seg b {
+	background: var(--surface);
+	color: var(--ink);
+	box-shadow: 0 1px 2px color-mix(in oklab, var(--ink) 14%, transparent);
+	font-weight: 500;
+}
+
+/* notifications */
+.mock--notes {
+	gap: 0;
+	padding: 18px 22px;
+}
+.note {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 0;
+	border-top: 1px solid var(--rule-soft);
+	font-size: 12.5px;
+}
+.note:first-child {
+	border-top: 0;
+}
+.note__dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--accent);
+	flex: none;
+}
+.note--read .note__dot {
+	background: color-mix(in oklab, var(--ink) 20%, transparent);
+}
+.note__time {
+	margin-left: auto;
+	color: var(--muted);
+	font: 400 11px / 1 var(--font-mono);
+}
+.note--read span:nth-child(2) {
+	color: var(--muted);
+}
+
+/* ------------------------------------------------------------- gradebook --- */
+.sheet {
+	background: var(--surface);
+	border-radius: 14px;
+	overflow: clip;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 18px 40px -28px color-mix(in oklab, var(--ink) 45%, transparent);
+	font-size: 12.5px;
+}
+.sheet__head,
+.sheet__row {
+	display: grid;
+	grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 0.72fr)) minmax(
+			0,
+			0.8fr
+		) minmax(0, 0.6fr);
+	align-items: center;
+	gap: 8px;
+	padding: 11px 16px;
+}
+.sheet__head {
+	color: var(--muted);
+	font: 500 10.5px / 1.2 var(--font-mono);
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	border-bottom: 1px solid var(--rule);
+}
+.sheet__row {
+	border-top: 1px solid var(--rule-soft);
+	padding-block: 15px;
+	font-variant-numeric: tabular-nums;
+}
+.sheet__row > span:not(:first-child) {
+	text-align: right;
+}
+.sheet__head > span:not(:first-child) {
+	text-align: right;
+}
+.sheet__row--foot {
+	border-top: 1px solid var(--rule);
+	color: var(--muted);
+}
+.sheet__letter {
+	display: inline-grid;
+	place-items: center;
+	justify-self: end;
+	width: 22px;
+	height: 22px;
+	border-radius: 6px;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	font: 500 11.5px / 1 var(--font-mono);
+}
+.sheet__note {
+	margin: var(--s-4) 0 0;
+	color: var(--ink);
+	font-size: var(--t-small);
+	max-width: 44ch;
+}
+.rows--tight > li {
+	padding-block: var(--s-3);
+}
+/* the questions: five answers, on the screen they share with the close */
+#questions .faq > .faq__item {
+	padding: 16px 0;
+}
+#questions .faq :is(.faq__item > h3) {
+	font-size: var(--t-body);
+}
+#questions .faq p {
+	max-width: 78ch;
+}
+#questions .section-head {
+	margin-bottom: var(--s-6);
+}
+
+/* ------------------------------------------------------------- assistant --- */
+.chat {
+	background: var(--surface);
+	border-radius: 16px;
+	overflow: clip;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 24px 60px -36px #000;
+	max-width: 720px;
+	margin: 0;
+	font-size: 14px;
+}
+.chat__top {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--rule-soft);
+	font-weight: 500;
+	font-size: 13px;
+}
+.chat__model {
+	margin-left: auto;
+	color: var(--muted);
+	font: 400 11.5px / 1 var(--font-mono);
+}
+.chat__agent {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--accent);
+	flex: none;
+	position: relative;
+}
+.chat__agent::before,
+.chat__agent::after {
+	content: "";
+	position: absolute;
+	top: 32%;
+	width: 12%;
+	height: 36%;
+	border-radius: 99px;
+	background: var(--surface);
+}
+.chat__agent::before {
+	left: 33%;
+}
+.chat__agent::after {
+	left: 55%;
+}
+.chat__body {
+	display: grid;
+	gap: 10px;
+	padding: 18px 16px 20px;
+}
+.msg {
+	margin: 0;
+	max-width: 90%;
+	padding: 10px 13px;
+	border-radius: 11px;
+	font-size: 13.5px;
+	line-height: 1.45;
+}
+.msg--me {
+	justify-self: end;
+	background: var(--tint);
+	border-bottom-right-radius: 3px;
+}
+.msg--bot {
+	justify-self: start;
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+	background: color-mix(in oklab, var(--ink) 5%, var(--surface));
+	border-bottom-left-radius: 3px;
+}
+.msg--bot .chat__agent {
+	margin-top: 1px;
+}
+.tool {
+	margin: 0;
+	justify-self: start;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 12px;
+	border-radius: 8px;
+	box-shadow: inset 0 0 0 1px var(--rule);
+	color: var(--muted);
+	font: 400 11.5px / 1.4 var(--font-mono);
+}
+.tool__ic {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--accent);
+	flex: none;
+}
+.acts {
+	margin: 0;
+	display: flex;
+	gap: 8px;
+	padding-left: 30px;
+}
+.acts span {
+	padding: 6px 13px;
+	border-radius: var(--r-btn);
+	background: var(--action);
+	color: var(--action-ink);
+	font-size: 12.5px;
+	font-weight: 500;
+}
+.acts span + span {
+	background: none;
+	box-shadow: inset 0 0 0 1px var(--rule);
+	color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ panels --- */
+/* The kit gives a panel the page's lit ground. These panels hold the product's own
+   screens, which are flat white, so they take a flat step off the page instead. */
+/* the kit paints a panel on the page's lit ground (a mesh of --ground-*). The product's
+   screens are flat white, so these panels take one flat step off the page: the three ground
+   tones are set to the same value, which collapses the mesh without fighting its selector. */
+.card--open > .panel,
+.menu-card > .panel {
+	--ground-bg: color-mix(in oklab, var(--ink) 3.5%, var(--surface));
+	--ground-surface: var(--ground-bg);
+	--ground-accent: var(--ground-bg);
+	--calm-k: 0%;
+}
+#access .panel {
+	--p-h: 240px;
+}
+/* the note row under the three cards, on the wrap's lines */
+.access__note {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--s-5);
+	margin: var(--s-7) 0 0;
+	color: var(--ink);
+	font-size: var(--t-small);
+}
+.access__note span {
+	max-width: 76ch;
+}
+.sheet__scale {
+	margin: var(--s-4) 0 0;
+	color: var(--muted);
+	font: 400 12.5px / 1.4 var(--font-mono);
+	letter-spacing: 0.01em;
+}
+.sheet__note + .sheet__scale {
+	margin-top: var(--s-3);
+}
+#gradebook .link {
+	margin-top: var(--s-5);
+	display: inline-block;
+}
+.pane-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid var(--rule-soft);
+	color: var(--muted);
+	font-size: 12px;
+}
+.pane-bar__track {
+	flex: 1;
+	height: 5px;
+	border-radius: 99px;
+	background: color-mix(in oklab, var(--ink) 9%, transparent);
+	overflow: hidden;
+	max-width: 220px;
+}
+.pane-bar__track i {
+	display: block;
+	height: 100%;
+	border-radius: 99px;
+	background: var(--accent);
+}
+
+/* the assistant's tool list */
+.tools {
+	padding-top: 0;
+}
+.tools__list {
+	margin: var(--s-4) 0 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 0;
+}
+.tools__list li {
+	display: grid;
+	gap: 1px;
+	padding: 6px 0;
+	border-top: 1px solid var(--line);
+}
+.tools__list li:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+.tools__list code {
+	font: 400 12.5px / 1.4 var(--font-mono);
+	color: var(--ink);
+}
+.tools__list span {
+	color: var(--muted);
+	font-size: var(--t-small);
+}
+.tools__note {
+	margin: var(--s-4) 0 0;
+	color: var(--ink);
+	font-size: var(--t-small);
+	max-width: 34ch;
+}
+
+/* --------------------------------------------------------------- the page --- */
+.section-head--tight {
+	margin-bottom: var(--s-6);
+}
+/* the hero's window takes more of its frame, so the lit ground reads as a border */
+.hero--centred .hero__window > .ly-piece {
+	width: min(1040px, calc(100% - 2 * var(--s-6)));
+}
+
+/* the assistant band: one window, quietly framed */
+#assistant .section-head {
+	margin-bottom: var(--s-7);
+}
+#assistant .link {
+	color: var(--ink);
+}
+/* a phone keeps each section one screen: the mocks drop their rails */
+@media (max-width: 1023px) {
+	.app__body {
+		grid-template-columns: 168px minmax(0, 1fr);
+	}
+	.app--wide .app__body {
+		grid-template-columns: 168px minmax(0, 1fr);
+		height: 460px;
+	}
+	.app__side,
+	.app__dock {
+		display: none;
+	}
+}
+@media (max-width: 1023px) {
+	.tools {
+		padding-top: var(--s-6);
+	}
+}
+@media (max-width: 639px) {
+	.app {
+		font-size: 12.5px;
+		border-radius: 12px;
+	}
+	.app__body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.app__weeks {
+		border-right: 0;
+		border-bottom: 1px solid var(--rule-soft);
+		grid-template-columns: 1fr;
+	}
+	.app--wide .app__body {
+		height: auto;
+	}
+	.app__main--pane {
+		padding: 14px 16px;
+	}
+	.pane-quiz li:nth-child(n + 3) {
+		display: none;
+	}
+	.app__row:nth-child(n + 4) {
+		display: none;
+	}
+	.sheet__head,
+	.sheet__row {
+		grid-template-columns:
+			minmax(0, 1.5fr) minmax(0, 0.6fr) minmax(0, 0.7fr)
+			minmax(0, 0.7fr) 48px;
+		padding: 10px 12px;
+		font-size: 12px;
+	}
+	.sheet__head > span:nth-child(3),
+	.sheet__head > span:nth-child(5),
+	.sheet__row > span:nth-child(3),
+	.sheet__row > span:nth-child(5) {
+		display: none;
+	}
+	.chat,
+	.mock {
+		font-size: 12.5px;
+	}
+	.mock {
+		padding: 16px;
+	}
+	.chat__body {
+		padding: 14px 12px 16px;
+	}
+	.msg {
+		max-width: 100%;
+	}
+	.otp span {
+		width: 36px;
+		height: 44px;
+		font-size: 17px;
+	}
+}
+@media (max-width: 639px) {
+	/* the hero's story is the week list: the pane under it would only be cut by the fade, and five
+	   weeks are all the frame holds before the fade starts */
+	.app--hero .app__main {
+		display: none;
+	}
+	.app--hero .app__weeks > :nth-child(n + 7) {
+		display: none;
+	}
+	/* the wide frame gives its rail to the week pane, which is the story on a phone */
+	.app--wide .app__weeks {
+		display: none;
+	}
+	/* the sheet keeps the student, one quiz, the weighted mark and the letter, each with room */
+	.sheet__head,
+	.sheet__row {
+		grid-template-columns:
+			minmax(0, 1.15fr) minmax(0, 0.5fr) minmax(0, 0.5fr)
+			minmax(0, 0.55fr);
+	}
+	.sheet__head > span:nth-child(2),
+	.sheet__head > span:nth-child(3),
+	.sheet__head > span:nth-child(5),
+	.sheet__row > span:nth-child(2),
+	.sheet__row > span:nth-child(3),
+	.sheet__row > span:nth-child(5) {
+		display: none;
+	}
+	#questions .faq > .faq__item {
+		padding: 12px 0;
+	}
+	#questions .section-head {
+		margin-bottom: var(--s-4);
+	}
+	/* the note row stacks, so the link never splits across two lines */
+	#access .access__note {
+		flex-direction: column;
+		align-items: start;
+		gap: var(--s-3);
+	}
+	/* the closing wordmark sets the wrap's min-content width: keep it inside the 342 */
+	.close__word {
+		font-size: clamp(44px, 16vw, 208px);
+	}
+	/* the phone bar carries the logo, the main action and the menu button: drop the mark */
+	.nav__logo .mark {
+		display: none;
+	}
+	.nav:not(.is-open) .nav__actions .btn {
+		padding-inline: var(--s-2);
+	}
+	/* the app bar keeps the title only, so nothing is squeezed */
+	.app__chip,
+	.app__dots {
+		display: none;
+	}
+	#access .panel {
+		--p-h: 236px;
+	}
+	#gradebook .sheet__letter {
+		width: 20px;
+		height: 20px;
+	}
+}
+
+/* the hero lead and the closing wordmark */
+.hero--centred .hero__lead {
+	color: var(--ink);
+}
+.close__word {
+	line-height: 1;
+	padding-top: 0.06em;
+}
+
+/* the questions: the assistant's settings beside the answers */
+.panel-card {
+	background: var(--surface);
+	border-radius: 14px;
+	overflow: clip;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 18px 40px -28px color-mix(in oklab, var(--ink) 45%, transparent);
+	font-size: 13px;
+}
+.panel-card .mock {
+	padding: 8px 18px 14px;
+}
+.panel-card code {
+	color: var(--ink);
+	font: 400 12px / 1.3 var(--font-mono);
+}
+@media (max-width: 1023px) {
+	#questions .panel-card {
+		margin-top: var(--s-6);
+	}
+}
+
+/* ---------------------------------------------------------------- small
+   a short screen keeps the sheet to six students, the class average closes it, and the chat to
+   its first exchange: what is cut is what a narrower screen cannot carry */
+@media (max-width: 1023px) {
+	.sheet > .sheet__row:not(.sheet__row--foot):nth-child(n + 7) {
+		display: none;
+	}
+	.chat__body > :nth-child(n + 5) {
+		display: none;
+	}
+	#assistant .section-head {
+		margin-bottom: var(--s-5);
+	}
+}
+/* ---------------------------------------------------------------- tablet
+   at 768 every section still wants one screen: the mocks keep their story and drop rows */
+@media (min-width: 640px) and (max-width: 1023px) {
+	/* the tool list reads two up, so the band stays one screen */
+	.tools__list {
+		grid-template-columns: 1fr 1fr;
+		column-gap: var(--s-5);
+	}
+	/* an access card sets its mock beside the copy instead of under it */
+	#access .card--open {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 372px;
+		align-items: center;
+		column-gap: var(--s-6);
+	}
+	#access .card--open > h3,
+	#access .card--open > p {
+		grid-column: 1;
+	}
+	#access .card--open > .panel {
+		grid-column: 2;
+		grid-row: 1 / span 3;
+		align-self: stretch;
+		--p-h: 180px;
+		margin: 0 calc(var(--c-gap) - var(--c-pad));
+	}
+	#access .card--open > .panel .perm {
+		font-size: 11px;
+	}
+	#access .access__note {
+		flex-direction: column;
+		align-items: start;
+		gap: var(--s-3);
+	}
+}
+
+/* on a phone the assistant and the questions take a whole screen, so the next section stays out */
+@media (max-width: 639px) {
+	#assistant {
+		min-height: 100svh;
+	}
+}
+
+/* ------------------------------------------------------- component polish --- */
+/* the quiz: numbered chips in place of bare markers */
+.pane-quiz {
+	list-style: none;
+	padding-left: 0;
+	counter-reset: q;
+	gap: 6px;
+}
+.pane-quiz li {
+	counter-increment: q;
+	display: flex;
+	gap: 10px;
+	align-items: baseline;
+	padding: 6px 10px;
+	border-radius: 8px;
+	background: color-mix(in oklab, var(--ink) 2.5%, var(--surface));
+}
+.pane-quiz li::before {
+	content: counter(q, decimal-leading-zero);
+	color: var(--muted);
+	font: 500 10.5px / 1 var(--font-mono);
+	flex: none;
+}
+/* the flashcards: one chip per card */
+.pane-cards {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.pane-cards span {
+	padding: 4px 10px;
+	border-radius: 99px;
+	box-shadow: inset 0 0 0 1px var(--rule);
+	background: var(--surface);
+	color: var(--ink);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+/* the assistant's mark: a four-point spark, not two bars */
+.chat__agent::before {
+	left: 50%;
+	top: 50%;
+	width: 58%;
+	height: 58%;
+	translate: -50% -50%;
+	border-radius: 0;
+	clip-path: polygon(
+		50% 0,
+		62% 38%,
+		100% 50%,
+		62% 62%,
+		50% 100%,
+		38% 62%,
+		0 50%,
+		38% 38%
+	);
+}
+.chat__agent::after {
+	display: none;
+}
+
+/* the tool list: a framed two-column set of calls */
+.tools__list {
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.tools__list li,
+.tools__list li:first-child {
+	padding: 10px 12px;
+	border: 0;
+	border-radius: 10px;
+	background: var(--surface);
+	box-shadow: inset 0 0 0 1px var(--rule);
+	transition:
+		box-shadow 0.2s ease,
+		translate 0.2s ease;
+}
+.tools__list li:hover {
+	translate: 0 -2px;
+	box-shadow: inset 0 0 0 1px
+		color-mix(in oklab, var(--accent) 55%, var(--rule));
+}
+.tools__list code::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 7px;
+	border-radius: 50%;
+	background: var(--accent);
+	vertical-align: 0.12em;
+}
+@media (max-width: 560px) {
+	.tools__list {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* the gradebook letters read by band */
+.sheet__letter[data-g="A"] {
+	background: color-mix(in oklab, #1f9d55 14%, var(--surface));
+	color: #17663b;
+}
+.sheet__letter[data-g="C"],
+.sheet__letter[data-g="D"] {
+	background: color-mix(in oklab, #d98a00 16%, var(--surface));
+	color: #8a5300;
+}
+.sheet__letter[data-g="F"] {
+	background: color-mix(in oklab, #d23c3c 14%, var(--surface));
+	color: #a12626;
+}
+
+/* the settings card stays beside the answers as they are read */
+@media (min-width: 1024px) {
+	#questions .panel-card {
+		position: sticky;
+		top: calc(72px + var(--s-6));
+	}
+}
+.tools__list li:last-child:nth-child(odd) {
+	grid-column: 1 / -1;
+}
+
+/* the brand mark, from the app */
+.logo {
+	width: 26px;
+	height: 26px;
+	color: var(--accent);
+	flex: none;
+}
+.nav__logo,
+.footer__mark {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+}
+
+/* the gradebook */
+.weights {
+	margin-bottom: var(--s-5);
+}
+.weights__bar {
+	display: flex;
+	gap: 3px;
+	height: 10px;
+	border-radius: 99px;
+	overflow: hidden;
+}
+.weights__bar i {
+	display: block;
+}
+.weights__bar i:nth-child(1),
+.weights__key li:nth-child(1) .weights__dot {
+	background: color-mix(in oklab, var(--accent) 35%, var(--surface));
+}
+.weights__bar i:nth-child(2),
+.weights__key li:nth-child(2) .weights__dot {
+	background: color-mix(in oklab, var(--accent) 65%, var(--surface));
+}
+.weights__bar i:nth-child(3),
+.weights__key li:nth-child(3) .weights__dot {
+	background: var(--accent);
+}
+.weights__key {
+	list-style: none;
+	margin: var(--s-4) 0 0;
+	padding: 0;
+	display: grid;
+}
+.weights__key li {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 11px 0;
+	border-bottom: 1px solid var(--rule-soft);
+}
+.weights__key b {
+	margin-left: auto;
+	font: 500 14px / 1 var(--font-mono);
+}
+.weights__dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 3px;
+	flex: none;
+}
+
+.gb {
+	background: var(--surface);
+	border-radius: 14px;
+	overflow: clip;
+	font-size: 13px;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 24px 50px -30px color-mix(in oklab, var(--ink) 45%, transparent);
+}
+.gb__tools {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--rule-soft);
+}
+.gb__tab {
+	padding: 5px 10px;
+	border-radius: 7px;
+	color: var(--muted);
+	font-size: 12.5px;
+}
+.gb__tab.is-on {
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	font-weight: 500;
+}
+.gb__state {
+	color: var(--muted);
+	font: 400 11.5px / 1 var(--font-mono);
+}
+.gb__head,
+.gb__row {
+	display: grid;
+	grid-template-columns: minmax(0, 2.2fr) repeat(3, 0.6fr) 1.5fr 0.5fr;
+	align-items: center;
+	gap: 12px;
+	padding: 0 16px;
+}
+.gb__head > :not(:first-child),
+.gb__row > :not(:first-child) {
+	text-align: right;
+	justify-self: end;
+}
+.gb__head {
+	height: 36px;
+	color: var(--muted);
+	font: 500 10.5px / 1 var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	background: color-mix(in oklab, var(--ink) 2.5%, var(--surface));
+}
+.gb__row {
+	height: 46px;
+	border-top: 1px solid var(--rule-soft);
+	font-variant-numeric: tabular-nums;
+}
+.gb__row:hover {
+	background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+}
+.gb__row--foot {
+	background: color-mix(in oklab, var(--ink) 2.5%, var(--surface));
+	color: var(--muted);
+}
+.gb__who {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.gb__av {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	flex: none;
+	font: 500 10px / 1 var(--font-mono);
+	font-style: normal;
+	background: var(--tint);
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+}
+.gb__mark {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	justify-self: stretch !important;
+	justify-content: flex-end;
+}
+.gb__mark b {
+	font: 500 12.5px / 1 var(--font-mono);
+	width: 3.2em;
+	text-align: right;
+}
+.gb__bar {
+	width: 64px;
+	height: 5px;
+	border-radius: 99px;
+	background: color-mix(in oklab, var(--ink) 9%, transparent);
+	overflow: hidden;
+}
+.gb__bar i {
+	display: block;
+	height: 100%;
+	background: var(--accent);
+	border-radius: 99px;
+}
+@media (max-width: 1023px) {
+	#gradebook .gb {
+		margin-top: var(--s-6);
+	}
+}
+@media (max-width: 560px) {
+	.gb__head,
+	.gb__row {
+		grid-template-columns: minmax(0, 1fr) 0.6fr 0.5fr;
+	}
+	.gb__head > :nth-child(n + 2):nth-child(-n + 4),
+	.gb__row > :nth-child(n + 2):nth-child(-n + 4) {
+		display: none;
+	}
+	.gb__bar {
+		display: none;
+	}
+	.gb__state {
+		display: none;
+	}
+}
+/* more air between the text column and its window */
+@media (min-width: 1024px) {
+	#gradebook .span-5 {
+		grid-column: 1 / span 5;
+		padding-right: var(--s-5);
+	}
+	#gradebook .gb {
+		margin-left: var(--s-5);
+	}
+	#assistant .tools,
+	#questions .panel-card {
+		margin-left: var(--s-5);
+	}
+	#assistant .chat,
+	#questions .faq {
+		margin-right: var(--s-3);
+	}
+}
+
+/* the hero: two cards from the app float over the window's corners */
+.hero__window .ly-piece {
+	position: relative;
+}
+.float {
+	--rule: color-mix(in oklab, var(--ink) 11%, transparent);
+	position: absolute;
+	z-index: 2;
+	width: 250px;
+	padding: 12px 14px;
+	margin: 0;
+	background: var(--surface);
+	border-radius: 12px;
+	font-size: 12.5px;
+	box-shadow:
+		inset 0 0 0 1px var(--rule),
+		0 20px 40px -18px color-mix(in oklab, var(--ink) 40%, transparent);
+}
+.float p {
+	margin: 0;
+}
+.float--l {
+	left: -64px;
+	bottom: 56px;
+}
+.float--r {
+	right: -64px;
+	top: 72px;
+}
+.float__h {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 500;
+}
+.float__file {
+	padding: 3px 5px;
+	border-radius: 5px;
+	background: color-mix(in oklab, #d23c3c 14%, var(--surface));
+	color: #a12626;
+	font: 600 9.5px / 1 var(--font-mono);
+}
+.float__sub {
+	margin-top: 6px !important;
+	color: var(--muted);
+	font-size: 12px;
+}
+.float__bar {
+	display: block;
+	width: 100%;
+	margin-top: 8px;
+}
+.float__k {
+	color: var(--muted);
+	font: 500 10.5px / 1 var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: 6px !important;
+}
+.float__task {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 6px 0;
+	border-top: 1px solid var(--rule);
+}
+.float__task:first-of-type {
+	border-top: 0;
+}
+.float__task b {
+	font-weight: 500;
+	color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+	white-space: nowrap;
+}
+@media (max-width: 1199px) {
+	.float {
+		display: none;
+	}
+}

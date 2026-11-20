@@ -1,0 +1,61 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
+	"files": {
+		"ignoreUnknown": true
+	},
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noDescendingSpecificity": "off"
+			},
+			"complexity": {
+				"noImportantStyles": "off"
+			},
+			"a11y": {
+				"useSemanticElements": "warn",
+				"useAriaPropsSupportedByRole": "warn",
+				"useKeyWithClickEvents": "warn",
+				"noStaticElementInteractions": "warn",
+				"noLabelWithoutControl": "warn",
+				"noAutofocus": "warn"
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "warn"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "warn"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["landing/public/**"],
+			"linter": {
+				"enabled": false
+			}
+		},
+		{
+			"includes": ["frontend/src/accents.generated.ts"],
+			"formatter": {
+				"enabled": false
+			}
+		},
+		{
+			"includes": ["frontend/src/chat/Markdown.tsx"],
+			"linter": {
+				"rules": {
+					"security": {
+						"noDangerouslySetInnerHtml": "off"
+					}
+				}
+			}
+		}
+	]
+}

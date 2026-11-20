@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/util"
 )
 
 func aiSessionsAPI(t *testing.T) (*sql.DB, *http.ServeMux, string, string) {
@@ -65,14 +65,14 @@ func TestAISessionsLifecycle(t *testing.T) {
 	database, mux, owner, other := aiSessionsAPI(t)
 
 	var created aiSessionOut
-	decodeInto(t, call(t, mux, http.MethodPost, "/api/ai/sessions", map[string]any{"user_id": owner}), http.StatusCreated, &created)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodPost, "/api/ai/sessions", nil), http.StatusCreated, &created)
 	if created.ID == "" || created.MessageCount != 0 || created.Title != "" {
 		t.Fatalf("unexpected created session %+v", created)
 	}
 
 	// Empty sessions stay out of the list.
 	var list aiSessionListOut
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions?user_id="+owner, nil), http.StatusOK, &list)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodGet, "/api/ai/sessions", nil), http.StatusOK, &list)
 	if len(list.Items) != 0 || list.NextPage != nil {
 		t.Fatalf("empty session listed: %+v", list)
 	}
@@ -83,58 +83,58 @@ func TestAISessionsLifecycle(t *testing.T) {
 	}
 	var saved aiSessionOut
 	path := "/api/ai/sessions/" + created.ID + "/messages"
-	decodeInto(t, call(t, mux, http.MethodPut, path, map[string]any{"user_id": owner, "messages": messages}), http.StatusOK, &saved)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodPut, path, map[string]any{"messages": messages}), http.StatusOK, &saved)
 	if saved.Title != "Explain photosynthesis to me" || saved.MessageCount != 2 {
 		t.Fatalf("unexpected saved summary %+v", saved)
 	}
 
 	// The title is kept once set.
 	messages = append([]any{userMessage("Something else")}, messages...)
-	decodeInto(t, call(t, mux, http.MethodPut, path, map[string]any{"user_id": owner, "messages": messages}), http.StatusOK, &saved)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodPut, path, map[string]any{"messages": messages}), http.StatusOK, &saved)
 	if saved.Title != "Explain photosynthesis to me" || saved.MessageCount != 3 {
 		t.Fatalf("title changed or count wrong: %+v", saved)
 	}
 
 	// Not an array → 400; another user → 404.
-	decodeInto(t, call(t, mux, http.MethodPut, path, map[string]any{"user_id": owner, "messages": map[string]any{}}), http.StatusBadRequest, nil)
-	decodeInto(t, call(t, mux, http.MethodPut, path, map[string]any{"user_id": other, "messages": []any{}}), http.StatusNotFound, nil)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodPut, path, map[string]any{"messages": map[string]any{}}), http.StatusBadRequest, nil)
+	decodeInto(t, callAs(t, database, mux, other, http.MethodPut, path, map[string]any{"messages": []any{}}), http.StatusNotFound, nil)
 
 	var detail aiSessionDetailOut
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions/"+created.ID+"?user_id="+owner, nil), http.StatusOK, &detail)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodGet, "/api/ai/sessions/"+created.ID, nil), http.StatusOK, &detail)
 	var stored []map[string]any
 	if err := json.Unmarshal(detail.Messages, &stored); err != nil || len(stored) != 3 || stored[1]["role"] != "user" {
 		t.Fatalf("stored messages not verbatim: %s (%v)", detail.Messages, err)
 	}
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions/"+created.ID+"?user_id="+other, nil), http.StatusNotFound, nil)
+	decodeInto(t, callAs(t, database, mux, other, http.MethodGet, "/api/ai/sessions/"+created.ID, nil), http.StatusNotFound, nil)
 
 	// Paging: three non-empty sessions, two per page, newest first.
 	for i := 0; i < 2; i++ {
 		var s aiSessionOut
-		decodeInto(t, call(t, mux, http.MethodPost, "/api/ai/sessions", map[string]any{"user_id": owner}), http.StatusCreated, &s)
-		decodeInto(t, call(t, mux, http.MethodPut, "/api/ai/sessions/"+s.ID+"/messages",
-			map[string]any{"user_id": owner, "messages": []any{userMessage(fmt.Sprintf("chat %d", i))}}), http.StatusOK, nil)
+		decodeInto(t, callAs(t, database, mux, owner, http.MethodPost, "/api/ai/sessions", nil), http.StatusCreated, &s)
+		decodeInto(t, callAs(t, database, mux, owner, http.MethodPut, "/api/ai/sessions/"+s.ID+"/messages",
+			map[string]any{"messages": []any{userMessage(fmt.Sprintf("chat %d", i))}}), http.StatusOK, nil)
 		if _, err := database.Exec(`UPDATE ai_chat_sessions SET updated_at = ? WHERE id = ?`,
 			fmt.Sprintf("2999-01-0%dT00:00:00Z", i+1), s.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions?user_id="+owner+"&limit=2", nil), http.StatusOK, &list)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodGet, "/api/ai/sessions?limit=2", nil), http.StatusOK, &list)
 	if len(list.Items) != 2 || list.NextPage == nil || *list.NextPage != 2 || list.Items[0].Title != "chat 1" {
 		t.Fatalf("unexpected page 1: %+v", list)
 	}
 	list = aiSessionListOut{}
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions?user_id="+owner+"&limit=2&page=2", nil), http.StatusOK, &list)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodGet, "/api/ai/sessions?limit=2&page=2", nil), http.StatusOK, &list)
 	if len(list.Items) != 1 || list.NextPage != nil || list.Items[0].ID != created.ID {
 		t.Fatalf("unexpected page 2: %+v", list)
 	}
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions?user_id="+other, nil), http.StatusOK, &list)
+	decodeInto(t, callAs(t, database, mux, other, http.MethodGet, "/api/ai/sessions", nil), http.StatusOK, &list)
 	if len(list.Items) != 0 {
 		t.Fatalf("other user sees sessions: %+v", list)
 	}
 
-	decodeInto(t, call(t, mux, http.MethodDelete, "/api/ai/sessions/"+created.ID+"?user_id="+other, nil), http.StatusNotFound, nil)
-	decodeInto(t, call(t, mux, http.MethodDelete, "/api/ai/sessions/"+created.ID+"?user_id="+owner, nil), http.StatusNoContent, nil)
-	decodeInto(t, call(t, mux, http.MethodGet, "/api/ai/sessions/"+created.ID+"?user_id="+owner, nil), http.StatusNotFound, nil)
+	decodeInto(t, callAs(t, database, mux, other, http.MethodDelete, "/api/ai/sessions/"+created.ID, nil), http.StatusNotFound, nil)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodDelete, "/api/ai/sessions/"+created.ID, nil), http.StatusNoContent, nil)
+	decodeInto(t, callAs(t, database, mux, owner, http.MethodGet, "/api/ai/sessions/"+created.ID, nil), http.StatusNotFound, nil)
 }
 
 func TestDeriveSessionTitle(t *testing.T) {

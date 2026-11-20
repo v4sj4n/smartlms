@@ -1,10 +1,4 @@
-import {
-	ChatsCircle,
-	Check,
-	CircleNotch,
-	Plus,
-	Trash,
-} from "@phosphor-icons/react";
+import { ChatsCircle, Check, CircleNotch, Trash } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import { type AiSession, api } from "../api";
 import { usePopover } from "./usePopover";
@@ -43,7 +37,7 @@ function useSessions(userId: string, active: boolean, version: number) {
 			setLoading(true);
 			setFailed(false);
 			try {
-				const data = await api.aiSessions(userId, page, PAGE_SIZE);
+				const data = await api.aiSessions(page, PAGE_SIZE);
 				setItems((previous) =>
 					page === 1
 						? data.items
@@ -197,96 +191,5 @@ export function HistoryMenu({
 				</div>
 			) : null}
 		</div>
-	);
-}
-
-/** Full-page right rail: the latest conversations, "Show more" pages on. */
-export function RecentChats({
-	userId,
-	currentId,
-	version,
-	onPick,
-	onNew,
-	canNew,
-}: {
-	userId: string;
-	currentId: string | null;
-	version: number;
-	onPick: (id: string) => void;
-	onNew: () => void;
-	canNew: boolean;
-}) {
-	const [expanded, setExpanded] = useState(false);
-	const { items, nextPage, loading, load } = useSessions(
-		userId,
-		true,
-		version + (currentId ? 1 : 0),
-	);
-	const shown = expanded ? items : items.slice(0, 5);
-	const more = expanded
-		? Boolean(nextPage)
-		: items.length > 5 || Boolean(nextPage);
-
-	return (
-		<aside className="ai-recent" aria-label="Recent chats">
-			<div className="ai-recent__head">
-				<h3 className="ai-recent__title">Recent</h3>
-				<button
-					type="button"
-					className="ai-icon-btn"
-					disabled={!canNew}
-					onClick={onNew}
-					aria-label="New chat"
-					title="New chat"
-				>
-					<Plus aria-hidden="true" />
-				</button>
-			</div>
-			<div
-				className={
-					expanded
-						? "ai-recent__list ai-recent__list--scroll"
-						: "ai-recent__list"
-				}
-			>
-				{shown.map((session) => {
-					const title = session.title || "New chat";
-					return (
-						<button
-							key={session.id}
-							type="button"
-							title={title}
-							aria-current={session.id === currentId || undefined}
-							onClick={() => onPick(session.id)}
-							className="ai-recent__item"
-						>
-							<span className="ai-recent__name">{title}</span>
-							<span className="ai-recent__when num">
-								{ago(session.updated_at)}
-							</span>
-						</button>
-					);
-				})}
-				{more ? (
-					<button
-						type="button"
-						className="ai-recent__more"
-						disabled={loading}
-						onClick={() => {
-							if (!expanded) setExpanded(true);
-							else if (nextPage) void load(nextPage);
-						}}
-					>
-						{loading ? (
-							<CircleNotch aria-hidden="true" className="spinner" />
-						) : null}
-						Show more
-					</button>
-				) : null}
-			</div>
-			{!loading && items.length === 0 ? (
-				<p className="ai-recent__empty">No saved conversations yet.</p>
-			) : null}
-		</aside>
 	);
 }

@@ -1,6 +1,6 @@
 -- 000011: MCP apps and the connections each person holds.
 --
--- mcp_apps is the shared catalog: one row per MCP server SmartLMS knows how to
+-- mcp_apps is the shared catalog: one row per MCP server OptimoLMS knows how to
 -- talk to, with the avatar mark and tint the profile draws, and the scopes the
 -- app asks for. user_mcp_apps records which apps a person has connected, so a
 -- profile can list them as avatars and revoking one is a single row delete.

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"smartlms/backend/internal/config"
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/handler"
+	"optimolms/backend/internal/config"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/handler"
 )
 
 func main() {
@@ -34,11 +34,13 @@ func main() {
 	log.Println("seed ok")
 
 	mux := http.NewServeMux()
-	handler.Register(mux, database, cfg)
+	// Register returns the whole chain: the routes behind session resolution and
+	// the permission policy, so no route can be served without a caller.
+	app := handler.Register(mux, database, cfg)
 
 	addr := ":" + cfg.Port
 	log.Printf("backend listening on %s", addr)
-	if err := http.ListenAndServe(addr, cors(mux)); err != nil {
+	if err := http.ListenAndServe(addr, cors(app)); err != nil {
 		log.Fatal(err)
 	}
 }

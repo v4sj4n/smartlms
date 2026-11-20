@@ -1,3 +1,4 @@
+import type { AccentPreference } from "./accents.generated";
 export type Health = { status: string; service: string; db: string };
 
 /** A named, module-owned permission such as `campuses.manage`. */
@@ -90,6 +91,36 @@ export type UserListParams = {
 	page_size: number;
 	role?: string;
 	search?: string;
+};
+
+export type StudentListParams = {
+	page: number;
+	page_size: number;
+	search?: string;
+	programme_id?: string;
+	year_of_study?: number;
+	/** School year of the admission, e.g. 2026/2027. */
+	admitted_in?: string;
+	status?: AdmissionStatus | "UNPLACED";
+	gpa_min?: number;
+	gpa_max?: number;
+	sort?: "name" | "gpa" | "year" | "admitted" | "credits";
+	order?: "asc" | "desc";
+};
+
+/** A row of the staff student list: account, admission and record headline. */
+export type StudentRow = {
+	id: string;
+	name: string;
+	email: string;
+	programme_id?: string;
+	programme_name?: string;
+	programme_code?: string;
+	year_of_study?: number;
+	admitted_in?: string;
+	status?: AdmissionStatus;
+	gpa: number | null;
+	credits_earned: number;
 };
 
 /** An academic year. At most one of them is current. */
@@ -293,7 +324,7 @@ export type SubjectCounts = {
 	lectures: number;
 	assignments: number;
 	quizzes: number;
-	flashcards: number;
+	flashcard_sets: number;
 };
 
 export type Subject = {
@@ -322,7 +353,25 @@ export type SessionItem = {
 	class_name?: string;
 	scheduled_at?: string;
 	week_id?: string;
+	file?: LectureFile;
 };
+
+/** The one file a lecture can carry. */
+export type LectureFile = {
+	name: string;
+	type: "pdf" | "html" | "zip";
+	size: number;
+	uploaded_at: string;
+};
+
+/** What a lecture file may be; the backend enforces the same list. */
+export const LECTURE_FILE_EXTENSIONS = [".pdf", ".html", ".htm", ".zip"];
+export const LECTURE_FILE_MAX_BYTES = 50 * 1024 * 1024;
+
+/** Opens (PDF, HTML) or downloads (ZIP) a lecture's file; the cookie authorises it. */
+export function lectureFileUrl(lectureId: string, download = false): string {
+	return `/api/lectures/${lectureId}/file${download ? "?download=1" : ""}`;
+}
 
 export type Quiz = {
 	id: string;
@@ -333,18 +382,27 @@ export type Quiz = {
 	week_id?: string;
 };
 
+/** One two-sided card: a prompt on the front, the answer on the back. */
 export type Flashcard = {
 	id: string;
 	front: string;
 	back: string;
+};
+
+/** A titled deck of cards; the set is what a subject and a week hold. */
+export type FlashcardSet = {
+	id: string;
+	title: string;
+	description?: string;
 	week_id?: string;
+	cards: Flashcard[];
 };
 
 export type SubjectDetail = Subject & {
 	lectures: SessionItem[];
 	assignments: Assignment[];
 	quizzes: Quiz[];
-	flashcards: Flashcard[];
+	flashcard_sets: FlashcardSet[];
 };
 
 export type SubjectInput = {
@@ -374,7 +432,13 @@ export type QuizInput = {
 	week_id?: string;
 };
 
-export type FlashcardInput = { front: string; back: string; week_id?: string };
+export type FlashcardSetInput = {
+	title: string;
+	description?: string;
+	week_id?: string;
+	/** The whole deck, in order: saving replaces the set's cards. */
+	cards: { front: string; back: string }[];
+};
 
 export type CampusInput = { name: string; address?: string };
 
@@ -391,6 +455,13 @@ export type LoginResult = {
 	user: SessionUser;
 	modules: string[];
 	permissions: string[];
+	/** When this session stops working (RFC3339). */
+	expires_at?: string;
+	/**
+	 * The same token that arrived in the HttpOnly cookie, for clients that are
+	 * not browsers (an MCP client, a script). The frontend ignores it.
+	 */
+	token?: string;
 };
 
 /**
@@ -464,12 +535,31 @@ export class ApiError extends Error {
 
 const NETWORK_ERROR = "Cannot reach the backend. Is it running on :8081?";
 
+/**
+ * What to do when a request comes back 401: the session expired or was revoked,
+ * so the shell has to drop back to the login screen. AuthProvider registers it.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+
+export function onUnauthorized(handler: (() => void) | null): void {
+	unauthorizedHandler = handler;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let response: Response;
 	try {
-		response = await fetch(path, init);
+		// The session is an HttpOnly cookie: every call carries it, and the
+		// browser sends it for us because /api is same-origin (the Vite dev
+		// server proxies it to :8081).
+		response = await fetch(path, { credentials: "include", ...init });
 	} catch {
 		throw new ApiError(0, { error: NETWORK_ERROR });
+	}
+
+	// Signing in and out are the two calls where a 401 is an answer, not a
+	// dead session, so they never bounce the user out of the app.
+	if (response.status === 401 && !path.startsWith("/api/auth/")) {
+		unauthorizedHandler?.();
 	}
 
 	const text = await response.text();
@@ -598,6 +688,16 @@ export const api = {
 	login: (credentials: { email: string; password: string }) =>
 		request<LoginOutcome>("/api/auth/login", jsonRequest("POST", credentials)),
 
+	/** Ends this device's session and clears the cookie. */
+	logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+
+	/**
+	 * Who is signed in, straight from the server: identity, role, module access
+	 * and the effective permissions. The shell hydrates from this on boot, so a
+	 * stale localStorage copy can never outlive the session.
+	 */
+	me: () => request<LoginResult>("/api/me"),
+
 	/** Second sign-in step: a code from the app, or a recovery code. */
 	loginTwoFactor: (input: {
 		challenge: string;
@@ -611,24 +711,21 @@ export const api = {
 		school_year?: string;
 	}) => request<Paginated<Subject>>(`/api/subjects${queryString(params)}`),
 
+	students: (params: StudentListParams) =>
+		request<Paginated<StudentRow>>(`/api/students${queryString(params)}`),
+
 	users: (params: UserListParams) =>
 		request<Paginated<AdminUser>>(`/api/users${queryString(params)}`),
 
-	notifications: (userId: string) =>
-		request<Notification[]>(
-			`/api/notifications${queryString({ user_id: userId })}`,
-		),
+	notifications: () => request<Notification[]>("/api/notifications"),
 
 	markNotificationRead: (id: string) =>
 		request<{ status: string }>(`/api/notifications/${id}/read`, {
 			method: "POST",
 		}),
 
-	markAllNotificationsRead: (userId: string) =>
-		request<void>(
-			"/api/notifications/read-all",
-			jsonRequest("POST", { user_id: userId }),
-		),
+	markAllNotificationsRead: () =>
+		request<void>("/api/notifications/read-all", { method: "POST" }),
 
 	subject: (id: string) => request<SubjectDetail>(`/api/subjects/${id}`),
 
@@ -640,6 +737,22 @@ export const api = {
 
 	deleteSubject: (id: string) =>
 		request<void>(`/api/subjects/${id}`, { method: "DELETE" }),
+
+	/** Who is on a subject's roster. */
+	subjectEnrollments: (subjectId: string) =>
+		request<SubjectEnrollments>(`/api/subjects/${subjectId}/enrollments`),
+
+	/** Adds students and answers with the roster after the change. */
+	enrollStudents: (subjectId: string, studentIds: string[]) =>
+		request<SubjectEnrollments>(
+			`/api/subjects/${subjectId}/enrollments`,
+			jsonRequest("POST", { student_ids: studentIds }),
+		),
+
+	unenrollStudent: (subjectId: string, studentId: string) =>
+		request<void>(`/api/subjects/${subjectId}/enrollments/${studentId}`, {
+			method: "DELETE",
+		}),
 
 	createSession: (kind: SessionKind, subjectId: string, input: SessionInput) =>
 		request<SessionItem>(
@@ -656,6 +769,19 @@ export const api = {
 	deleteSession: (kind: SessionKind, id: string) =>
 		request<void>(`/api/${kind}/${id}`, { method: "DELETE" }),
 
+	uploadLectureFile: (lectureId: string, file: File) => {
+		const body = new FormData();
+		body.append("file", file);
+		// No Content-Type header: the browser sets the multipart boundary.
+		return request<LectureFile>(`/api/lectures/${lectureId}/file`, {
+			method: "PUT",
+			body,
+		});
+	},
+
+	deleteLectureFile: (lectureId: string) =>
+		request<void>(`/api/lectures/${lectureId}/file`, { method: "DELETE" }),
+
 	createQuiz: (subjectId: string, input: QuizInput) =>
 		request<Quiz>(
 			`/api/subjects/${subjectId}/quizzes`,
@@ -668,17 +794,17 @@ export const api = {
 	deleteQuiz: (id: string) =>
 		request<void>(`/api/quizzes/${id}`, { method: "DELETE" }),
 
-	createFlashcard: (subjectId: string, input: FlashcardInput) =>
-		request<Flashcard>(
-			`/api/subjects/${subjectId}/flashcards`,
+	createFlashcardSet: (subjectId: string, input: FlashcardSetInput) =>
+		request<FlashcardSet>(
+			`/api/subjects/${subjectId}/flashcard-sets`,
 			jsonRequest("POST", input),
 		),
 
-	updateFlashcard: (id: string, input: Partial<FlashcardInput>) =>
-		request<void>(`/api/flashcards/${id}`, jsonRequest("PATCH", input)),
+	updateFlashcardSet: (id: string, input: Partial<FlashcardSetInput>) =>
+		request<void>(`/api/flashcard-sets/${id}`, jsonRequest("PATCH", input)),
 
-	deleteFlashcard: (id: string) =>
-		request<void>(`/api/flashcards/${id}`, { method: "DELETE" }),
+	deleteFlashcardSet: (id: string) =>
+		request<void>(`/api/flashcard-sets/${id}`, { method: "DELETE" }),
 
 	/** The week-by-week view of a subject, plus content not in a week yet. */
 	weeks: (subjectId: string) =>
@@ -753,153 +879,171 @@ export const api = {
 
 	/** Per-user AI assistant preferences (General + Personalization). */
 	/** Per-user appearance (theme + reading font). */
-	appearance: (userId: string) =>
-		request<UserAppearance>(
-			`/api/me/appearance${queryString({ user_id: userId })}`,
-		),
+	appearance: () => request<UserAppearance>("/api/me/appearance"),
 
 	updateAppearance: (input: UserAppearance) =>
 		request<UserAppearance>("/api/me/appearance", jsonRequest("PUT", input)),
 
-	/** MCP apps: the whole catalog, split into this person's connections and the rest. */
-	mcpApps: (userId: string) =>
-		request<McpAppList>(`/api/me/mcp-apps${queryString({ user_id: userId })}`),
+	/** App-wide limits (upload allow-list and size cap); readable by any session. */
+	generalSettings: () => request<GeneralSettings>("/api/settings/general"),
 
-	connectMcpApp: (input: { user_id: string; app_key: string }) =>
+	/** Partial write: a field left out keeps its stored value. Admin-only. */
+	updateGeneralSettings: (input: GeneralSettingsInput) =>
+		request<GeneralSettings>(
+			"/api/settings/general",
+			jsonRequest("PUT", input),
+		),
+
+	/** MCP apps: the whole catalog, split into this person's connections and the rest. */
+	mcpApps: () => request<McpAppList>("/api/me/mcp-apps"),
+
+	connectMcpApp: (input: { app_key: string }) =>
 		request<McpAppList>("/api/me/mcp-apps", jsonRequest("POST", input)),
 
-	disconnectMcpApp: (appKey: string, userId: string) =>
-		request<McpAppList>(
-			`/api/me/mcp-apps/${encodeURIComponent(appKey)}${queryString({ user_id: userId })}`,
-			{ method: "DELETE" },
-		),
+	disconnectMcpApp: (appKey: string) =>
+		request<McpAppList>(`/api/me/mcp-apps/${encodeURIComponent(appKey)}`, {
+			method: "DELETE",
+		}),
 
 	/** The built-in server's tools, gated per permission for this person. */
-	mcpTools: (userId: string) =>
-		request<McpServerTools>(
-			`/api/mcp/tools${queryString({ user_id: userId })}`,
-		),
+	mcpTools: () => request<McpServerTools>("/api/mcp/tools"),
 
 	/** Providers and models the chat can use right now, for the model picker. */
-	aiChatModels: (userId: string) =>
-		request<AiChatModels>(
-			`/api/ai/chat-models${queryString({ user_id: userId })}`,
-		),
+	aiChatModels: () => request<AiChatModels>("/api/ai/chat-models"),
 
-	aiSessions: (userId: string, page = 1, limit = 15) =>
-		request<AiSessionPage>(
-			`/api/ai/sessions${queryString({ user_id: userId, page, limit })}`,
-		),
+	aiSessions: (page = 1, limit = 15) =>
+		request<AiSessionPage>(`/api/ai/sessions${queryString({ page, limit })}`),
 
-	createAiSession: (userId: string) =>
-		request<AiSession>(
-			"/api/ai/sessions",
-			jsonRequest("POST", { user_id: userId }),
-		),
+	createAiSession: () =>
+		request<AiSession>("/api/ai/sessions", { method: "POST" }),
 
-	aiSession: (id: string, userId: string) =>
-		request<AiSessionDetail>(
-			`/api/ai/sessions/${encodeURIComponent(id)}${queryString({ user_id: userId })}`,
-		),
+	aiSession: (id: string) =>
+		request<AiSessionDetail>(`/api/ai/sessions/${encodeURIComponent(id)}`),
 
-	saveAiSessionMessages: (id: string, userId: string, messages: unknown[]) =>
+	saveAiSessionMessages: (id: string, messages: unknown[]) =>
 		request<AiSession>(
 			`/api/ai/sessions/${encodeURIComponent(id)}/messages`,
-			jsonRequest("PUT", { user_id: userId, messages }),
+			jsonRequest("PUT", { messages }),
 		),
 
-	deleteAiSession: (id: string, userId: string) =>
-		request<void>(
-			`/api/ai/sessions/${encodeURIComponent(id)}${queryString({ user_id: userId })}`,
-			{ method: "DELETE" },
-		),
+	deleteAiSession: (id: string) =>
+		request<void>(`/api/ai/sessions/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
 
-	aiSettings: (userId: string) =>
-		request<AiSettings>(`/api/ai/settings${queryString({ user_id: userId })}`),
+	aiSettings: () => request<AiSettings>("/api/ai/settings"),
 
 	updateAiSettings: (input: AiSettings) =>
 		request<AiSettings>("/api/ai/settings", jsonRequest("PUT", input)),
 
 	/** OpenAI-compatible providers. `scope` gates: institutional needs an admin. */
-	aiProviders: (params: { user_id: string; scope: AiScope }) =>
-		request<AiProviderList>(
-			`/api/ai/providers${queryString({
-				user_id: params.user_id,
-				scope: params.scope,
-			})}`,
-		),
+	aiProviders: (scope: AiScope) =>
+		request<AiProviderList>(`/api/ai/providers${queryString({ scope })}`),
 
-	addAiProvider: (input: {
-		user_id: string;
-		scope: AiScope;
-		name: string;
-		base_url: string;
-	}) => request<AiProvider>("/api/ai/providers", jsonRequest("POST", input)),
+	addAiProvider: (input: { scope: AiScope; name: string; base_url: string }) =>
+		request<AiProvider>("/api/ai/providers", jsonRequest("POST", input)),
 
 	updateAiProvider: (
 		id: string,
-		input: { user_id: string; is_enabled?: boolean; default_model?: string },
+		input: { is_enabled?: boolean; default_model?: string },
 	) =>
 		request<AiProvider>(`/api/ai/providers/${id}`, jsonRequest("PATCH", input)),
 
-	deleteAiProvider: (id: string, userId: string) =>
-		request<void>(
-			`/api/ai/providers/${id}${queryString({ user_id: userId })}`,
-			{
-				method: "DELETE",
-			},
+	deleteAiProvider: (id: string) =>
+		request<void>(`/api/ai/providers/${id}`, { method: "DELETE" }),
+
+	/**
+	 * One screen for setup: create the provider, verify the key against the
+	 * endpoint, discover its models and switch on a starter set. A key the
+	 * endpoint refuses stores nothing (422 with `code`).
+	 */
+	connectAiProvider: (input: {
+		scope: AiScope;
+		name: string;
+		base_url: string;
+		api_key: string;
+		preset?: string;
+		/** Save even when the endpoint could not be verified (no /models). */
+		allow_unverified?: boolean;
+	}) =>
+		request<ConnectProviderResult>(
+			"/api/ai/providers/connect",
+			jsonRequest("POST", input),
 		),
 
-	/** Stores a new key encrypted and refreshes the provider's model catalogue. */
-	saveProviderKey: (id: string, input: { user_id: string; api_key: string }) =>
+	/**
+	 * Rotate a key. Verified first: a key the endpoint refuses leaves the
+	 * stored one in place (422 with `code`, `kept_existing`).
+	 */
+	saveProviderKey: (
+		id: string,
+		input: { api_key: string; allow_unverified?: boolean },
+	) =>
 		request<SaveKeyResult>(
 			`/api/ai/providers/${id}/key`,
 			jsonRequest("PUT", input),
 		),
 
-	/** Models fetched from the provider; the backend stores them. */
-	providerModels: (id: string, userId: string) =>
-		request<AiModelList>(
-			`/api/ai/providers/${id}/models${queryString({ user_id: userId })}`,
+	/** Check the stored key against its endpoint without re-pasting it. */
+	testAiProvider: (id: string) =>
+		request<TestProviderResult>(
+			`/api/ai/providers/${id}/test`,
+			jsonRequest("POST", {}),
 		),
+
+	/** One request for a whole catalogue: enable, disable, recommended, all. */
+	bulkAiModels: (
+		id: string,
+		input: {
+			action:
+				| "enable"
+				| "disable"
+				| "enable_all"
+				| "disable_all"
+				| "enable_recommended";
+			model_ids?: string[];
+		},
+	) =>
+		request<ProviderModelSummary>(
+			`/api/ai/providers/${id}/models/bulk`,
+			jsonRequest("POST", input),
+		),
+
+	/** Models fetched from the provider; the backend stores them. */
+	providerModels: (id: string) =>
+		request<AiModelList>(`/api/ai/providers/${id}/models`),
 
 	/** Enable a stored model or promote it to the provider's default. */
 	updateAiModel: (
 		id: string,
-		input: { user_id: string; is_enabled?: boolean; is_default?: boolean },
+		input: { is_enabled?: boolean; is_default?: boolean },
 	) => request<void>(`/api/ai/models/${id}`, jsonRequest("PATCH", input)),
 
 	/* --- two-factor authentication ---------------------------------------- */
 
-	twoFactorStatus: (userId: string) =>
-		request<TwoFactorStatus>(
-			`/api/me/two-factor${queryString({ user_id: userId })}`,
-		),
+	twoFactorStatus: () => request<TwoFactorStatus>("/api/me/two-factor"),
 
 	/** Mints the secret behind the QR code; nothing changes until it is confirmed. */
-	startTwoFactorSetup: (userId: string) =>
-		request<TwoFactorSetup>(
-			"/api/me/two-factor/setup",
-			jsonRequest("POST", { user_id: userId }),
-		),
+	startTwoFactorSetup: () =>
+		request<TwoFactorSetup>("/api/me/two-factor/setup", { method: "POST" }),
 
-	enableTwoFactor: (userId: string, code: string) =>
+	enableTwoFactor: (code: string) =>
 		request<TwoFactorEnabled>(
 			"/api/me/two-factor/enable",
-			jsonRequest("POST", { user_id: userId, code }),
+			jsonRequest("POST", { code }),
 		),
 
 	/** Turning 2FA off is a security downgrade, so the password is re-checked. */
-	disableTwoFactor: (userId: string, password: string) =>
+	disableTwoFactor: (password: string) =>
 		request<TwoFactorStatus>(
 			"/api/me/two-factor/disable",
-			jsonRequest("POST", { user_id: userId, password }),
+			jsonRequest("POST", { password }),
 		),
 
-	regenerateRecoveryCodes: (userId: string, password: string) =>
+	regenerateRecoveryCodes: (password: string) =>
 		request<TwoFactorEnabled>(
 			"/api/me/two-factor/recovery-codes",
-			jsonRequest("POST", { user_id: userId, password }),
+			jsonRequest("POST", { password }),
 		),
 
 	/** Administrator's way back in when both the app and the codes are gone. */
@@ -913,30 +1057,28 @@ export const api = {
 		request<UserPermissions>(`/api/users/${userId}/permissions`),
 
 	/** Replaces only the per-user extras; role grants stay untouched. */
-	updateUserPermissions: (
-		userId: string,
-		permissionKeys: string[],
-		grantedBy: string,
-	) =>
+	updateUserPermissions: (userId: string, permissionKeys: string[]) =>
 		request<UserPermissions>(
 			`/api/users/${userId}/permissions`,
-			jsonRequest("PUT", {
-				permission_keys: permissionKeys,
-				granted_by: grantedBy,
-			}),
+			jsonRequest("PUT", { permission_keys: permissionKeys }),
 		),
+
+	/* --- timetable ---------------------------------------------------------- */
+
+	/**
+	 * The caller's lectures in one window of dates (`YYYY-MM-DD`, both ends
+	 * inclusive). Omitted ends leave the window to the backend.
+	 */
+	schedule: (from?: string, to?: string) =>
+		request<Schedule>(`/api/schedule${queryString({ from, to })}`),
 
 	/* --- assignments, gradebook, record, forums, quiz attempts ---------------- */
 
-	assignmentsForStudent: (studentId: string) =>
-		request<StudentAssignment[]>(
-			`/api/assignments${queryString({ student_id: studentId })}`,
-		),
+	/** The signed-in person's own assignments, with their submission status. */
+	myAssignments: () => request<StudentAssignment[]>("/api/assignments"),
 
-	assignment: (id: string, studentId?: string) =>
-		request<AssignmentDetail>(
-			`/api/assignments/${id}${queryString({ student_id: studentId })}`,
-		),
+	assignment: (id: string) =>
+		request<AssignmentDetail>(`/api/assignments/${id}`),
 
 	createAssignment: (subjectId: string, input: AssignmentInput) =>
 		request<Assignment>(
@@ -952,7 +1094,7 @@ export const api = {
 
 	submitAssignment: (
 		assignmentId: string,
-		input: { student_id: string; content?: string; file_url?: string },
+		input: { content?: string; file_url?: string },
 	) =>
 		request<{ id: string; status: string }>(
 			`/api/assignments/${assignmentId}/submissions`,
@@ -962,12 +1104,31 @@ export const api = {
 	assignmentSubmissions: (assignmentId: string) =>
 		request<Submission[]>(`/api/assignments/${assignmentId}/submissions`),
 
+	/**
+	 * The work itself, as bytes: 201 when the file creates the submission, 200
+	 * when it replaces the one already there (or the attached file).
+	 */
+	uploadSubmissionFile: (assignmentId: string, file: File) => {
+		const body = new FormData();
+		body.append("file", file);
+		// No Content-Type header: the browser sets the multipart boundary.
+		return request<Submission>(
+			`/api/assignments/${assignmentId}/submission/file`,
+			{ method: "PUT", body },
+		);
+	},
+
+	deleteSubmissionFile: (assignmentId: string) =>
+		request<void>(`/api/assignments/${assignmentId}/submission/file`, {
+			method: "DELETE",
+		}),
+
 	studentSubmissions: (studentId: string) =>
 		request<Submission[]>(`/api/students/${studentId}/submissions`),
 
 	gradeSubmission: (
 		submissionId: string,
-		input: { grader_id: string; score: number | null; feedback?: string },
+		input: { score: number | null; feedback?: string },
 	) =>
 		request<{ status: string }>(
 			`/api/submissions/${submissionId}`,
@@ -983,19 +1144,18 @@ export const api = {
 	studentRecord: (studentId: string) =>
 		request<StudentRecord>(`/api/students/${studentId}/record`),
 
-	gradebook: (subjectId: string, userId: string) =>
-		request<Gradebook>(
-			`/api/subjects/${subjectId}/gradebook${queryString({ user_id: userId })}`,
-		),
+	gradebook: (subjectId: string) =>
+		request<Gradebook>(`/api/subjects/${subjectId}/gradebook`),
 
 	createGradeComponent: (
 		subjectId: string,
 		input: {
-			user_id: string;
-			name: string;
-			type: string;
+			name?: string;
+			type?: string;
 			weight_percent: number;
 			max_points?: number;
+			/** Links the component to an assignment; its name and points follow. */
+			assignment_id?: string;
 		},
 	) =>
 		request<GradeComponent>(
@@ -1006,7 +1166,6 @@ export const api = {
 	updateGradeComponent: (
 		id: string,
 		input: {
-			user_id: string;
 			name?: string;
 			type?: string;
 			weight_percent?: number;
@@ -1015,16 +1174,13 @@ export const api = {
 	) =>
 		request<void>(`/api/grade-components/${id}`, jsonRequest("PATCH", input)),
 
-	deleteGradeComponent: (id: string, userId: string) =>
-		request<void>(
-			`/api/grade-components/${id}${queryString({ user_id: userId })}`,
-			{ method: "DELETE" },
-		),
+	deleteGradeComponent: (id: string) =>
+		request<void>(`/api/grade-components/${id}`, { method: "DELETE" }),
 
 	saveGradeEntry: (
 		componentId: string,
 		studentId: string,
-		input: { user_id: string; points: number | null; comment?: string },
+		input: { points: number | null; comment?: string },
 	) =>
 		request<void>(
 			`/api/grade-components/${componentId}/entries/${studentId}`,
@@ -1035,7 +1191,6 @@ export const api = {
 		studentId: string,
 		subjectId: string,
 		input: {
-			user_id: string;
 			attempt_no?: number;
 			override_points?: number | null;
 			override_grade?: number | null;
@@ -1048,18 +1203,17 @@ export const api = {
 			jsonRequest("PUT", input),
 		),
 
-	clearOfficialResult: (studentId: string, subjectId: string, userId: string) =>
-		request<void>(
-			`/api/students/${studentId}/results/${subjectId}${queryString({ user_id: userId })}`,
-			{ method: "DELETE" },
-		),
+	clearOfficialResult: (studentId: string, subjectId: string) =>
+		request<void>(`/api/students/${studentId}/results/${subjectId}`, {
+			method: "DELETE",
+		}),
 
 	subjectForums: (subjectId: string) =>
 		request<Forum[]>(`/api/subjects/${subjectId}/forums`),
 
 	createForum: (
 		subjectId: string,
-		input: { user_id: string; title: string; description?: string },
+		input: { title: string; description?: string },
 	) =>
 		request<Forum>(
 			`/api/subjects/${subjectId}/forums`,
@@ -1069,10 +1223,7 @@ export const api = {
 	forumThreads: (forumId: string) =>
 		request<ForumThread[]>(`/api/forums/${forumId}/threads`),
 
-	createThread: (
-		forumId: string,
-		input: { user_id: string; title: string; body: string },
-	) =>
+	createThread: (forumId: string, input: { title: string; body: string }) =>
 		request<{ id: string }>(
 			`/api/forums/${forumId}/threads`,
 			jsonRequest("POST", input),
@@ -1083,27 +1234,27 @@ export const api = {
 			`/api/threads/${threadId}`,
 		),
 
-	replyToThread: (threadId: string, input: { user_id: string; body: string }) =>
+	replyToThread: (threadId: string, input: { body: string }) =>
 		request<{ id: string }>(
 			`/api/threads/${threadId}/posts`,
 			jsonRequest("POST", input),
 		),
 
-	deleteForumPost: (postId: string, userId: string) =>
-		request<void>(`/api/posts/${postId}${queryString({ user_id: userId })}`, {
-			method: "DELETE",
-		}),
+	deleteForumPost: (postId: string) =>
+		request<void>(`/api/posts/${postId}`, { method: "DELETE" }),
 
+	/**
+	 * Attempts on one quiz. `studentId` is a staff filter: the backend ignores
+	 * it for anyone who cannot manage quizzes, who only ever sees their own.
+	 */
 	quizAttempts: (quizId: string, studentId?: string) =>
 		request<QuizAttempt[]>(
 			`/api/quizzes/${quizId}/attempts${queryString({ student_id: studentId })}`,
 		),
 
-	startQuizAttempt: (quizId: string, studentId: string) =>
-		request<QuizAttempt>(
-			`/api/quizzes/${quizId}/attempts`,
-			jsonRequest("POST", { student_id: studentId }),
-		),
+	/** Opens (or resumes) the caller's own attempt. */
+	startQuizAttempt: (quizId: string) =>
+		request<QuizAttempt>(`/api/quizzes/${quizId}/attempts`, { method: "POST" }),
 
 	submitQuizAttempt: (attemptId: string, answers: Record<string, string>) =>
 		request<QuizAttempt>(
@@ -1137,6 +1288,8 @@ export type UserAppearance = {
 	user_id: string;
 	theme: "system" | "light" | "dark";
 	font: "system" | "legible" | "dyslexic";
+	accent: AccentPreference;
+	contrast: "system" | "high";
 	updated_at?: string;
 };
 
@@ -1150,9 +1303,20 @@ export type AiChatProvider = {
 	models: AiChatModel[];
 };
 
+/** Why the assistant cannot answer: nothing set up, nothing on, or no model. */
+export type AiChatReason =
+	| ""
+	| "no_provider"
+	| "inactive_provider"
+	| "no_model";
+
 export type AiChatModels = {
 	providers: AiChatProvider[];
 	default_model_id: string | null;
+	/** True when at least one provider can answer right now. */
+	ready: boolean;
+	/** Why not, when `ready` is false. */
+	reason?: AiChatReason;
 };
 
 export type AiSession = {
@@ -1179,6 +1343,17 @@ export type AiSettings = {
 	updated_at?: string;
 };
 
+/** What the last key/endpoint check found. "" means never checked. */
+export type ProviderHealth =
+	| ""
+	| "ok"
+	| "no_models"
+	| "invalid_key"
+	| "unreachable"
+	| "timeout"
+	| "endpoint_missing"
+	| "rate_limited";
+
 export type AiProvider = {
 	id: string;
 	scope: AiScope;
@@ -1191,6 +1366,12 @@ export type AiProvider = {
 	key_hint?: string;
 	default_model?: string;
 	model_count: number;
+	/** How many of those models chat may pick from. */
+	enabled_model_count: number;
+	health: ProviderHealth;
+	/** Why the last check failed, in words fit for the card. */
+	health_detail?: string;
+	checked_at?: string;
 };
 
 export type AiProviderList = { items: AiProvider[] };
@@ -1199,13 +1380,50 @@ export type AiModel = { id: string; model_id: string; is_enabled: boolean };
 
 export type AiModelList = { items: AiModel[] };
 
-export type SaveKeyResult = {
+export type ProviderModelSummary = {
+	model_count: number;
+	enabled_model_count: number;
+	default_model: string;
+};
+
+export type CreateProviderResult = {
+	provider: AiProvider;
+	provider_id: string;
+	code: ProviderHealth;
+	enabled_models?: string[];
+	default_model?: string;
+};
+
+export type ConnectProviderResult = CreateProviderResult;
+
+export type TestProviderResult = {
+	ok: boolean;
+	code: ProviderHealth;
+	message: string;
+	model_count: number;
+	enabled_model_count: number;
+	default_model: string;
+	checked_at: string;
+};
+
+export type SaveKeyResult = ProviderModelSummary & {
 	status: string;
 	key_hint: string;
-	model_count: number;
+	code: ProviderHealth;
+	enabled_models?: string[];
 	/** Present when the key saved but the model catalogue could not be read. */
 	warning?: string;
 };
+
+/** The `code` a refused key carries, when the API sent one. */
+export function providerErrorCode(error: unknown): ProviderHealth | undefined {
+	if (!(error instanceof ApiError)) return undefined;
+	const body = error.body;
+	if (typeof body === "object" && body !== null && "code" in body) {
+		return (body as { code: ProviderHealth }).code;
+	}
+	return undefined;
+}
 
 /** Effective access: role grants plus the person's own extra permissions. */
 export type UserPermissions = {
@@ -1287,7 +1505,7 @@ export type McpAppList = {
 	available: McpApp[];
 };
 
-/** One action the built-in SmartLMS MCP server offers. */
+/** One action the built-in OptimoLMS MCP server offers. */
 export type McpTool = {
 	name: string;
 	title: string;
@@ -1313,6 +1531,22 @@ export type McpServerTools = {
 	allowed: number;
 	total: number;
 };
+
+/* --- general settings ----------------------------------------------------- */
+
+/**
+ * App-wide limits stored in `general_settings`, so the upload UI knows them
+ * before it opens a file dialog instead of hard-coding them.
+ */
+export type GeneralSettings = {
+	/** Bare extensions without the dot, lowercase: `pdf`, `docx`, `zip`. */
+	submission_allowed_file_types: string[];
+	/** Size cap for one submission file, in MiB. */
+	submission_max_file_mb: number;
+};
+
+/** A field left out keeps its stored value, which is what per-field saves need. */
+export type GeneralSettingsInput = Partial<GeneralSettings>;
 
 /* --- assignments ---------------------------------------------------------- */
 
@@ -1355,7 +1589,14 @@ export type Submission = {
 	student_id: string;
 	student_name?: string;
 	content?: string;
+	/** A link the student pasted, from when work was handed in by URL. */
 	file_url?: string;
+	/** Summary of the stored file; the bytes stay behind submissionFileUrl(). */
+	file_name: string | null;
+	/** Short badge kind: the extension, with jpeg folded into jpg. */
+	file_kind: string | null;
+	/** Size of the stored file in bytes. */
+	file_size: number | null;
 	status: "submitted" | "late" | "graded";
 	score: number | null;
 	max_points: number;
@@ -1363,6 +1604,11 @@ export type Submission = {
 	submitted_at: string;
 	graded_at?: string;
 };
+
+/** Opens or downloads a submission's file; the cookie authorises it. */
+export function submissionFileUrl(submissionId: string): string {
+	return `/api/submissions/${submissionId}/file`;
+}
 
 export type AssignmentDetail = {
 	assignment: Assignment;
@@ -1387,11 +1633,22 @@ export type AssignmentInput = {
 
 export type GradeBand = { min: number; max: number; grade: number };
 
+export type GradeComponentType =
+	| "assignment"
+	| "midterm"
+	| "final"
+	| "engagement"
+	| "coursework"
+	| "project"
+	| "other";
+
 export type GradeComponent = {
 	id: string;
 	subject_id: string;
+	/** Set when the component was built from an assignment. */
+	assignment_id?: string | null;
 	name: string;
-	type: "midterm" | "final" | "engagement" | "coursework" | "project" | "other";
+	type: GradeComponentType;
 	weight_percent: number;
 	max_points: number;
 	order_index: number;
@@ -1468,6 +1725,45 @@ export type StudentRecord = {
 	pass_grade: number;
 	bands: GradeBand[];
 };
+
+/* --- timetable ------------------------------------------------------------ */
+
+/**
+ * One entry of the timetable: a lecture placed in time, with enough of its
+ * subject to group and label it without a second request.
+ */
+export type ScheduleSession = {
+	id: string;
+	title: string;
+	kind: "lecture";
+	subject_id: string;
+	subject_name: string;
+	subject_code: string;
+	/** RFC3339. */
+	starts_at: string;
+	/** A lecture without a duration has no end. */
+	ends_at: string | null;
+	room: string | null;
+	lecturer_name: string | null;
+};
+
+/** GET /api/schedule: everything in the caller's window, ordered by time. */
+export type Schedule = { sessions: ScheduleSession[] };
+
+/* --- subject enrolments --------------------------------------------------- */
+
+/** One student on a subject's roster. */
+export type SubjectEnrollment = {
+	/** Id of the enrolment row, not of the person. */
+	enrollment_id: string;
+	student_id: string;
+	name: string;
+	email: string;
+	enrolled_at: string;
+};
+
+/** Roster of a subject; the API answers with it after a change too. */
+export type SubjectEnrollments = { enrolled: SubjectEnrollment[] };
 
 /* --- forums --------------------------------------------------------------- */
 

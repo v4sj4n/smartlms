@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 //go:embed migrations/*.sql

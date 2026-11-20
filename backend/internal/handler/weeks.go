@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // Weeks lay a subject out the way a student reads it: week 1, week 2, ... with
@@ -19,10 +19,10 @@ import (
 const isoDay = "2006-01-02"
 
 // weekItemOut is one piece of content inside a week: a lecture, an assignment,
-// a quiz or a flashcard.
+// a quiz or a flashcard set.
 type weekItemOut struct {
 	ID    string `json:"id"`
-	Kind  string `json:"kind"` // lecture | assignment | quiz | flashcard
+	Kind  string `json:"kind"` // lecture | assignment | quiz | flashcard (a set)
 	Title string `json:"title"`
 	// Lecture/assignment dates, so the week reads chronologically.
 	ScheduledAt string `json:"scheduled_at,omitempty"`
@@ -253,7 +253,7 @@ type contentItem struct {
 }
 
 // subjectContent reads every piece of content of a subject, in the order a week
-// reads: lectures, assignments, quizzes, flashcards.
+// reads: lectures, assignments, quizzes, flashcard sets.
 func subjectContent(ctx context.Context, db *sql.DB, subjectID string) ([]contentItem, error) {
 	items := []contentItem{}
 
@@ -308,7 +308,7 @@ func subjectContent(ctx context.Context, db *sql.DB, subjectID string) ([]conten
 	quizRows.Close()
 
 	cardRows, err := db.QueryContext(ctx, `
-		SELECT id, front, COALESCE(week_id, '') FROM flashcards WHERE subject_id = ? ORDER BY created_at`, subjectID)
+		SELECT id, title, COALESCE(week_id, '') FROM flashcard_sets WHERE subject_id = ? ORDER BY created_at`, subjectID)
 	if err != nil {
 		return nil, err
 	}

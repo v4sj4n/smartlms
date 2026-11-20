@@ -1,6 +1,9 @@
 import {
 	ArrowLeft,
 	BookOpen,
+	Buildings,
+	CaretRight,
+	DotsThree,
 	GraduationCap,
 	LockKey,
 	PencilSimple,
@@ -10,7 +13,7 @@ import {
 	TreeStructure,
 } from "@phosphor-icons/react";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
 	type AdmissionStatus,
 	type Department,
@@ -42,7 +45,9 @@ import {
 	ErrorState,
 	IconButton,
 	InlineNote,
+	Menu,
 	PageHeader,
+	SegmentedFilter,
 	SkeletonStack,
 	Table,
 	Td,
@@ -56,12 +61,15 @@ import {
 import { toastApiError } from "../toast";
 import { appLayoutRoute } from "./app-layout";
 
-type AcademicSearch = { programme?: string };
+type AcademicView = "cards" | "chart";
+type AcademicSearch = { programme?: string; view?: AcademicView };
 
 function parseAcademicSearch(search: Record<string, unknown>): AcademicSearch {
-	return typeof search.programme === "string" && search.programme
-		? { programme: search.programme }
-		: {};
+	const result: AcademicSearch = {};
+	if (typeof search.programme === "string" && search.programme)
+		result.programme = search.programme;
+	if (search.view === "cards") result.view = "cards";
+	return result;
 }
 
 type DialogState =
@@ -134,13 +142,21 @@ function ProgrammeTile({ programme }: { programme: ProgrammeRow }) {
 			search={{ programme: programme.id }}
 			className="programme-tile"
 		>
-			<span className="programme-tile__head">
-				<span className="programme-tile__name">{programme.name}</span>
-				{programme.code ? <Chip tone="muted">{programme.code}</Chip> : null}
+			<span className="programme-tile__text">
+				<span className="programme-tile__head">
+					<span className="programme-tile__name">{programme.name}</span>
+					{programme.code ? <Chip tone="muted">{programme.code}</Chip> : null}
+				</span>
+				<span className="programme-tile__meta num">
+					{programmeMeta(programme)}
+				</span>
 			</span>
-			<span className="programme-tile__meta num">
-				{programmeMeta(programme)}
-			</span>
+			<CaretRight
+				size={14}
+				weight="bold"
+				aria-hidden="true"
+				className="programme-tile__caret"
+			/>
 		</Link>
 	);
 }
@@ -157,48 +173,70 @@ function DepartmentBlock({
 	return (
 		<li className="academic-dept">
 			<div className="academic-dept__head">
+				<Buildings
+					size={15}
+					weight="regular"
+					aria-hidden="true"
+					className="academic-dept__icon"
+				/>
 				<span className="academic-dept__name">{department.name}</span>
-				<div className="row">
-					{department.code ? <Chip tone="muted">{department.code}</Chip> : null}
-					<span className="academic-dept__count num">
-						{plural(department.students, "student", "students")}
-					</span>
-					{canManage ? (
-						<>
-							<IconButton
-								label={`Add programme to ${department.name}`}
-								icon={<Plus size={14} weight="bold" aria-hidden="true" />}
-								onClick={() =>
-									onDialog({ kind: "programme-create", department })
-								}
-							/>
-							<IconButton
-								label={`Edit ${department.name}`}
-								icon={
-									<PencilSimple size={14} weight="regular" aria-hidden="true" />
-								}
-								onClick={() =>
-									onDialog({ kind: "department-edit", department })
-								}
-							/>
-							<IconButton
-								label={`Delete ${department.name}`}
-								icon={<Trash size={14} weight="regular" aria-hidden="true" />}
-								tone="danger"
-								onClick={() =>
-									onDialog({ kind: "department-delete", department })
-								}
-							/>
-						</>
-					) : null}
-				</div>
+				{department.code ? <Chip tone="muted">{department.code}</Chip> : null}
+				<span className="academic-dept__count num">
+					{plural(department.students, "student", "students")}
+				</span>
+				{canManage ? (
+					<div className="academic-dept__actions">
+						<IconButton
+							label={`Add programme to ${department.name}`}
+							icon={<Plus size={14} weight="bold" aria-hidden="true" />}
+							onClick={() => onDialog({ kind: "programme-create", department })}
+						/>
+						<Menu
+							aria-label={`Manage ${department.name}`}
+							trigger={<DotsThree size={16} weight="bold" aria-hidden="true" />}
+							triggerClassName="icon-btn"
+							items={[
+								{
+									key: "edit",
+									label: "Edit department",
+									icon: (
+										<PencilSimple
+											size={14}
+											weight="regular"
+											aria-hidden="true"
+										/>
+									),
+									onSelect: () =>
+										onDialog({ kind: "department-edit", department }),
+								},
+								{
+									key: "delete",
+									label: "Delete department",
+									icon: <Trash size={14} weight="regular" aria-hidden="true" />,
+									destructive: true,
+									onSelect: () =>
+										onDialog({ kind: "department-delete", department }),
+								},
+							]}
+						/>
+					</div>
+				) : null}
 			</div>
 
 			{department.programmes.length === 0 ? (
-				<p className="academic-empty">
-					No programmes yet.{" "}
-					{canManage ? "Add the degree this department runs." : null}
-				</p>
+				canManage ? (
+					<Button
+						variant="ghost"
+						size="sm"
+						className="academic-add-tile"
+						icon={<Plus size={13} weight="bold" aria-hidden="true" />}
+						onClick={() => onDialog({ kind: "programme-create", department })}
+					>
+						Add the first programme
+					</Button>
+				) : (
+					<p className="academic-dept__empty">No programmes yet.</p>
+				)
 			) : (
 				<ul className="programme-list">
 					{department.programmes.map((programme) => (
@@ -221,71 +259,86 @@ function FacultyCard({
 	canManage: boolean;
 	onDialog: (dialog: DialogState) => void;
 }) {
+	const programmes = faculty.departments.reduce(
+		(total, department) => total + department.programmes.length,
+		0,
+	);
+
 	return (
-		<Card>
+		<Card className="faculty-card">
 			<CardHeader
 				icon={
-					<TreeStructure
-						size={17}
-						weight="regular"
-						aria-hidden="true"
-						className="card__icon"
-					/>
-				}
-				title={faculty.name}
-				hint={
-					<span className="row">
-						{faculty.code ? <Chip tone="muted">{faculty.code}</Chip> : null}
-						<span className="num">
-							{plural(faculty.students, "student", "students")}
-						</span>
+					<span className="card__mark" aria-hidden="true">
+						<TreeStructure size={15} weight="regular" />
 					</span>
 				}
+				title={faculty.name}
+				hint={faculty.code ? <Chip tone="muted">{faculty.code}</Chip> : null}
 				actions={
 					canManage ? (
 						<>
-							<IconButton
-								label={`Add department to ${faculty.name}`}
-								icon={<Plus size={15} weight="bold" aria-hidden="true" />}
+							<Button
+								size="sm"
+								icon={<Plus size={13} weight="bold" aria-hidden="true" />}
 								onClick={() => onDialog({ kind: "department-create", faculty })}
-							/>
-							<IconButton
-								label={`Edit ${faculty.name}`}
-								icon={
-									<PencilSimple size={15} weight="regular" aria-hidden="true" />
+							>
+								Department
+							</Button>
+							<Menu
+								aria-label={`Manage ${faculty.name}`}
+								trigger={
+									<DotsThree size={16} weight="bold" aria-hidden="true" />
 								}
-								onClick={() => onDialog({ kind: "faculty-edit", faculty })}
-							/>
-							<IconButton
-								label={`Delete ${faculty.name}`}
-								icon={<Trash size={15} weight="regular" aria-hidden="true" />}
-								tone="danger"
-								onClick={() => onDialog({ kind: "faculty-delete", faculty })}
+								triggerClassName="icon-btn"
+								items={[
+									{
+										key: "edit",
+										label: "Edit faculty",
+										icon: (
+											<PencilSimple
+												size={14}
+												weight="regular"
+												aria-hidden="true"
+											/>
+										),
+										onSelect: () => onDialog({ kind: "faculty-edit", faculty }),
+									},
+									{
+										key: "delete",
+										label: "Delete faculty",
+										icon: (
+											<Trash size={14} weight="regular" aria-hidden="true" />
+										),
+										destructive: true,
+										onSelect: () =>
+											onDialog({ kind: "faculty-delete", faculty }),
+									},
+								]}
 							/>
 						</>
 					) : null
 				}
 			/>
-			<CardBody>
+			<CardBody className="faculty-card__body">
 				<p className="academic-faculty__meta num">
 					{plural(faculty.departments.length, "department", "departments")} ·{" "}
-					{plural(
-						faculty.departments.reduce(
-							(total, item) => total + item.programmes.length,
-							0,
-						),
-						"programme",
-						"programmes",
-					)}{" "}
-					· {plural(faculty.students, "student", "students")}
+					{plural(programmes, "programme", "programmes")} ·{" "}
+					{plural(faculty.students, "student", "students")}
 				</p>
 				{faculty.departments.length === 0 ? (
-					<p className="academic-empty">
-						No departments yet.{" "}
-						{canManage
-							? "A faculty holds departments; add the first one."
-							: null}
-					</p>
+					canManage ? (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="academic-add-tile"
+							icon={<Plus size={13} weight="bold" aria-hidden="true" />}
+							onClick={() => onDialog({ kind: "department-create", faculty })}
+						>
+							Add the first department
+						</Button>
+					) : (
+						<p className="academic-dept__empty">No departments yet.</p>
+					)
 				) : (
 					<ul className="academic-depts">
 						{faculty.departments.map((department) => (
@@ -299,6 +352,153 @@ function FacultyCard({
 					</ul>
 				)}
 			</CardBody>
+		</Card>
+	);
+}
+
+/* ---------- organigram ---------- */
+
+/**
+ * The whole tree at its natural width, inside a horizontally scrollable card.
+ * A fitted chart was measured once and then scaled with a transform, which left
+ * the widest row (and the root "Institution" node) clipped as soon as the
+ * webfont settled and the boxes grew past that first measurement. Scrolling
+ * instead of scaling also keeps every label at full size and survives browser
+ * zoom, and the `marginInline` on a max-content list centres a tree that is
+ * narrower than the card.
+ */
+function Organigram({ faculties }: { faculties: Faculty[] }) {
+	const students = faculties.reduce((total, f) => total + f.students, 0);
+	const scrollRef = useRef<HTMLDivElement>(null);
+
+	// A tree wider than the card opens with the root node in the middle of the
+	// view, so "Institution" is on screen instead of sitting off to the right;
+	// both ends stay a scroll away. Narrow trees are centred by CSS and this
+	// leaves their scroll position alone.
+	useLayoutEffect(() => {
+		const scroll = scrollRef.current;
+		const root = scroll?.querySelector<HTMLElement>(".org-node--root");
+		if (!scroll || !root) return;
+		const overflow = scroll.scrollWidth - scroll.clientWidth;
+		if (overflow <= 0) return;
+		const box = root.getBoundingClientRect();
+		const view = scroll.getBoundingClientRect();
+		const centred = box.left - view.left - (view.width - box.width) / 2;
+		scroll.scrollLeft = Math.max(
+			0,
+			Math.min(scroll.scrollLeft + centred, overflow),
+		);
+	}, []);
+
+	return (
+		<Card className="org-card">
+			<div
+				ref={scrollRef}
+				className="org-scroll"
+				role="group"
+				aria-label="Academic structure: institution, faculties, departments and programmes"
+				// The same thin scrollbar the module list uses, so the sideways
+				// scroll reads as part of the app rather than a cut-off card.
+				style={{ scrollbarWidth: "thin" }}
+			>
+				<ul className="org" style={{ marginInline: "auto" }}>
+					<li>
+						<div className="org-node org-node--root">
+							<span className="org-node__icon" aria-hidden="true">
+								<TreeStructure size={16} weight="regular" />
+							</span>
+							<span className="org-node__text">
+								<span className="org-node__name">Institution</span>
+								<span className="org-node__meta num">
+									{plural(faculties.length, "faculty", "faculties")} ·{" "}
+									{plural(students, "student", "students")}
+								</span>
+							</span>
+						</div>
+						<ul>
+							{faculties.map((faculty) => (
+								<li key={faculty.id}>
+									<div className="org-node org-node--faculty">
+										<span className="org-node__icon" aria-hidden="true">
+											<TreeStructure size={14} weight="regular" />
+										</span>
+										<span className="org-node__text">
+											<span className="org-node__name">
+												{faculty.name}
+												{faculty.code ? (
+													<span className="org-node__code">{faculty.code}</span>
+												) : null}
+											</span>
+											<span className="org-node__meta num">
+												{plural(faculty.students, "student", "students")}
+											</span>
+										</span>
+									</div>
+									{faculty.departments.length > 0 ? (
+										<ul>
+											{faculty.departments.map((department) => (
+												<li key={department.id}>
+													<div className="org-node org-node--dept">
+														<span className="org-node__icon" aria-hidden="true">
+															<Buildings size={14} weight="regular" />
+														</span>
+														<span className="org-node__text">
+															<span className="org-node__name">
+																{department.name}
+																{department.code ? (
+																	<span className="org-node__code">
+																		{department.code}
+																	</span>
+																) : null}
+															</span>
+															<span className="org-node__meta num">
+																{plural(
+																	department.students,
+																	"student",
+																	"students",
+																)}
+															</span>
+														</span>
+													</div>
+													{department.programmes.length > 0 ? (
+														<ol className="org-leaves">
+															{department.programmes.map((programme) => (
+																<li key={programme.id}>
+																	<Link
+																		to="/academic"
+																		search={{ programme: programme.id }}
+																		className="org-node org-node--programme"
+																	>
+																		<span className="org-node__text">
+																			<span className="org-node__name">
+																				{programme.name}
+																			</span>
+																			<span className="org-node__meta num">
+																				{programme.code
+																					? `${programme.code} · `
+																					: ""}
+																				{plural(
+																					programme.students,
+																					"student",
+																					"students",
+																				)}
+																			</span>
+																		</span>
+																	</Link>
+																</li>
+															))}
+														</ol>
+													) : null}
+												</li>
+											))}
+										</ul>
+									) : null}
+								</li>
+							))}
+						</ul>
+					</li>
+				</ul>
+			</div>
 		</Card>
 	);
 }
@@ -327,62 +527,70 @@ function ProgrammePanel({
 
 	return (
 		<div className="stack">
-			<Card>
+			<Card className="programme-card">
 				<CardHeader
 					icon={
-						<GraduationCap
-							size={18}
-							weight="regular"
-							aria-hidden="true"
-							className="card__icon"
-						/>
+						<span className="card__mark" aria-hidden="true">
+							<GraduationCap size={15} weight="regular" />
+						</span>
 					}
 					title={programme.name}
 					hint={
-						programme.code ? <Chip tone="muted">{programme.code}</Chip> : null
+						<span className="academic-programme__hint">
+							{programme.code ? (
+								<Chip tone="muted">{programme.code}</Chip>
+							) : null}
+							<span className="academic-programme__path">
+								{programme.faculty_name} · {programme.department_name}
+							</span>
+						</span>
 					}
 					actions={
 						canManage ? (
-							<>
-								<IconButton
-									label={`Edit ${programme.name}`}
-									icon={
-										<PencilSimple
-											size={15}
-											weight="regular"
-											aria-hidden="true"
-										/>
-									}
-									onClick={() =>
-										onDialog({ kind: "programme-edit", programme })
-									}
-								/>
-								<IconButton
-									label={`Delete ${programme.name}`}
-									icon={<Trash size={15} weight="regular" aria-hidden="true" />}
-									tone="danger"
-									onClick={() =>
-										onDialog({ kind: "programme-delete", programme })
-									}
-								/>
-							</>
+							<Menu
+								aria-label={`Manage ${programme.name}`}
+								trigger={
+									<DotsThree size={16} weight="bold" aria-hidden="true" />
+								}
+								triggerClassName="icon-btn"
+								items={[
+									{
+										key: "edit",
+										label: "Edit programme",
+										icon: (
+											<PencilSimple
+												size={14}
+												weight="regular"
+												aria-hidden="true"
+											/>
+										),
+										onSelect: () =>
+											onDialog({ kind: "programme-edit", programme }),
+									},
+									{
+										key: "delete",
+										label: "Delete programme",
+										icon: (
+											<Trash size={14} weight="regular" aria-hidden="true" />
+										),
+										destructive: true,
+										onSelect: () =>
+											onDialog({ kind: "programme-delete", programme }),
+									},
+								]}
+							/>
 						) : null
 					}
 				/>
 				<CardBody>
-					<div className="row row--between academic-programme__facts">
-						<span className="academic-programme__path">
-							{programme.faculty_name} · {programme.department_name}
+					<div className="row academic-programme__facts">
+						<Badge tone="outline">{LEVEL_LABEL[programme.level]}</Badge>
+						<span className="num">
+							{plural(programme.duration_years, "year", "years")}
 						</span>
-						<span className="row">
-							<Badge tone="outline">{LEVEL_LABEL[programme.level]}</Badge>
-							<span className="num">
-								{plural(programme.duration_years, "year", "years")}
-							</span>
-							{programme.total_ects ? (
-								<span className="num">{programme.total_ects} ECTS</span>
-							) : null}
-						</span>
+						{programme.total_ects ? (
+							<span className="num">{programme.total_ects} ECTS</span>
+						) : null}
 					</div>
 					{programme.description ? (
 						<p className="academic-programme__description">
@@ -661,6 +869,14 @@ function AcademicContent() {
 	const programmes = faculties.flatMap((faculty) =>
 		faculty.departments.flatMap((department) => department.programmes),
 	);
+	const departments = faculties.reduce(
+		(total, faculty) => total + faculty.departments.length,
+		0,
+	);
+	const students = faculties.reduce(
+		(total, faculty) => total + faculty.students,
+		0,
+	);
 	// Programme forms move a programme between departments, so both the create
 	// and the edit dialog need the same flattened list.
 	const departmentOptions = faculties.flatMap((faculty) =>
@@ -676,7 +892,18 @@ function AcademicContent() {
 	);
 	const detail = useProgramme(selected?.id);
 
-	const clearSelection = () => void navigate({ to: "/academic", search: {} });
+	const view: AcademicView = search.view ?? "chart";
+	const setView = (next: AcademicView) =>
+		void navigate({
+			to: "/academic",
+			search: next === "cards" ? { view: "cards" } : {},
+			replace: true,
+		});
+	const clearSelection = () =>
+		void navigate({
+			to: "/academic",
+			search: search.view ? { view: search.view } : {},
+		});
 	const close = () => setDialog(null);
 
 	return (
@@ -802,15 +1029,54 @@ function AcademicContent() {
 					/>
 				</Card>
 			) : (
-				<div className="grid grid--2">
-					{faculties.map((faculty) => (
-						<FacultyCard
-							key={faculty.id}
-							faculty={faculty}
-							canManage={canManage}
-							onDialog={setDialog}
+				<div className="stack">
+					<div className="academic-toolbar">
+						<p className="academic-summary num">
+							<span>
+								<TreeStructure size={14} weight="regular" aria-hidden="true" />
+								<strong>{faculties.length}</strong>{" "}
+								{faculties.length === 1 ? "faculty" : "faculties"}
+							</span>
+							<span>
+								<Buildings size={14} weight="regular" aria-hidden="true" />
+								<strong>{departments}</strong>{" "}
+								{departments === 1 ? "department" : "departments"}
+							</span>
+							<span>
+								<GraduationCap size={14} weight="regular" aria-hidden="true" />
+								<strong>{programmes.length}</strong>{" "}
+								{programmes.length === 1 ? "programme" : "programmes"}
+							</span>
+							<span>
+								<Student size={14} weight="regular" aria-hidden="true" />
+								<strong>{students}</strong>{" "}
+								{students === 1 ? "student" : "students"}
+							</span>
+						</p>
+						<SegmentedFilter
+							label="Layout"
+							value={view}
+							onChange={setView}
+							options={[
+								{ value: "chart", label: "Organigram" },
+								{ value: "cards", label: "Cards" },
+							]}
 						/>
-					))}
+					</div>
+					{view === "chart" ? (
+						<Organigram faculties={faculties} />
+					) : (
+						<div className="grid grid--2 academic-grid">
+							{faculties.map((faculty) => (
+								<FacultyCard
+									key={faculty.id}
+									faculty={faculty}
+									canManage={canManage}
+									onDialog={setDialog}
+								/>
+							))}
+						</div>
+					)}
 				</div>
 			)}
 

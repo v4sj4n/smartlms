@@ -8,7 +8,7 @@ import (
 	"slices"
 	"sort"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // Per-user permission overrides, layered on top of the role's grants:

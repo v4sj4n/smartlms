@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 type schoolYearOut struct {

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // An MCP app is an external service the assistant can act through on the
@@ -89,34 +89,10 @@ func loadMcpApps(ctx context.Context, db *sql.DB, userID string) (mcpAppListOut,
 	return out, nil
 }
 
-// userExists keeps a stray user_id from creating an orphan connection.
-func userExists(ctx context.Context, db *sql.DB, userID string) (bool, error) {
-	var found string
-	err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE id = ?`, userID).Scan(&found)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	return err == nil, err
-}
-
 func registerUserMcpApps(mux *http.ServeMux, db *sql.DB) {
-	// GET /api/me/mcp-apps?user_id= — connected apps plus the rest of the catalog.
+	// GET /api/me/mcp-apps — connected apps plus the rest of the catalog.
 	mux.HandleFunc("GET /api/me/mcp-apps", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		exists, err := userExists(r.Context(), db, userID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		if !exists {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
-			return
-		}
-		out, err := loadMcpApps(r.Context(), db, userID)
+		out, err := loadMcpApps(r.Context(), db, callerFrom(r).ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -128,31 +104,16 @@ func registerUserMcpApps(mux *http.ServeMux, db *sql.DB) {
 	// no-op, so a double click cannot produce two rows.
 	mux.HandleFunc("POST /api/me/mcp-apps", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			UserID string `json:"user_id"`
 			AppKey string `json:"app_key"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		req.UserID = strings.TrimSpace(req.UserID)
+		userID := callerFrom(r).ID
 		req.AppKey = strings.TrimSpace(req.AppKey)
-		switch {
-		case req.UserID == "":
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		case req.AppKey == "":
+		if req.AppKey == "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "app_key is required"})
-			return
-		}
-
-		exists, err := userExists(r.Context(), db, req.UserID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		if !exists {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
 			return
 		}
 
@@ -168,12 +129,12 @@ func registerUserMcpApps(mux *http.ServeMux, db *sql.DB) {
 
 		if _, err := db.ExecContext(r.Context(), `
 			INSERT OR IGNORE INTO user_mcp_apps (user_id, app_key, connected_at)
-			VALUES (?, ?, ?)`, req.UserID, req.AppKey, util.Now()); err != nil {
+			VALUES (?, ?, ?)`, userID, req.AppKey, util.Now()); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 
-		out, err := loadMcpApps(r.Context(), db, req.UserID)
+		out, err := loadMcpApps(r.Context(), db, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -181,14 +142,11 @@ func registerUserMcpApps(mux *http.ServeMux, db *sql.DB) {
 		writeJSON(w, http.StatusOK, out)
 	})
 
-	// DELETE /api/me/mcp-apps/{key}?user_id= — revoke an app's access.
+	// DELETE /api/me/mcp-apps/{key} — revoke an app's access.
 	mux.HandleFunc("DELETE /api/me/mcp-apps/{key}", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
+		userID := callerFrom(r).ID
 		appKey := strings.TrimSpace(r.PathValue("key"))
 		switch {
-		case userID == "":
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
 		case appKey == "":
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "app key is required"})
 			return

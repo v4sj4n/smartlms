@@ -1,22 +1,22 @@
 import {
-	Books,
+	Bank,
+	BookOpenText,
 	Buildings,
-	CalendarBlank,
+	CalendarDots,
 	Cards,
-	Chalkboard,
-	ChartBar,
+	Certificate,
+	ChalkboardTeacher,
+	ChartLineUp,
 	ChatsCircle,
-	Exam,
-	Gauge,
+	ClipboardText,
 	GearSix,
-	GraduationCap,
+	House,
 	type Icon,
-	Presentation,
-	SealCheck,
+	ListChecks,
 	ShieldCheck,
 	Sparkle,
 	SquaresFour,
-	TreeStructure,
+	Student,
 	UsersThree,
 } from "@phosphor-icons/react";
 import { humanize } from "./format";
@@ -35,6 +35,7 @@ export type ModuleRoute =
 	| { to: "/assignments/$assignmentId"; params: { assignmentId: string } }
 	| { to: "/grades" }
 	| { to: "/record" }
+	| { to: "/timetable" }
 	| { to: "/settings" }
 	| { to: "/users" }
 	| { to: "/students" }
@@ -46,9 +47,9 @@ export type NavGroup = "main" | "learning" | "progress" | "manage" | "footer";
 
 export const NAV_GROUPS: { key: NavGroup; label?: string }[] = [
 	{ key: "main" },
-	{ key: "learning", label: "Learning" },
-	{ key: "progress", label: "Progress" },
-	{ key: "manage", label: "Manage" },
+	{ key: "learning" },
+	{ key: "progress" },
+	{ key: "manage" },
 	{ key: "footer" },
 ];
 
@@ -77,7 +78,7 @@ const MODULE_DEFINITIONS: ModuleDefinition[] = [
 		key: "dashboard",
 		group: "main",
 		label: "Dashboard",
-		icon: Gauge,
+		icon: House,
 		route: { to: "/" },
 	},
 	{
@@ -92,28 +93,35 @@ const MODULE_DEFINITIONS: ModuleDefinition[] = [
 		key: "subjects",
 		group: "learning",
 		label: "Subjects",
-		icon: Books,
+		icon: BookOpenText,
 		route: { to: "/subjects" },
+	},
+	{
+		key: "timetable",
+		group: "learning",
+		label: "Timetable",
+		icon: CalendarDots,
+		route: { to: "/timetable" },
 	},
 	{
 		key: "lectures",
 		group: "learning",
 		label: "Lectures",
-		icon: Chalkboard,
+		icon: ChalkboardTeacher,
 		route: moduleRoute("lectures"),
 	},
 	{
 		key: "assignments",
 		group: "learning",
 		label: "Assignments",
-		icon: Presentation,
+		icon: ClipboardText,
 		route: { to: "/assignments" },
 	},
 	{
 		key: "quizzes",
 		group: "learning",
 		label: "Quizzes",
-		icon: Exam,
+		icon: ListChecks,
 		route: moduleRoute("quizzes"),
 	},
 	{
@@ -134,14 +142,14 @@ const MODULE_DEFINITIONS: ModuleDefinition[] = [
 		key: "grades",
 		group: "progress",
 		label: "Grades",
-		icon: ChartBar,
+		icon: ChartLineUp,
 		route: { to: "/grades" },
 	},
 	{
 		key: "records",
 		group: "progress",
 		label: "Study record",
-		icon: SealCheck,
+		icon: Certificate,
 		route: { to: "/record" },
 	},
 	{
@@ -155,21 +163,21 @@ const MODULE_DEFINITIONS: ModuleDefinition[] = [
 		key: "academic",
 		group: "manage",
 		label: "Academic structure",
-		icon: TreeStructure,
+		icon: Bank,
 		route: { to: "/academic" },
 	},
 	{
 		key: "school-years",
 		group: "manage",
 		label: "School years",
-		icon: CalendarBlank,
+		icon: CalendarDots,
 		route: { to: "/school-years" },
 	},
 	{
 		key: "students",
 		group: "manage",
 		label: "Students",
-		icon: GraduationCap,
+		icon: Student,
 		route: { to: "/students" },
 	},
 	{
@@ -198,6 +206,20 @@ const ACCESS_ITEM: ModuleDefinition = {
 
 const FALLBACK_ICON = SquaresFour;
 
+/** Content that lives inside a subject: reached from the subject page, never
+ * from the sidebar. */
+const SUBJECT_SCOPED_KEYS = new Set([
+	"lectures",
+	"seminars",
+	"quizzes",
+	"flashcards",
+	"forums",
+]);
+
+/** Admins manage structure, not coursework: the cross-subject assignments list
+ * is for the people taking and teaching subjects. */
+const HIDDEN_FOR_ADMIN_KEYS = new Set(["assignments"]);
+
 const SCREENED_KEYS = new Set([
 	"dashboard",
 	"students",
@@ -209,6 +231,7 @@ const SCREENED_KEYS = new Set([
 	"assignments",
 	"grades",
 	"records",
+	"timetable",
 	"settings",
 	"users",
 	"access",
@@ -238,12 +261,21 @@ export function buildNavItems(
 	modules: string[],
 	isAdmin: boolean,
 	permissions: string[] = [],
+	/** False while the assistant has no model to answer with: no entry, no dead end. */
+	assistantReady = true,
 ): NavItem[] {
 	const granted = new Set(modules);
 	const grantedPermissions = new Set(permissions);
+	// Definitions skipped on purpose, so the defensive fallback below cannot
+	// re-add them as a generic "no screen" entry.
+	const suppressed = new Set<string>();
 	const items: NavItem[] = [];
 
+	for (const key of SUBJECT_SCOPED_KEYS) suppressed.add(key);
+	if (isAdmin) for (const key of HIDDEN_FOR_ADMIN_KEYS) suppressed.add(key);
+
 	for (const definition of MODULE_DEFINITIONS) {
+		if (suppressed.has(definition.key)) continue;
 		// Settings always shows: every user has the Appearance section.
 		if (!granted.has(definition.key) && definition.key !== "settings") continue;
 		// A module can refine itself with a permission: the assistant needs
@@ -252,8 +284,19 @@ export function buildNavItems(
 			definition.permission &&
 			!isAdmin &&
 			!grantedPermissions.has(definition.permission)
-		)
+		) {
+			// Same reason as below: the module is granted, the refined
+			// permission is not, and the fallback must not re-add it.
+			suppressed.add(definition.key);
 			continue;
+		}
+		// The assistant only earns a place in the sidebar when it can answer.
+		// An entry that leads to "there is no model yet" is a dead end; the
+		// people who can fix that reach it from Settings › AI instead.
+		if (definition.key === "assistant" && !assistantReady) {
+			suppressed.add(definition.key);
+			continue;
+		}
 		items.push({ ...definition, hasScreen: SCREENED_KEYS.has(definition.key) });
 	}
 
@@ -265,6 +308,7 @@ export function buildNavItems(
 	// Defensive: a module key the API adds later still appears in navigation.
 	for (const key of modules) {
 		if (items.some((item) => item.key === key)) continue;
+		if (suppressed.has(key)) continue;
 		items.push({
 			key,
 			group: "learning",

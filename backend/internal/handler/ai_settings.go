@@ -8,11 +8,11 @@ import (
 	"slices"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
-// Per-user assistant preferences, served to everybody. Scoped by user_id
-// until sessions land (same convention as notifications).
+// Per-user assistant preferences, served to everybody: the session says whose
+// they are, so a client cannot read or write somebody else's.
 type aiSettingsOut struct {
 	UserID        string   `json:"user_id"`
 	AssistantName string   `json:"assistant_name"`
@@ -71,12 +71,7 @@ func loadAISettings(ctx context.Context, db *sql.DB, userID string) (aiSettingsO
 
 func registerAISettings(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /api/ai/settings", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		out, err := loadAISettings(r.Context(), db, userID)
+		out, err := loadAISettings(r.Context(), db, callerFrom(r).ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -90,10 +85,10 @@ func registerAISettings(mux *http.ServeMux, db *sql.DB) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		// The body carries preferences only: whose they are is the session's
+		// answer, and the echoed user_id below is set from it.
+		userID := callerFrom(r).ID
+		req.UserID = userID
 
 		req.AssistantName = strings.TrimSpace(req.AssistantName)
 		req.DisplayName = strings.TrimSpace(req.DisplayName)
@@ -160,13 +155,13 @@ func registerAISettings(mux *http.ServeMux, db *sql.DB) {
 				notes          = excluded.notes,
 				max_output_tokens = excluded.max_output_tokens,
 				updated_at     = excluded.updated_at`,
-			req.UserID, req.AssistantName, req.SystemPrompt, req.DisplayName,
+			userID, req.AssistantName, req.SystemPrompt, req.DisplayName,
 			req.Occupation, string(traitsJSON), req.Notes, req.MaxOutputTokens, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 
-		out, err := loadAISettings(r.Context(), db, req.UserID)
+		out, err := loadAISettings(r.Context(), db, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return

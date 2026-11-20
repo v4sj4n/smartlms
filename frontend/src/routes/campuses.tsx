@@ -1,8 +1,9 @@
 import {
-	ArrowLeft,
 	Buildings,
+	CaretLeft,
 	CaretRight,
 	Door,
+	DotsThree,
 	LockKey,
 	PencilSimple,
 	Plus,
@@ -11,7 +12,7 @@ import {
 	UsersThree,
 } from "@phosphor-icons/react";
 import { createRoute, Link } from "@tanstack/react-router";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Campus, type ClassRoom, errorMessage, type Story } from "../api";
 import { useAuth } from "../auth";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -28,6 +29,7 @@ import {
 	ErrorState,
 	IconButton,
 	InlineNote,
+	Menu,
 	PageHeader,
 	SkeletonStack,
 } from "../components/ui";
@@ -115,71 +117,271 @@ function Windows({
 	);
 }
 
-/** Decorative building for the overview grid: one band per story. */
-function BuildingThumb({ campus }: { campus: Campus }) {
+/** Lowest floor, picked by default so a building opens on its ground floor. */
+function defaultFloor(campus: Campus): Story | undefined {
+	const floors = floorsTopDown(campus);
+	return floors[floors.length - 1];
+}
+
+/** Interactive building: each band is a link straight to that floor. */
+function BuildingFloors({
+	campus,
+	selectedFloorId,
+	canManage,
+	onDialog,
+	interactive,
+}: {
+	campus: Campus;
+	selectedFloorId?: string;
+	interactive: boolean;
+	canManage: boolean;
+	onDialog: (dialog: DialogState) => void;
+}) {
 	const floors = floorsTopDown(campus);
 	return (
-		<span
-			className="building building--thumb"
-			aria-hidden="true"
-			style={{ "--floors": Math.max(floors.length, 1) } as CSSProperties}
-		>
-			<span className="building__roof" />
-			<span className="building__body">
-				{floors.length === 0 ? (
-					<span className="building__floor building__floor--empty" />
-				) : (
-					floors.map((story, index) => (
-						<span className="building__floor" key={story.id}>
-							<Windows rooms={story.classes.length} min={4} max={6} />
-							{index === floors.length - 1 ? (
-								<span className="building__door" />
-							) : null}
-						</span>
-					))
-				)}
-			</span>
-			<span className="building__ground" />
-		</span>
+		<div className="building building--interactive">
+			<span className="building__roof" aria-hidden="true" />
+			{floors.length === 0 ? (
+				<div className="building__body">
+					<p className="building__floor building__floor--empty building__empty-text">
+						No floors yet
+					</p>
+				</div>
+			) : (
+				<ol
+					className="building__body"
+					aria-label={`${campus.name} floors, top to bottom`}
+				>
+					{floors.map((story) => {
+						const active = story.id === selectedFloorId;
+						return (
+							<li
+								key={story.id}
+								className={[
+									"building__floor-item",
+									interactive && canManage
+										? "building__floor-item--managed"
+										: "",
+								].join(" ")}
+							>
+								{interactive ? (
+									<Link
+										to="/campuses"
+										search={{ campus: campus.id, floor: story.id }}
+										replace
+										resetScroll={false}
+										className={[
+											"building__floor",
+											active ? "building__floor--active" : "",
+										].join(" ")}
+										aria-current={active ? "true" : undefined}
+									>
+										<span className="building__level num">{story.floor}</span>
+										<span className="building__floor-text">
+											<span className="building__floor-name">
+												{story.name || `Floor ${story.floor}`}
+											</span>
+											<span className="building__floor-meta num">
+												{plural(story.classes.length, "class", "classes")}
+											</span>
+										</span>
+										<Windows rooms={story.classes.length} min={3} max={6} />
+									</Link>
+								) : (
+									// A building that isn't selected yet: the floors are just
+									// a picture, and a click selects the whole campus.
+									<span className="building__floor">
+										<span className="building__level num">{story.floor}</span>
+										<span className="building__floor-text">
+											<span className="building__floor-name">
+												{story.name || `Floor ${story.floor}`}
+											</span>
+											<span className="building__floor-meta num">
+												{plural(story.classes.length, "class", "classes")}
+											</span>
+										</span>
+										<Windows rooms={story.classes.length} min={3} max={6} />
+									</span>
+								)}
+								{interactive && canManage ? (
+									<div className="building__floor-menu">
+										<Menu
+											aria-label={`Manage floor ${story.floor} in ${campus.name}`}
+											trigger={
+												<DotsThree size={16} weight="bold" aria-hidden="true" />
+											}
+											triggerClassName="icon-btn"
+											items={[
+												{
+													key: "edit",
+													label: "Edit floor",
+													icon: (
+														<PencilSimple
+															size={14}
+															weight="regular"
+															aria-hidden="true"
+														/>
+													),
+													onSelect: () =>
+														onDialog({ kind: "story-edit", campus, story }),
+												},
+												{
+													key: "delete",
+													label:
+														story.classes.length > 0
+															? "Delete floor (remove its classes first)"
+															: "Delete floor",
+													disabled: story.classes.length > 0,
+													icon: (
+														<Trash
+															size={14}
+															weight="regular"
+															aria-hidden="true"
+														/>
+													),
+													destructive: true,
+													onSelect: () =>
+														onDialog({
+															kind: "story-delete",
+															story,
+															floor: story.floor,
+														}),
+												},
+											]}
+										/>
+									</div>
+								) : null}
+							</li>
+						);
+					})}
+				</ol>
+			)}
+			<span className="building__ground" aria-hidden="true" />
+		</div>
 	);
 }
 
-function CampusOverview({ campuses }: { campuses: Campus[] }) {
+/** Every building side by side in a swipeable strip; floors are clickable
+ * right on the card, so picking a building and a floor is one click. */
+function CampusCarousel({
+	campuses,
+	selected,
+	selectedFloorId,
+	canManage,
+	onDialog,
+}: {
+	campuses: Campus[];
+	selected: Campus;
+	selectedFloorId?: string;
+	canManage: boolean;
+	onDialog: (dialog: DialogState) => void;
+}) {
+	const trackRef = useRef<HTMLUListElement>(null);
+	const navigate = campusesRoute.useNavigate();
+	const index = campuses.findIndex((campus) => campus.id === selected.id);
+
+	// Keep the selected building in view whenever the selection changes.
+	useEffect(() => {
+		const card = trackRef.current?.querySelector<HTMLElement>(
+			`[data-campus="${selected.id}"]`,
+		);
+		if (!card || !trackRef.current) return;
+		const reduce = window.matchMedia(
+			"(prefers-reduced-motion: reduce)",
+		).matches;
+		const track = trackRef.current;
+		track.scrollTo({
+			left: card.offsetLeft - track.offsetLeft - 4,
+			behavior: reduce ? "auto" : "smooth",
+		});
+	}, [selected.id]);
+
+	const go = (next: number) => {
+		const campus = campuses[next];
+		if (!campus) return;
+		void navigate({
+			search: { campus: campus.id },
+			replace: true,
+			resetScroll: false,
+		});
+	};
+
 	return (
-		<ul className="campus-grid" aria-label="Campuses">
-			{campuses.map((campus) => {
-				const rooms = roomCount(campus);
-				return (
-					<li key={campus.id}>
-						<Link
-							to="/campuses"
-							search={{ campus: campus.id }}
-							className="campus-tile"
+		<section className="campus-carousel" aria-label="Campuses">
+			{campuses.length > 1 ? (
+				<div className="campus-carousel__nav">
+					<span className="campus-carousel__count num">
+						{index + 1} / {campuses.length}
+					</span>
+					<IconButton
+						label="Previous campus"
+						icon={<CaretLeft size={15} weight="bold" aria-hidden="true" />}
+						onClick={() => go(index - 1)}
+						disabled={index <= 0}
+					/>
+					<IconButton
+						label="Next campus"
+						icon={<CaretRight size={15} weight="bold" aria-hidden="true" />}
+						onClick={() => go(index + 1)}
+						disabled={index >= campuses.length - 1}
+					/>
+				</div>
+			) : null}
+			<ul className="campus-carousel__track" ref={trackRef}>
+				{campuses.map((campus) => {
+					const active = campus.id === selected.id;
+					return (
+						<li
+							key={campus.id}
+							data-campus={campus.id}
+							// Clicking anywhere on the card selects it; links and menus
+							// inside keep their own behaviour, and the name link covers
+							// keyboard users.
+							onClick={(event) => {
+								if (active) return;
+								if ((event.target as HTMLElement).closest("a, button")) return;
+								void navigate({
+									search: { campus: campus.id },
+									replace: true,
+									resetScroll: false,
+								});
+							}}
+							className={[
+								"campus-card",
+								active ? "campus-card--active" : "",
+							].join(" ")}
 						>
-							<span className="campus-tile__scene">
-								<BuildingThumb campus={campus} />
-							</span>
-							<span className="campus-tile__text">
-								<span className="campus-tile__name">{campus.name}</span>
-								<span className="campus-tile__address">
+							<div className="campus-card__scene">
+								<BuildingFloors
+									campus={campus}
+									selectedFloorId={active ? selectedFloorId : undefined}
+									interactive={active}
+									canManage={canManage}
+									onDialog={onDialog}
+								/>
+							</div>
+							<Link
+								to="/campuses"
+								search={{ campus: campus.id }}
+								replace
+								resetScroll={false}
+								className="campus-card__head"
+								aria-current={active ? "true" : undefined}
+							>
+								<span className="campus-card__name">{campus.name}</span>
+								<span className="campus-card__address">
 									{campus.address ?? "No address recorded"}
 								</span>
-								<span className="campus-tile__meta num">
+								<span className="campus-card__meta num">
 									{plural(campus.stories.length, "floor", "floors")} ·{" "}
-									{plural(rooms, "class", "classes")}
+									{plural(roomCount(campus), "class", "classes")}
 								</span>
-							</span>
-							<CaretRight
-								size={16}
-								weight="bold"
-								aria-hidden="true"
-								className="campus-tile__caret"
-							/>
-						</Link>
-					</li>
-				);
-			})}
-		</ul>
+							</Link>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
 	);
 }
 
@@ -286,7 +488,12 @@ function FloorPanel({
 							onClick={() => onDialog({ kind: "story-edit", campus, story })}
 						/>
 						<IconButton
-							label={`Delete floor ${story.floor} in ${campus.name}`}
+							label={
+								rooms.length > 0
+									? `Remove the classes on floor ${story.floor} before deleting it`
+									: `Delete floor ${story.floor} in ${campus.name}`
+							}
+							disabled={rooms.length > 0}
 							icon={<Trash size={15} weight="regular" aria-hidden="true" />}
 							tone="danger"
 							onClick={() =>
@@ -329,126 +536,51 @@ function FloorPanel({
 	);
 }
 
-function CampusDetail({
+function CampusFloorPanel({
 	campus,
-	floorId,
+	floor,
 	canManage,
 	onDialog,
 }: {
 	campus: Campus;
-	floorId?: string;
+	floor?: Story;
 	canManage: boolean;
 	onDialog: (dialog: DialogState) => void;
 }) {
-	const floors = floorsTopDown(campus);
-	const selected = floors.find((story) => story.id === floorId);
-	const panelRef = useRef<HTMLDivElement>(null);
-
-	// On phones the class list sits below the building: bring it into view
-	// when a floor is picked.
-	useEffect(() => {
-		if (!selected || !window.matchMedia("(max-width: 880px)").matches) return;
-		const reduce = window.matchMedia(
-			"(prefers-reduced-motion: reduce)",
-		).matches;
-		panelRef.current?.scrollIntoView({
-			block: "start",
-			behavior: reduce ? "auto" : "smooth",
-		});
-	}, [selected?.id]);
-
+	if (floor) {
+		return (
+			<FloorPanel
+				campus={campus}
+				story={floor}
+				canManage={canManage}
+				onDialog={onDialog}
+			/>
+		);
+	}
 	return (
-		<div className="campus-view">
-			<div className="campus-view__layout">
-				<section className="tower" aria-label={`${campus.name} floors`}>
-					<div className="building building--interactive">
-						<span className="building__roof" aria-hidden="true" />
-						{floors.length === 0 ? (
-							<div className="building__body">
-								<p className="building__floor building__floor--empty building__empty-text">
-									No floors yet
-								</p>
-							</div>
-						) : (
-							<ol className="building__body" aria-label="Floors, top to bottom">
-								{floors.map((story) => {
-									const active = story.id === selected?.id;
-									return (
-										<li key={story.id}>
-											<Link
-												to="/campuses"
-												search={{ campus: campus.id, floor: story.id }}
-												replace={Boolean(selected)}
-												className={[
-													"building__floor",
-													active ? "building__floor--active" : "",
-												].join(" ")}
-												aria-current={active ? "true" : undefined}
-											>
-												<span className="building__level num">
-													{story.floor}
-												</span>
-												<span className="building__floor-text">
-													<span className="building__floor-name">
-														{story.name || `Floor ${story.floor}`}
-													</span>
-													<span className="building__floor-meta num">
-														{plural(story.classes.length, "class", "classes")}
-													</span>
-												</span>
-												<Windows rooms={story.classes.length} min={3} max={6} />
-											</Link>
-										</li>
-									);
-								})}
-							</ol>
-						)}
-						<span className="building__ground" aria-hidden="true" />
-					</div>
-				</section>
-
-				<div ref={panelRef} className="campus-view__panel">
-					{selected ? (
-						<FloorPanel
-							campus={campus}
-							story={selected}
-							canManage={canManage}
-							onDialog={onDialog}
-						/>
-					) : (
-						<Card className="floor-panel">
-							<EmptyState
-								icon={Stairs}
-								title={
-									floors.length === 0
-										? "This building has no floors"
-										: "Pick a floor"
-								}
-								description={
-									floors.length === 0
-										? canManage
-											? "Add a floor, then add the classes on it."
-											: "Floors appear here once an administrator adds them."
-										: "Choose a floor in the building to see its classes."
-								}
-								action={
-									floors.length === 0 && canManage ? (
-										<Button
-											variant="primary"
-											size="sm"
-											icon={<Plus size={15} weight="bold" aria-hidden="true" />}
-											onClick={() => onDialog({ kind: "story-create", campus })}
-										>
-											Add floor
-										</Button>
-									) : null
-								}
-							/>
-						</Card>
-					)}
-				</div>
-			</div>
-		</div>
+		<Card className="floor-panel">
+			<EmptyState
+				icon={Stairs}
+				title={`${campus.name} has no floors`}
+				description={
+					canManage
+						? "Add a floor, then add the classes on it."
+						: "Floors appear here once an administrator adds them."
+				}
+				action={
+					canManage ? (
+						<Button
+							variant="primary"
+							size="sm"
+							icon={<Plus size={15} weight="bold" aria-hidden="true" />}
+							onClick={() => onDialog({ kind: "story-create", campus })}
+						>
+							Add floors
+						</Button>
+					) : null
+				}
+			/>
+		</Card>
 	);
 }
 
@@ -461,32 +593,21 @@ function CampusesContent() {
 	const search = campusesRoute.useSearch();
 	// An id that no longer exists (deleted, or a stale link) falls back to the
 	// overview instead of an error.
-	const selectedCampus = campuses.data?.find(
-		(campus) => campus.id === search.campus,
-	);
+	const selectedCampus =
+		campuses.data?.find((campus) => campus.id === search.campus) ??
+		campuses.data?.[0];
+	const selectedFloor = selectedCampus
+		? (selectedCampus.stories.find((story) => story.id === search.floor) ??
+			defaultFloor(selectedCampus))
+		: undefined;
 
 	const close = () => setDialog(null);
 
 	return (
 		<>
-			{selectedCampus ? (
-				<Link to="/campuses" className="back-link">
-					<ArrowLeft size={14} weight="bold" aria-hidden="true" />
-					All campuses
-				</Link>
-			) : null}
-
 			<PageHeader
-				title={selectedCampus?.name ?? "Campuses"}
-				description={
-					selectedCampus
-						? `${selectedCampus.address ?? "No address recorded"} · ${plural(
-								selectedCampus.stories.length,
-								"floor",
-								"floors",
-							)} · ${plural(roomCount(selectedCampus), "class", "classes")}`
-						: "Pick a building to walk its floors and classes."
-				}
+				title="Campuses"
+				description="Swipe through the buildings and pick a floor to see its classes."
 				actions={
 					!canManage ? (
 						<Badge
@@ -504,7 +625,7 @@ function CampusesContent() {
 									setDialog({ kind: "story-create", campus: selectedCampus })
 								}
 							>
-								Add floor
+								Add floors
 							</Button>
 							<IconButton
 								label={`Edit ${selectedCampus.name}`}
@@ -523,6 +644,14 @@ function CampusesContent() {
 									setDialog({ kind: "campus-delete", campus: selectedCampus })
 								}
 							/>
+							<Button
+								variant="primary"
+								size="sm"
+								icon={<Plus size={15} weight="bold" aria-hidden="true" />}
+								onClick={() => setDialog({ kind: "campus-create" })}
+							>
+								Add campus
+							</Button>
 						</div>
 					) : (
 						<Button
@@ -570,8 +699,8 @@ function CampusesContent() {
 						title="No campuses yet — add your first campus"
 						description={
 							canManage
-								? "Campuses hold stories, and stories hold rooms. Start with a campus, then add its floors."
-								: "Once an administrator adds a campus it appears here with its stories and rooms."
+								? "Campuses hold floors, and floors hold rooms. Start with a campus, then add its floors."
+								: "Once an administrator adds a campus it appears here with its floors and rooms."
 						}
 						action={
 							canManage ? (
@@ -588,15 +717,22 @@ function CampusesContent() {
 					/>
 				</Card>
 			) : selectedCampus ? (
-				<CampusDetail
-					campus={selectedCampus}
-					floorId={search.floor}
-					canManage={canManage}
-					onDialog={setDialog}
-				/>
-			) : (
-				<CampusOverview campuses={campuses.data} />
-			)}
+				<div className="stack">
+					<CampusCarousel
+						campuses={campuses.data}
+						selected={selectedCampus}
+						selectedFloorId={selectedFloor?.id}
+						canManage={canManage}
+						onDialog={setDialog}
+					/>
+					<CampusFloorPanel
+						campus={selectedCampus}
+						floor={selectedFloor}
+						canManage={canManage}
+						onDialog={setDialog}
+					/>
+				</div>
+			) : null}
 
 			{dialog?.kind === "campus-create" ? (
 				<CampusFormDialog onClose={close} />
@@ -613,8 +749,8 @@ function CampusesContent() {
 					consequences={
 						<>
 							This deletes <strong>{dialog.campus.stories.length}</strong>{" "}
-							stories and <strong>{roomCount(dialog.campus)}</strong> rooms.
-							This cannot be undone.
+							floors and <strong>{roomCount(dialog.campus)}</strong> rooms. This
+							cannot be undone.
 						</>
 					}
 					confirmLabel="Delete campus"
@@ -639,15 +775,15 @@ function CampusesContent() {
 			{dialog?.kind === "story-delete" ? (
 				<ConfirmDialog
 					title={`Delete floor ${dialog.floor}?`}
-					description="The story and every room on it is removed."
+					description="The floor and every room on it is removed."
 					consequences={
 						<>
 							This deletes <strong>{dialog.story.classes.length}</strong> rooms
 							from floor {dialog.floor}. This cannot be undone.
 						</>
 					}
-					confirmLabel="Delete story"
-					successMessage="Story deleted"
+					confirmLabel="Delete floor"
+					successMessage="Floor deleted"
 					onConfirm={() => deleteStory.mutateAsync(dialog.story.id)}
 					onClose={close}
 				/>
@@ -668,7 +804,7 @@ function CampusesContent() {
 			{dialog?.kind === "class-delete" ? (
 				<ConfirmDialog
 					title={`Delete ${dialog.room.name}?`}
-					description="The room is removed from its story."
+					description="The room is removed from its floor."
 					confirmLabel="Delete room"
 					successMessage="Room deleted"
 					onConfirm={() => deleteClass.mutateAsync(dialog.room.id)}

@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 /*
-The SmartLMS MCP server: the backend's own content actions, offered to the
+The OptimoLMS MCP server: the backend's own content actions, offered to the
 assistant as MCP tools.
 
 One registry, three consumers — the JSON-RPC endpoint (POST /api/mcp), the chat
@@ -25,7 +25,7 @@ lectures, assignments, quizzes, flashcards and forum threads exactly as a click
 would, never behind the user's back.
 */
 
-const mcpServerKey = "smartlms"
+const mcpServerKey = "optimolms"
 
 // mcpTool is one callable action. InputSchema is JSON Schema, which is both what
 // MCP clients advertise and what the OpenAI tool definition sends to the model.
@@ -254,12 +254,14 @@ func mcpTools() []mcpTool {
 			Run: onOwnSubject(subjectFromQuiz, runAddQuizQuestion),
 		},
 		{
-			Name: "create_flashcards", Title: "Create flashcards", Module: "flashcards",
+			Name: "create_flashcard_set", Title: "Create a flashcard set", Module: "flashcards",
 			Permission:  "flashcards.manage",
-			Description: "Add one or more flashcards to a subject in a single call, optionally filed under a week.",
+			Description: "Create a titled set (deck) of two-sided flashcards in a subject, optionally filed under a week. Each card has a front (prompt) and a back (answer).",
 			InputSchema: schemaObject(map[string]any{
-				"subject_id": subjectID,
-				"week_id":    weekID,
+				"subject_id":  subjectID,
+				"week_id":     weekID,
+				"title":       schemaProp("string", "Name of the set, e.g. \"Derivatives — key rules\""),
+				"description": schemaProp("string", "What the set covers (optional)"),
 				"cards": map[string]any{
 					"type": "array",
 					"items": schemaObject(map[string]any{
@@ -267,8 +269,8 @@ func mcpTools() []mcpTool {
 						"back":  schemaProp("string", "The answer side"),
 					}, "front", "back"),
 				},
-			}, "subject_id", "cards"),
-			Run: onOwnSubject(subjectFromArg, runCreateFlashcards),
+			}, "subject_id", "title", "cards"),
+			Run: onOwnSubject(subjectFromArg, runCreateFlashcardSet),
 		},
 		{
 			Name: "create_forum_thread", Title: "Start a forum thread", Module: "forums",
@@ -334,7 +336,7 @@ func runListSubjects(ctx context.Context, db *sql.DB, userID string, args map[st
 		       (SELECT COUNT(*) FROM lectures    x WHERE x.subject_id = s.id),
 		       (SELECT COUNT(*) FROM assignments a WHERE a.subject_id = s.id),
 		       (SELECT COUNT(*) FROM quizzes     q WHERE q.subject_id = s.id),
-		       (SELECT COUNT(*) FROM flashcards  f WHERE f.subject_id = s.id)
+		       (SELECT COUNT(*) FROM flashcard_sets f WHERE f.subject_id = s.id)
 		FROM subjects s`+where+` ORDER BY s.name LIMIT 100`, params...)
 	if err != nil {
 		return nil, err
@@ -355,7 +357,7 @@ func runListSubjects(ctx context.Context, db *sql.DB, userID string, args map[st
 		subjects = append(subjects, map[string]any{
 			"id": id, "name": name, "code": code, "school_year": year, "semester": semester,
 			"weeks": weeks, "lectures": lectures, "assignments": assignments,
-			"quizzes": quizzes, "flashcards": flashcards,
+			"quizzes": quizzes, "flashcard_sets": flashcards,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -425,7 +427,7 @@ func runListWeeks(ctx context.Context, db *sql.DB, userID string, args map[strin
 		       (SELECT COUNT(*) FROM lectures    l WHERE l.week_id = w.id),
 		       (SELECT COUNT(*) FROM assignments a WHERE a.week_id = w.id),
 		       (SELECT COUNT(*) FROM quizzes     q WHERE q.week_id = w.id),
-		       (SELECT COUNT(*) FROM flashcards  f WHERE f.week_id = w.id)
+		       (SELECT COUNT(*) FROM flashcard_sets f WHERE f.week_id = w.id)
 		FROM course_weeks w WHERE subject_id = ? ORDER BY week_number LIMIT 60`, subjectID)
 	if err != nil {
 		return nil, err
@@ -447,7 +449,7 @@ func runListWeeks(ctx context.Context, db *sql.DB, userID string, args map[strin
 			"id": id, "week_number": number, "season": season, "school_year": year,
 			"title": title, "starts_on": startsOn, "ends_on": endsOn,
 			"lectures": lectures, "assignments": assignments,
-			"quizzes": quizzes, "flashcards": flashcards,
+			"quizzes": quizzes, "flashcard_sets": flashcards,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -712,7 +714,7 @@ func runAddQuizQuestion(ctx context.Context, db *sql.DB, userID string, args map
 	}, nil
 }
 
-func runCreateFlashcards(ctx context.Context, db *sql.DB, userID string, args map[string]any) (any, error) {
+func runCreateFlashcardSet(ctx context.Context, db *sql.DB, _ string, args map[string]any) (any, error) {
 	subjectID := argString(args, "subject_id")
 	if subjectID == "" {
 		return nil, errors.New("subject_id is required; call list_subjects to find one")
@@ -720,36 +722,33 @@ func runCreateFlashcards(ctx context.Context, db *sql.DB, userID string, args ma
 	if !rowExists(ctx, db, "subjects", subjectID) {
 		return nil, fmt.Errorf("unknown subject %q", subjectID)
 	}
-	cards := argObjects(args, "cards")
-	if len(cards) == 0 {
+	title := argString(args, "title")
+	if title == "" {
+		return nil, errors.New("title is required: name the set")
+	}
+	raw := argObjects(args, "cards")
+	if len(raw) == 0 {
 		return nil, errors.New("cards is required: pass at least one {front, back}")
 	}
-
+	input := make([]flashcardInput, 0, len(raw))
+	for _, card := range raw {
+		input = append(input, flashcardInput{Front: argString(card, "front"), Back: argString(card, "back")})
+	}
+	cards, err := cleanCards(input)
+	if err != nil {
+		return nil, err
+	}
 	weekPlacementValue, problem := weekPlacement(ctx, db, subjectID, argString(args, "week_id"))
 	if problem != "" {
 		return nil, errors.New(problem)
 	}
-
-	created := make([]map[string]any, 0, len(cards))
-	for index, card := range cards {
-		front := argString(card, "front")
-		back := argString(card, "back")
-		if front == "" || back == "" {
-			return nil, fmt.Errorf("card %d needs both front and back", index+1)
-		}
-		id, now := util.NewID(), util.Now()
-		if _, err := db.ExecContext(ctx, `
-			INSERT INTO flashcards (id, subject_id, front, back, week_id, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, subjectID, front, back, weekPlacementValue, now, now); err != nil {
-			return nil, err
-		}
-		created = append(created, map[string]any{"id": id, "front": front, "back": back})
+	set, err := insertFlashcardSet(ctx, db, subjectID, title, argString(args, "description"), weekPlacementValue, cards)
+	if err != nil {
+		return nil, err
 	}
-
 	return map[string]any{
-		"subject_id": subjectID, "cards": created, "count": len(created),
-		"message": fmt.Sprintf("%d flashcard(s) created", len(created)),
+		"subject_id": subjectID, "set": set, "count": len(set.Cards),
+		"message": fmt.Sprintf("flashcard set %q created with %d card(s)", set.Title, len(set.Cards)),
 	}, nil
 }
 
@@ -860,7 +859,7 @@ func runPostForumReply(ctx context.Context, db *sql.DB, userID string, args map[
 /* ---------- connections: who has the server switched on -------------------- */
 
 // mcpServerConnected reports whether this person has connected the built-in
-// SmartLMS server. Nothing else decides whether the assistant may write: the
+// OptimoLMS server. Nothing else decides whether the assistant may write: the
 // same connection the MCP tab shows is the switch the chat loop reads.
 func mcpServerConnected(ctx context.Context, db *sql.DB, userID string) (bool, error) {
 	var found string

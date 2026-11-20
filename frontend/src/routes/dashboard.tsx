@@ -7,13 +7,14 @@ import {
 } from "@phosphor-icons/react";
 import { useQueries } from "@tanstack/react-query";
 import { createRoute, Link } from "@tanstack/react-router";
-import { api, type SubjectDetail } from "../api";
+import { api, errorMessage, type SubjectDetail } from "../api";
 import { useAuth, useSession } from "../auth";
 import {
 	Badge,
 	Card,
 	CardHeader,
 	EmptyState,
+	ErrorState,
 	PageHeader,
 	Skeleton,
 	SkeletonStack,
@@ -78,37 +79,72 @@ type AgendaItem = {
 	status?: string;
 };
 
+/**
+ * A dashboard stat. Until its query resolves the value slot holds a skeleton the
+ * size of the number it will become, so the card cannot be read as "0" while the
+ * count is still on its way; a resolved count that is unknown (a failed query)
+ * shows "—" rather than a zero.
+ */
 function Metric({
 	label,
 	value,
 	foot,
+	loading,
 }: {
 	label: string;
 	value: string | number | undefined;
 	foot: string;
+	loading: boolean;
 }) {
 	return (
-		<div className="card">
+		<div className="card" aria-busy={loading || undefined}>
 			<div className="metric">
 				<p className="metric__label">{label}</p>
-				{value === undefined ? (
-					<Skeleton variant="title" width="56px" />
-				) : (
-					<p className="metric__value num">{value}</p>
-				)}
+				<div className="metric__value num">
+					{loading ? (
+						<span
+							style={{
+								display: "flex",
+								alignItems: "center",
+								minHeight: "1.4em",
+							}}
+						>
+							<Skeleton variant="title" width="64px" />
+							<span className="visually-hidden">Loading</span>
+						</span>
+					) : (
+						(value ?? "—")
+					)}
+				</div>
 				<p className="metric__foot">{foot}</p>
 			</div>
 		</div>
 	);
 }
 
-function Agenda({ items, loading }: { items: AgendaItem[]; loading: boolean }) {
+function Agenda({
+	items,
+	loading,
+	error,
+	onRetry,
+}: {
+	items: AgendaItem[];
+	loading: boolean;
+	error: unknown;
+	onRetry: () => void;
+}) {
 	const now = new Date();
 	return (
 		<Card>
 			<CardHeader title="Coming up" hint="Lectures and deadlines" />
 			{loading ? (
 				<SkeletonStack rows={4} />
+			) : error ? (
+				<ErrorState
+					title="Agenda could not be loaded"
+					message={errorMessage(error)}
+					onRetry={onRetry}
+				/>
 			) : items.length === 0 ? (
 				<EmptyState
 					icon={CalendarBlank}
@@ -163,9 +199,15 @@ function Agenda({ items, loading }: { items: AgendaItem[]; loading: boolean }) {
 function SubjectList({
 	subjects,
 	loading,
+	error,
+	onRetry,
+	emptyDescription,
 }: {
 	subjects: { id: string; name: string; code?: string; detail: string }[];
 	loading: boolean;
+	error: unknown;
+	onRetry: () => void;
+	emptyDescription: string;
 }) {
 	const { hasModule } = useAuth();
 	return (
@@ -186,11 +228,17 @@ function SubjectList({
 			/>
 			{loading ? (
 				<SkeletonStack rows={3} />
+			) : error ? (
+				<ErrorState
+					title="Subjects could not be loaded"
+					message={errorMessage(error)}
+					onRetry={onRetry}
+				/>
 			) : subjects.length === 0 ? (
 				<EmptyState
 					icon={Books}
 					title="No subjects yet"
-					description="Subjects you teach or take appear here."
+					description={emptyDescription}
 				/>
 			) : (
 				<ul className="dash-subjects">
@@ -296,8 +344,12 @@ function StaffDashboard() {
 	const agenda = soonest([...lecturesFrom(detailData, now), ...deadlines]);
 
 	const weekAhead = now + 7 * 86_400_000;
+	// isLoading (not isPending): a query the role cannot run never fetches, and
+	// its "pending" would otherwise hold a skeleton on screen forever.
 	const detailsLoading =
-		subjects.isPending || details.some((query) => query.isPending);
+		subjects.isLoading || details.some((query) => query.isLoading);
+	const detailsError =
+		subjects.error ?? details.find((query) => query.error)?.error ?? null;
 	const lecturesThisWeek = lecturesFrom(detailData, now).filter(
 		(lecture) => lecture.at.getTime() <= weekAhead,
 	).length;
@@ -322,29 +374,53 @@ function StaffDashboard() {
 			<div className="grid grid--4">
 				<Metric
 					label="Students"
-					value={canListStudents ? students.data?.total : "—"}
+					value={
+						canListStudents
+							? students.isError
+								? undefined
+								: students.data?.total
+							: "—"
+					}
 					foot="Student accounts"
+					loading={canListStudents && students.isLoading}
 				/>
 				<Metric
 					label="Subjects"
-					value={subjects.data?.total}
-					foot={subjects.data ? "This school year" : "Loading"}
+					value={subjects.isError ? undefined : subjects.data?.total}
+					foot="This school year"
+					loading={subjects.isLoading}
 				/>
 				<Metric
 					label="Lectures this week"
-					value={detailsLoading ? undefined : lecturesThisWeek}
+					value={detailsError ? undefined : lecturesThisWeek}
 					foot="Next 7 days"
+					loading={detailsLoading}
 				/>
 				<Metric
 					label="Open assignments"
-					value={detailsLoading ? undefined : openAssignments}
+					value={detailsError ? undefined : openAssignments}
 					foot="Deadline still ahead"
+					loading={detailsLoading}
 				/>
 			</div>
 
 			<div className="dash-columns">
-				<Agenda items={agenda} loading={detailsLoading} />
-				<SubjectList subjects={subjectRows} loading={subjects.isPending} />
+				<Agenda
+					items={agenda}
+					loading={detailsLoading}
+					error={detailsError}
+					onRetry={() => {
+						void subjects.refetch();
+						for (const query of details) void query.refetch();
+					}}
+				/>
+				<SubjectList
+					subjects={subjectRows}
+					loading={subjects.isLoading}
+					error={subjects.error}
+					onRetry={() => void subjects.refetch()}
+					emptyDescription="Subjects you teach or take appear here."
+				/>
 			</div>
 		</div>
 	);
@@ -403,43 +479,70 @@ function StudentDashboard({ studentId }: { studentId: string }) {
 			<div className="grid grid--4">
 				<Metric
 					label="Subjects"
-					value={record.data ? subjectIds.length : undefined}
+					value={record.isError ? undefined : subjectIds.length}
 					foot="On your study record"
+					loading={record.isLoading}
 				/>
 				<Metric
 					label="Due this week"
 					value={
-						assignments.data
-							? open.filter((a) => Date.parse(a.due_at as string) <= weekAhead)
+						assignments.isError
+							? undefined
+							: open.filter((a) => Date.parse(a.due_at as string) <= weekAhead)
 									.length
-							: undefined
 					}
 					foot="Assignments not yet handed in"
+					loading={assignments.isLoading}
 				/>
 				<Metric
 					label="Average grade"
-					value={record.data ? (record.data.gpa?.toFixed(2) ?? "—") : undefined}
+					value={
+						record.isError ? undefined : (record.data?.gpa?.toFixed(2) ?? "—")
+					}
 					foot="Weighted by credits"
+					loading={record.isLoading}
 				/>
 				<Metric
 					label="Credits"
-					value={record.data?.credits_earned}
+					value={record.isError ? undefined : record.data?.credits_earned}
 					foot={
 						record.data
 							? `${record.data.credits_in_flight} more in progress`
 							: "ECTS earned"
 					}
+					loading={record.isLoading}
 				/>
 			</div>
 
 			<div className="dash-columns">
 				<Agenda
 					items={agenda}
+					// Lectures come from the record's subjects, so the agenda waits
+					// for both lists before it may say it is empty.
 					loading={
-						assignments.isPending || details.some((query) => query.isPending)
+						assignments.isLoading ||
+						record.isLoading ||
+						details.some((query) => query.isLoading)
 					}
+					error={
+						assignments.error ??
+						record.error ??
+						details.find((query) => query.error)?.error ??
+						null
+					}
+					onRetry={() => {
+						void assignments.refetch();
+						void record.refetch();
+						for (const query of details) void query.refetch();
+					}}
 				/>
-				<SubjectList subjects={subjectRows} loading={record.isPending} />
+				<SubjectList
+					subjects={subjectRows}
+					loading={record.isLoading}
+					error={record.error}
+					onRetry={() => void record.refetch()}
+					emptyDescription="Subjects on your study record appear here once you are enrolled."
+				/>
 			</div>
 		</div>
 	);
@@ -448,7 +551,18 @@ function StudentDashboard({ studentId }: { studentId: string }) {
 function SystemStatus() {
 	const health = useHealth();
 	const ok = health.data?.status === "ok" && health.data?.db === "up";
-	if (health.isPending) return null;
+	// A skeleton holds the badge's place, so the header does not jump when the
+	// answer arrives and a missing badge is never mistaken for "no problem".
+	if (health.isLoading)
+		return (
+			<span aria-busy="true">
+				<span
+					className="skeleton"
+					style={{ display: "inline-block", width: "132px", height: "18px" }}
+				/>
+				<span className="visually-hidden">Checking the system status</span>
+			</span>
+		);
 	return (
 		<Badge
 			tone={ok ? "success" : "error"}

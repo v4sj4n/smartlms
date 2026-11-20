@@ -7,6 +7,7 @@ import { fromDateTimeLocal, toDateTimeLocal } from "../../format";
 import { useCampuses, useSubjectMutations } from "../../queries";
 import { toastApiError, toastSuccess } from "../../toast";
 import { Button, Dialog, SelectField, TextField } from "../ui";
+import { LectureFileField } from "./LectureFileField";
 import { WeekField } from "./WeekField";
 
 const NOUN: Record<SessionKind, string> = {
@@ -17,19 +18,25 @@ const NOUN: Record<SessionKind, string> = {
 export function SessionFormDialog({
 	kind,
 	subjectId,
+	weekId,
 	item,
 	onClose,
 }: {
 	kind: SessionKind;
 	subjectId: string;
+	/** Week this content is filed into on create, when opened from a week. */
+	weekId?: string;
 	item?: SessionItem;
 	onClose: () => void;
 }) {
-	const { createSession, updateSession } = useSubjectMutations(subjectId);
+	const { createSession, updateSession, uploadLectureFile, deleteLectureFile } =
+		useSubjectMutations(subjectId);
 	const campuses = useCampuses();
 	const noun = NOUN[kind];
 	const isEdit = item !== undefined;
 	const [serverError, setServerError] = useState<string | null>(null);
+	const [pickedFile, setPickedFile] = useState<File | null>(null);
+	const [removeFile, setRemoveFile] = useState(false);
 
 	const roomOptions = [
 		{ value: "", label: "No room" },
@@ -51,7 +58,7 @@ export function SessionFormDialog({
 			description: item?.description ?? "",
 			class_id: item?.class_id ?? "",
 			scheduled_at: toDateTimeLocal(item?.scheduled_at),
-			week_id: item?.week_id ?? "",
+			week_id: item?.week_id ?? weekId ?? "",
 		},
 		onSubmit: async ({ value }) => {
 			setServerError(null);
@@ -63,30 +70,59 @@ export function SessionFormDialog({
 				// Empty clears the week on edit and leaves it unscheduled on create.
 				week_id: value.week_id,
 			};
+			let lectureId: string;
 			try {
 				if (isEdit) {
 					await updateSession.mutateAsync({ kind, id: item.id, input });
-					toastSuccess(`${noun} updated`, input.title);
+					lectureId = item.id;
 				} else {
-					await createSession.mutateAsync({ kind, subjectId, input });
-					toastSuccess(`${noun} added`, input.title);
+					const created = await createSession.mutateAsync({
+						kind,
+						subjectId,
+						input,
+					});
+					lectureId = created.id;
 				}
-				onClose();
 			} catch (error) {
 				setServerError(errorMessage(error));
 				toastApiError(error, `${noun} could not be saved`);
+				return;
 			}
+
+			// The lecture is saved first; the file is a second step so a failed
+			// upload never loses the details the lecturer typed.
+			try {
+				if (pickedFile) {
+					await uploadLectureFile.mutateAsync({ lectureId, file: pickedFile });
+				} else if (removeFile && item?.file) {
+					await deleteLectureFile.mutateAsync(lectureId);
+				}
+			} catch (error) {
+				toastApiError(
+					error,
+					`${noun} saved, but the file could not be ${pickedFile ? "uploaded" : "removed"}`,
+				);
+				onClose();
+				return;
+			}
+
+			toastSuccess(isEdit ? `${noun} updated` : `${noun} added`, input.title);
+			onClose();
 		},
 	});
 
-	const pending = createSession.isPending || updateSession.isPending;
+	const pending =
+		createSession.isPending ||
+		updateSession.isPending ||
+		uploadLectureFile.isPending ||
+		deleteLectureFile.isPending;
 
 	return (
 		<Dialog
 			title={
 				isEdit ? `Edit ${noun.toLowerCase()}` : `Add ${noun.toLowerCase()}`
 			}
-			description="Lectures and seminars are scheduled into a room from the campus tree."
+			description="Schedule the lecture into a room and attach its material."
 			onDismiss={onClose}
 			dismissible={!pending}
 			footer={
@@ -182,6 +218,22 @@ export function SessionFormDialog({
 						/>
 					)}
 				</form.Field>
+
+				<LectureFileField
+					current={item?.file}
+					picked={pickedFile}
+					removed={removeFile}
+					onPick={(file) => {
+						setPickedFile(file);
+						setRemoveFile(false);
+					}}
+					onRemove={() => {
+						setPickedFile(null);
+						setRemoveFile(true);
+					}}
+					onUndo={() => setRemoveFile(false)}
+					disabled={pending}
+				/>
 
 				<form.Field name="class_id">
 					{(field) => (

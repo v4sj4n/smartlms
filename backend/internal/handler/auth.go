@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"smartlms/backend/internal/auth"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/auth"
+	"optimolms/backend/internal/util"
 )
 
 type loginRequest struct {
@@ -16,10 +16,28 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// sessionUserOut is the caller as every signed-in response describes them.
+type sessionUserOut struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	Role  string `json:"role"`
+}
+
+// loginResponse is what a completed sign-in returns, and what GET /api/me
+// returns on every later page load: the account, the modules its role reaches,
+// the effective permission keys, and when the session stops working.
+//
+// Token is only set by the endpoints that mint a session. A browser ignores it —
+// the same value already arrived in the HttpOnly cookie — while a non-browser
+// client (an MCP client, a script) keeps it and sends it back as
+// `Authorization: Bearer <token>`.
 type loginResponse struct {
-	User        map[string]any `json:"user"`
+	User        sessionUserOut `json:"user"`
 	Modules     []string       `json:"modules"`
 	Permissions []string       `json:"permissions"`
+	ExpiresAt   string         `json:"expires_at,omitempty"`
+	Token       string         `json:"token,omitempty"`
 }
 
 // loginChallengeResponse is the answer to a correct password on an account with
@@ -79,53 +97,6 @@ func clearFailedAttempts(ctx context.Context, db *sql.DB, userID string) error {
 	return err
 }
 
-// sessionPayload loads what the client needs once a sign-in is complete: the
-// modules the role reaches (ADMIN reaches all of them) and the effective
-// permission keys, which layer per-user grants over the role's own.
-func sessionPayload(ctx context.Context, db *sql.DB, userID, email, name, roleName string) (loginResponse, error) {
-	modules := []string{}
-	var (
-		rows *sql.Rows
-		err  error
-	)
-	if roleName == "ADMIN" {
-		rows, err = db.QueryContext(ctx, `SELECT key FROM modules ORDER BY key`)
-	} else {
-		rows, err = db.QueryContext(ctx, `
-			SELECT m.key FROM role_modules rm
-			JOIN modules m ON m.id = rm.module_id
-			JOIN users u ON u.role_id = rm.role_id
-			WHERE u.id = ? ORDER BY m.key`, userID)
-	}
-	if err != nil {
-		return loginResponse{}, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
-			return loginResponse{}, err
-		}
-		modules = append(modules, key)
-	}
-	if err := rows.Err(); err != nil {
-		return loginResponse{}, err
-	}
-
-	permissions, err := effectivePermissionKeys(ctx, db, userID)
-	if err != nil {
-		return loginResponse{}, err
-	}
-
-	return loginResponse{
-		User: map[string]any{
-			"id": userID, "email": email, "name": name, "role": roleName,
-		},
-		Modules:     modules,
-		Permissions: permissions,
-	}, nil
-}
-
 // registerAuth wires POST /api/auth/login with per-role lockout: after
 // roles.max_login_attempts consecutive failures the account is locked for
 // roles.lock_minutes. A NULL max_login_attempts means unlimited tries.
@@ -133,7 +104,7 @@ func sessionPayload(ctx context.Context, db *sql.DB, userID, email, name, roleNa
 // An account with two-factor on gets no session from this endpoint: the correct
 // password earns a challenge ticket, and POST /api/auth/login/2fa trades that
 // ticket plus a code for the session.
-func registerAuth(mux *http.ServeMux, db *sql.DB, twoFactor *twoFactorService) {
+func registerAuth(mux *http.ServeMux, db *sql.DB, twoFactor *twoFactorService, sessions *sessionStore) {
 	mux.HandleFunc("POST /api/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var req loginRequest
@@ -230,7 +201,9 @@ func registerAuth(mux *http.ServeMux, db *sql.DB, twoFactor *twoFactorService) {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		payload, err := sessionPayload(ctx, db, id, email, name, roleName)
+		// The password is the whole story for an account without two-factor:
+		// mint the session here and hand it over in the cookie.
+		payload, err := issueSessionFor(w, r, sessions, id)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return

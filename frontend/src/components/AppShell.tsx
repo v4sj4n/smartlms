@@ -8,12 +8,15 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { useAuth } from "../auth";
+import { useAssistantAccess } from "../chat/access";
 import { FloatingChat } from "../chat/FloatingChat";
 import { buildNavItems, groupNavItems, type NavItem } from "../modules";
+import { NotificationsBell } from "./notifications/NotificationsBell";
+import { NotificationsNavItem } from "./notifications/NotificationsNavItem";
 import { UserMenu } from "./UserMenu";
-import { IconButton } from "./ui";
+import { IconButton, OptimoLogo } from "./ui";
 
-const COLLAPSE_KEY = "smartlms.sidebar.v1";
+const COLLAPSE_KEY = "optimolms.sidebar.v1";
 const MOBILE_QUERY = "(max-width: 880px)";
 
 function readCollapsed(): boolean {
@@ -119,6 +122,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 	const menuButtonRef = useRef<HTMLButtonElement>(null);
 	const sidebarRef = useRef<HTMLElement>(null);
 	const navRef = useRef<HTMLElement>(null);
+	// The Assistant entry follows the chat surfaces: no model to answer with,
+	// no entry. Everyone else's sidebar is unaffected.
+	const { ready: assistantReady } = useAssistantAccess();
 
 	// The drawer always shows the full sidebar; the rail is a desktop-only mode.
 	const collapsed = collapsedPreference && !isMobile;
@@ -155,7 +161,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 	if (!session) return null;
 
 	const groups = groupNavItems(
-		buildNavItems(session.modules, isAdmin, session.permissions),
+		buildNavItems(
+			session.modules,
+			isAdmin,
+			session.permissions,
+			assistantReady,
+		),
 	);
 	const navGroups = groups.filter((group) => group.key !== "footer");
 	const footerItems =
@@ -178,17 +189,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 	const brandContent = (
 		<>
-			<span className="sidebar__mark" aria-hidden="true">
-				SL
-			</span>
+			<OptimoLogo className="sidebar__logo" />
 			<span className="sidebar__wordmark">
-				<span className="sidebar__name">SmartLMS</span>
-				<span className="sidebar__caption">Learning platform</span>
+				<span className="sidebar__name">OptimoLMS</span>
 			</span>
 		</>
 	);
 	const brand = hasModule("dashboard") ? (
-		<Link to="/" className="sidebar__brand" aria-label="SmartLMS dashboard">
+		<Link to="/" className="sidebar__brand" aria-label="OptimoLMS dashboard">
 			{brandContent}
 		</Link>
 	) : (
@@ -221,6 +229,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 						onClick={() => setDrawerOpen(true)}
 					/>
 					{brand}
+					<span style={{ marginLeft: "auto", display: "flex" }}>
+						<NotificationsBell />
+					</span>
 				</header>
 			) : null}
 
@@ -302,6 +313,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 							collapsed={collapsed}
 						/>
 					))}
+					<NotificationsNavItem collapsed={collapsed} />
 					<UserMenu />
 				</div>
 			</aside>

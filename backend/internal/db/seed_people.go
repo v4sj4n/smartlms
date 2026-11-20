@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"smartlms/backend/internal/auth"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/auth"
+	"optimolms/backend/internal/util"
 )
 
 // Demo population: enough students and lecturers that lists, pagination,
@@ -19,7 +19,7 @@ const (
 	seedPeopleStudents  = 48
 	seedPeopleLecturers = 7
 	seedPeoplePassword  = "password123"
-	seedPeopleDomain    = "people.smartlms.dev"
+	seedPeopleDomain    = "people.optimolms.dev"
 	seedPeopleRandSeed  = 20261120
 )
 

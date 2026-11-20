@@ -1,5 +1,6 @@
 import {
 	keepPreviousData,
+	type QueryClient,
 	useMutation,
 	useQuery,
 	useQueryClient,
@@ -16,7 +17,8 @@ import {
 	type CourseAssignmentInput,
 	type DepartmentInput,
 	type FacultyInput,
-	type FlashcardInput,
+	type FlashcardSetInput,
+	type GeneralSettingsInput,
 	type McpAppList,
 	type ProgrammeInput,
 	type QuizInput,
@@ -24,6 +26,7 @@ import {
 	type SessionInput,
 	type SessionKind,
 	type StoryInput,
+	type StudentListParams,
 	type SubjectInput,
 	type TwoFactorEnabled,
 	type TwoFactorStatus,
@@ -51,7 +54,16 @@ export const queryKeys = {
 		school_year?: string;
 	}) => ["subjects", "list", params] as const,
 	subject: (id: string) => ["subject", id] as const,
+	subjectEnrollments: (subjectId: string) =>
+		["subjectEnrollments", subjectId] as const,
+	/** App-wide limits every upload picker reads. */
+	generalSettings: ["generalSettings"] as const,
+	/** Prefix key: every date window of the timetable. */
+	schedule: ["schedule"] as const,
+	scheduleWindow: (from?: string, to?: string) =>
+		["schedule", from ?? "", to ?? ""] as const,
 	users: (params: UserListParams) => ["users", params] as const,
+	students: (params: StudentListParams) => ["students", params] as const,
 	notifications: (userId: string) => ["notifications", userId] as const,
 	aiSettings: (userId: string) => ["aiSettings", userId] as const,
 	appearance: (userId: string) => ["appearance", userId] as const,
@@ -60,6 +72,7 @@ export const queryKeys = {
 	twoFactor: (userId: string) => ["twoFactor", userId] as const,
 	aiProviders: (userId: string, scope: AiScope) =>
 		["aiProviders", userId, scope] as const,
+	aiChatModels: (userId: string) => ["aiChatModels", userId] as const,
 	providerModels: (providerId: string) =>
 		["aiProviderModels", providerId] as const,
 	userPermissions: (userId: string) => ["userPermissions", userId] as const,
@@ -236,6 +249,7 @@ export function useAcademicMutations(programmeId?: string) {
 	const queryClient = useQueryClient();
 	const refresh = () => {
 		void queryClient.invalidateQueries({ queryKey: queryKeys.academic });
+		void queryClient.invalidateQueries({ queryKey: ["students"] });
 		if (programmeId) {
 			void queryClient.invalidateQueries({
 				queryKey: queryKeys.programme(programmeId),
@@ -370,6 +384,15 @@ export function useSubjects(params: {
 	});
 }
 
+export function useStudents(params: StudentListParams) {
+	return useQuery({
+		queryKey: queryKeys.students(params),
+		queryFn: () => api.students(params),
+		staleTime: 20_000,
+		placeholderData: keepPreviousData,
+	});
+}
+
 export function useUsers(params: UserListParams) {
 	return useQuery({
 		queryKey: queryKeys.users(params),
@@ -382,7 +405,7 @@ export function useUsers(params: UserListParams) {
 export function useNotifications(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.notifications(userId ?? ""),
-		queryFn: () => api.notifications(userId ?? ""),
+		queryFn: () => api.notifications(),
 		enabled: Boolean(userId),
 		staleTime: 20_000,
 		refetchInterval: 60_000,
@@ -406,7 +429,7 @@ export function useNotificationMutations(userId: string | undefined) {
 	});
 
 	const markAllRead = useMutation({
-		mutationFn: () => api.markAllNotificationsRead(userId ?? ""),
+		mutationFn: () => api.markAllNotificationsRead(),
 		onSuccess: refresh,
 		onError: refresh,
 	});
@@ -496,6 +519,19 @@ export function useSubjectMutations(subjectId?: string) {
 		onError: refresh,
 	});
 
+	const uploadLectureFile = useMutation({
+		mutationFn: ({ lectureId, file }: { lectureId: string; file: File }) =>
+			api.uploadLectureFile(lectureId, file),
+		onSuccess: refresh,
+		onError: refresh,
+	});
+
+	const deleteLectureFile = useMutation({
+		mutationFn: (lectureId: string) => api.deleteLectureFile(lectureId),
+		onSuccess: refresh,
+		onError: refresh,
+	});
+
 	const createQuiz = useMutation({
 		mutationFn: ({ id, input }: { id: string; input: QuizInput }) =>
 			api.createQuiz(id, input),
@@ -516,27 +552,27 @@ export function useSubjectMutations(subjectId?: string) {
 		onError: refresh,
 	});
 
-	const createFlashcard = useMutation({
-		mutationFn: ({ id, input }: { id: string; input: FlashcardInput }) =>
-			api.createFlashcard(id, input),
+	const createFlashcardSet = useMutation({
+		mutationFn: ({ id, input }: { id: string; input: FlashcardSetInput }) =>
+			api.createFlashcardSet(id, input),
 		onSuccess: refresh,
 		onError: refresh,
 	});
 
-	const updateFlashcard = useMutation({
+	const updateFlashcardSet = useMutation({
 		mutationFn: ({
 			id,
 			input,
 		}: {
 			id: string;
-			input: Partial<FlashcardInput>;
-		}) => api.updateFlashcard(id, input),
+			input: Partial<FlashcardSetInput>;
+		}) => api.updateFlashcardSet(id, input),
 		onSuccess: refresh,
 		onError: refresh,
 	});
 
-	const deleteFlashcard = useMutation({
-		mutationFn: (id: string) => api.deleteFlashcard(id),
+	const deleteFlashcardSet = useMutation({
+		mutationFn: (id: string) => api.deleteFlashcardSet(id),
 		onSuccess: refresh,
 		onError: refresh,
 	});
@@ -548,13 +584,73 @@ export function useSubjectMutations(subjectId?: string) {
 		createSession,
 		updateSession,
 		deleteSession,
+		uploadLectureFile,
+		deleteLectureFile,
 		createQuiz,
 		updateQuiz,
 		deleteQuiz,
-		createFlashcard,
-		updateFlashcard,
-		deleteFlashcard,
+		createFlashcardSet,
+		updateFlashcardSet,
+		deleteFlashcardSet,
 	};
+}
+
+/* --- subject enrolments --------------------------------------------------- */
+
+/** The roster of one subject: who may be graded and see its content. */
+export function useSubjectEnrollments(subjectId: string | undefined) {
+	return useQuery({
+		queryKey: queryKeys.subjectEnrollments(subjectId ?? ""),
+		queryFn: () => api.subjectEnrollments(subjectId ?? ""),
+		enabled: Boolean(subjectId),
+		staleTime: 15_000,
+	});
+}
+
+/**
+ * The roster is the subject's student count and the gradebook's column set, so
+ * every change refreshes the roster, the subject and the gradebook.
+ */
+function refreshEnrollments(queryClient: QueryClient, subjectId?: string) {
+	if (subjectId) {
+		void queryClient.invalidateQueries({
+			queryKey: queryKeys.subjectEnrollments(subjectId),
+		});
+		void queryClient.invalidateQueries({
+			queryKey: queryKeys.subject(subjectId),
+		});
+	}
+	void queryClient.invalidateQueries({ queryKey: queryKeys.subjects });
+	void queryClient.invalidateQueries({ queryKey: ["gradebook"] });
+}
+
+/** Adds students; the API answers with the roster after the change. */
+export function useEnrollStudents(subjectId?: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (studentIds: string[]) =>
+			api.enrollStudents(subjectId ?? "", studentIds),
+		onSuccess: (roster) => {
+			if (subjectId) {
+				queryClient.setQueryData(
+					queryKeys.subjectEnrollments(subjectId),
+					roster,
+				);
+			}
+			refreshEnrollments(queryClient, subjectId);
+		},
+		onError: () => refreshEnrollments(queryClient, subjectId),
+	});
+}
+
+export function useUnenrollStudent(subjectId?: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (studentId: string) =>
+			api.unenrollStudent(subjectId ?? "", studentId),
+		onSuccess: () => refreshEnrollments(queryClient, subjectId),
+		onError: () => refreshEnrollments(queryClient, subjectId),
+	});
 }
 
 /**
@@ -653,12 +749,39 @@ export function useCampusMutations() {
 	};
 }
 
+/**
+ * App-wide limits: the extension allow-list and the size cap the upload picker
+ * checks before it opens a file dialog.
+ */
+export function useGeneralSettings() {
+	return useQuery({
+		queryKey: queryKeys.generalSettings,
+		queryFn: api.generalSettings,
+		staleTime: 60_000,
+	});
+}
+
+/**
+ * Saves one limit and takes the answer as the new truth: the API replies with
+ * the whole settings object, so the pickers never disagree with the server.
+ */
+export function useUpdateGeneralSettings() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: GeneralSettingsInput) =>
+			api.updateGeneralSettings(input),
+		onSuccess: (saved) => {
+			queryClient.setQueryData(queryKeys.generalSettings, saved);
+		},
+	});
+}
+
 /* --- Per-user appearance --------------------------------------------------- */
 
 export function useAppearance(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.appearance(userId ?? ""),
-		queryFn: () => api.appearance(userId ?? ""),
+		queryFn: () => api.appearance(),
 		enabled: Boolean(userId),
 		staleTime: Infinity,
 	});
@@ -680,7 +803,7 @@ export function useUpdateAppearance(userId: string | undefined) {
 export function useMcpApps(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.mcpApps(userId ?? ""),
-		queryFn: () => api.mcpApps(userId ?? ""),
+		queryFn: () => api.mcpApps(),
 		enabled: Boolean(userId),
 		staleTime: 30_000,
 	});
@@ -690,8 +813,7 @@ export function useMcpApps(userId: string | undefined) {
 export function useConnectMcpApp(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (appKey: string) =>
-			api.connectMcpApp({ user_id: userId ?? "", app_key: appKey }),
+		mutationFn: (appKey: string) => api.connectMcpApp({ app_key: appKey }),
 		onSuccess: (list) => {
 			if (userId)
 				queryClient.setQueryData<McpAppList>(queryKeys.mcpApps(userId), list);
@@ -704,13 +826,13 @@ export function useConnectMcpApp(userId: string | undefined) {
 }
 
 /**
- * The built-in SmartLMS MCP server's catalogue. It answers per permission, so
+ * The built-in OptimoLMS MCP server's catalogue. It answers per permission, so
  * the tab can show which tools this person may actually call.
  */
 export function useMcpServerTools(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.mcpTools(userId ?? ""),
-		queryFn: () => api.mcpTools(userId ?? ""),
+		queryFn: () => api.mcpTools(),
 		enabled: Boolean(userId),
 		staleTime: 60_000,
 	});
@@ -719,7 +841,7 @@ export function useMcpServerTools(userId: string | undefined) {
 export function useDisconnectMcpApp(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (appKey: string) => api.disconnectMcpApp(appKey, userId ?? ""),
+		mutationFn: (appKey: string) => api.disconnectMcpApp(appKey),
 		onSuccess: (list) => {
 			if (userId)
 				queryClient.setQueryData<McpAppList>(queryKeys.mcpApps(userId), list);
@@ -736,7 +858,7 @@ export function useDisconnectMcpApp(userId: string | undefined) {
 export function useTwoFactor(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.twoFactor(userId ?? ""),
-		queryFn: () => api.twoFactorStatus(userId ?? ""),
+		queryFn: () => api.twoFactorStatus(),
 		enabled: Boolean(userId),
 		staleTime: 30_000,
 	});
@@ -770,7 +892,7 @@ export function useTwoFactorMutations(userId: string | undefined) {
 	};
 
 	const setup = useMutation({
-		mutationFn: () => api.startTwoFactorSetup(userId ?? ""),
+		mutationFn: () => api.startTwoFactorSetup(),
 		onSuccess: (data) => {
 			// A minted secret is pending until a code confirms it.
 			writeStatus({
@@ -783,19 +905,17 @@ export function useTwoFactorMutations(userId: string | undefined) {
 	});
 
 	const enable = useMutation({
-		mutationFn: (code: string) => api.enableTwoFactor(userId ?? "", code),
+		mutationFn: (code: string) => api.enableTwoFactor(code),
 		onSuccess: (data) => writeStatus(statusFromEnabled(data)),
 	});
 
 	const disable = useMutation({
-		mutationFn: (password: string) =>
-			api.disableTwoFactor(userId ?? "", password),
+		mutationFn: (password: string) => api.disableTwoFactor(password),
 		onSuccess: writeStatus,
 	});
 
 	const regenerate = useMutation({
-		mutationFn: (password: string) =>
-			api.regenerateRecoveryCodes(userId ?? "", password),
+		mutationFn: (password: string) => api.regenerateRecoveryCodes(password),
 		onSuccess: (data) => writeStatus(statusFromEnabled(data)),
 	});
 
@@ -819,16 +939,32 @@ export function useResetUserTwoFactor() {
 export function useAiSettings(userId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.aiSettings(userId ?? ""),
-		queryFn: () => api.aiSettings(userId ?? ""),
+		queryFn: () => api.aiSettings(),
 		enabled: Boolean(userId),
 		staleTime: 60_000,
+	});
+}
+
+/**
+ * What chat can answer with right now. `ready: false` is the signal every chat
+ * surface hides on: without a provider, a key, or an enabled model there is
+ * nothing to ask, so the assistant is not offered at all.
+ */
+export function useAiChatModels(userId: string | undefined, enabled = true) {
+	return useQuery({
+		queryKey: queryKeys.aiChatModels(userId ?? ""),
+		queryFn: () => api.aiChatModels(),
+		enabled: Boolean(userId) && enabled,
+		// Provider edits invalidate this; a short stale window keeps the
+		// launcher from re-asking on every page change.
+		staleTime: 30_000,
 	});
 }
 
 export function useAiProviderList(userId: string | undefined, scope: AiScope) {
 	return useQuery({
 		queryKey: queryKeys.aiProviders(userId ?? "", scope),
-		queryFn: () => api.aiProviders({ user_id: userId ?? "", scope }),
+		queryFn: () => api.aiProviders(scope),
 		enabled: Boolean(userId),
 	});
 }
@@ -840,7 +976,7 @@ export function useProviderModels(
 ) {
 	return useQuery({
 		queryKey: queryKeys.providerModels(providerId ?? ""),
-		queryFn: () => api.providerModels(providerId ?? "", userId ?? ""),
+		queryFn: () => api.providerModels(providerId ?? ""),
 		enabled: Boolean(providerId && userId),
 	});
 }
@@ -853,22 +989,83 @@ export function useAiProviderMutations(userId: string | undefined) {
 		void queryClient.invalidateQueries({
 			queryKey: ["aiProviders", userId],
 		});
+		// Connecting, disabling or re-keying changes whether chat can answer,
+		// which decides whether the assistant is offered at all.
+		void queryClient.invalidateQueries({
+			queryKey: queryKeys.aiChatModels(userId),
+		});
 	};
 
-	const saveKey = useMutation({
-		mutationFn: (input: { providerId: string; apiKey: string }) =>
-			api.saveProviderKey(input.providerId, {
-				user_id: userId ?? "",
+	// Model changes touch the catalogue and the card, so both queries refresh.
+	const refreshModels = () => {
+		if (!userId) return;
+		void queryClient.invalidateQueries({ queryKey: ["aiProviderModels"] });
+		refreshProviders();
+	};
+
+	const connectProvider = useMutation({
+		mutationFn: (input: {
+			scope: AiScope;
+			name: string;
+			baseUrl: string;
+			apiKey: string;
+			preset?: string;
+			allowUnverified?: boolean;
+		}) =>
+			api.connectAiProvider({
+				scope: input.scope,
+				name: input.name,
+				base_url: input.baseUrl,
 				api_key: input.apiKey,
+				preset: input.preset,
+				allow_unverified: input.allowUnverified,
 			}),
-		onSuccess: refreshProviders,
+		onSuccess: refreshModels,
 		onError: refreshProviders,
+	});
+
+	const saveKey = useMutation({
+		mutationFn: (input: {
+			providerId: string;
+			apiKey: string;
+			allowUnverified?: boolean;
+		}) =>
+			api.saveProviderKey(input.providerId, {
+				api_key: input.apiKey,
+				allow_unverified: input.allowUnverified,
+			}),
+		onSuccess: refreshModels,
+		onError: refreshProviders,
+	});
+
+	const testProvider = useMutation({
+		mutationFn: (providerId: string) => api.testAiProvider(providerId),
+		onSuccess: refreshModels,
+		onError: refreshProviders,
+	});
+
+	const bulkModels = useMutation({
+		mutationFn: (input: {
+			providerId: string;
+			action:
+				| "enable"
+				| "disable"
+				| "enable_all"
+				| "disable_all"
+				| "enable_recommended";
+			modelIds?: string[];
+		}) =>
+			api.bulkAiModels(input.providerId, {
+				action: input.action,
+				model_ids: input.modelIds,
+			}),
+		onSuccess: refreshModels,
+		onError: refreshModels,
 	});
 
 	const toggleProvider = useMutation({
 		mutationFn: (input: { providerId: string; isEnabled: boolean }) =>
 			api.updateAiProvider(input.providerId, {
-				user_id: userId ?? "",
 				is_enabled: input.isEnabled,
 			}),
 		onSuccess: refreshProviders,
@@ -876,8 +1073,7 @@ export function useAiProviderMutations(userId: string | undefined) {
 	});
 
 	const deleteProvider = useMutation({
-		mutationFn: (providerId: string) =>
-			api.deleteAiProvider(providerId, userId ?? ""),
+		mutationFn: (providerId: string) => api.deleteAiProvider(providerId),
 		onSuccess: refreshProviders,
 		onError: refreshProviders,
 	});
@@ -890,7 +1086,6 @@ export function useAiProviderMutations(userId: string | undefined) {
 			isDefault?: boolean;
 		}) =>
 			api.updateAiModel(input.modelId, {
-				user_id: userId ?? "",
 				is_enabled: input.isEnabled,
 				is_default: input.isDefault,
 			}),
@@ -904,7 +1099,15 @@ export function useAiProviderMutations(userId: string | undefined) {
 		onError: refreshProviders,
 	});
 
-	return { saveKey, toggleProvider, deleteProvider, updateModel };
+	return {
+		connectProvider,
+		saveKey,
+		testProvider,
+		bulkModels,
+		toggleProvider,
+		deleteProvider,
+		updateModel,
+	};
 }
 
 /** Saves the per-user assistant preferences draft. */
@@ -932,12 +1135,8 @@ export function useUserPermissions(userId: string | undefined) {
 export function useUpdateUserPermissions(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (input: { permissionKeys: string[]; grantedBy: string }) =>
-			api.updateUserPermissions(
-				userId ?? "",
-				input.permissionKeys,
-				input.grantedBy,
-			),
+		mutationFn: (input: { permissionKeys: string[] }) =>
+			api.updateUserPermissions(userId ?? "", input.permissionKeys),
 		onSuccess: (saved) => {
 			if (!userId) return;
 			queryClient.setQueryData(queryKeys.userPermissions(userId), saved);
@@ -950,7 +1149,7 @@ export function useUpdateUserPermissions(userId: string | undefined) {
 export function useStudentAssignments(studentId: string | undefined) {
 	return useQuery({
 		queryKey: queryKeys.studentAssignments(studentId ?? ""),
-		queryFn: () => api.assignmentsForStudent(studentId ?? ""),
+		queryFn: () => api.myAssignments(),
 		enabled: Boolean(studentId),
 		staleTime: 15_000,
 	});
@@ -959,7 +1158,7 @@ export function useStudentAssignments(studentId: string | undefined) {
 export function useAssignment(id: string, studentId?: string) {
 	return useQuery({
 		queryKey: queryKeys.assignment(id, studentId),
-		queryFn: () => api.assignment(id, studentId),
+		queryFn: () => api.assignment(id),
 		enabled: Boolean(id),
 	});
 }
@@ -998,14 +1197,13 @@ export function useAssignmentMutations(subjectId?: string) {
 	const submit = useMutation({
 		mutationFn: (vars: {
 			assignmentId: string;
-			input: { student_id: string; content?: string; file_url?: string };
+			input: { content?: string; file_url?: string };
 		}) => api.submitAssignment(vars.assignmentId, vars.input),
 		onSuccess: refresh,
 	});
 	const grade = useMutation({
 		mutationFn: (vars: {
 			submissionId: string;
-			grader_id: string;
 			score: number | null;
 			feedback?: string;
 		}) => api.gradeSubmission(vars.submissionId, vars),
@@ -1029,6 +1227,52 @@ export function useAssignmentMutations(subjectId?: string) {
 	return { submit, grade, create, update, remove };
 }
 
+/**
+ * Everything a submission's file can change: the assignment itself, the
+ * teacher's list for it, the student's own list and their submissions.
+ */
+function refreshSubmissionFile(queryClient: QueryClient) {
+	void queryClient.invalidateQueries({ queryKey: ["assignment"] });
+	void queryClient.invalidateQueries({ queryKey: ["assignmentSubmissions"] });
+	void queryClient.invalidateQueries({ queryKey: ["studentAssignments"] });
+	void queryClient.invalidateQueries({ queryKey: ["studentSubmissions"] });
+}
+
+/** Hands the work itself in: creates the submission or replaces its file. */
+export function useUploadSubmissionFile() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (vars: { assignmentId: string; file: File }) =>
+			api.uploadSubmissionFile(vars.assignmentId, vars.file),
+		onSuccess: () => refreshSubmissionFile(queryClient),
+		onError: () => refreshSubmissionFile(queryClient),
+	});
+}
+
+export function useDeleteSubmissionFile() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (assignmentId: string) =>
+			api.deleteSubmissionFile(assignmentId),
+		onSuccess: () => refreshSubmissionFile(queryClient),
+		onError: () => refreshSubmissionFile(queryClient),
+	});
+}
+
+/* --- timetable ------------------------------------------------------------ */
+
+/**
+ * The caller's lectures in one window of dates. Both ends are optional: an
+ * omitted one leaves that side of the window to the backend's default.
+ */
+export function useSchedule(from?: string, to?: string) {
+	return useQuery({
+		queryKey: queryKeys.scheduleWindow(from, to),
+		queryFn: () => api.schedule(from, to),
+		staleTime: 60_000,
+	});
+}
+
 /* --- gradebook ------------------------------------------------------------ */
 
 export function useGradebook(
@@ -1037,7 +1281,7 @@ export function useGradebook(
 ) {
 	return useQuery({
 		queryKey: queryKeys.gradebook(subjectId ?? ""),
-		queryFn: () => api.gradebook(subjectId ?? "", userId ?? ""),
+		queryFn: () => api.gradebook(subjectId ?? ""),
 		enabled: Boolean(subjectId && userId),
 		staleTime: 10_000,
 	});
@@ -1078,11 +1322,11 @@ export function useGradebookMutations(subjectId?: string, studentId?: string) {
 		mutationFn: (vars: {
 			subjectId: string;
 			input: {
-				user_id: string;
-				name: string;
-				type: string;
+				name?: string;
+				type?: string;
 				weight_percent: number;
 				max_points?: number;
+				assignment_id?: string;
 			};
 		}) => api.createGradeComponent(vars.subjectId, vars.input),
 		onSuccess: refresh,
@@ -1091,7 +1335,6 @@ export function useGradebookMutations(subjectId?: string, studentId?: string) {
 		mutationFn: (vars: {
 			id: string;
 			input: {
-				user_id: string;
 				name?: string;
 				type?: string;
 				weight_percent?: number;
@@ -1101,15 +1344,14 @@ export function useGradebookMutations(subjectId?: string, studentId?: string) {
 		onSuccess: refresh,
 	});
 	const deleteComponent = useMutation({
-		mutationFn: (vars: { id: string; user_id: string }) =>
-			api.deleteGradeComponent(vars.id, vars.user_id),
+		mutationFn: (vars: { id: string }) => api.deleteGradeComponent(vars.id),
 		onSuccess: refresh,
 	});
 	const saveEntry = useMutation({
 		mutationFn: (vars: {
 			componentId: string;
 			studentId: string;
-			input: { user_id: string; points: number | null; comment?: string };
+			input: { points: number | null; comment?: string };
 		}) => api.saveGradeEntry(vars.componentId, vars.studentId, vars.input),
 		onSuccess: refresh,
 	});
@@ -1118,7 +1360,6 @@ export function useGradebookMutations(subjectId?: string, studentId?: string) {
 			studentId: string;
 			subjectId: string;
 			input: {
-				user_id: string;
 				attempt_no?: number;
 				override_points?: number | null;
 				override_grade?: number | null;
@@ -1129,11 +1370,8 @@ export function useGradebookMutations(subjectId?: string, studentId?: string) {
 		onSuccess: refresh,
 	});
 	const clearOfficial = useMutation({
-		mutationFn: (vars: {
-			studentId: string;
-			subjectId: string;
-			user_id: string;
-		}) => api.clearOfficialResult(vars.studentId, vars.subjectId, vars.user_id),
+		mutationFn: (vars: { studentId: string; subjectId: string }) =>
+			api.clearOfficialResult(vars.studentId, vars.subjectId),
 		onSuccess: refresh,
 	});
 
@@ -1197,27 +1435,24 @@ export function useForumMutations(
 	const createForum = useMutation({
 		mutationFn: (vars: {
 			subjectId: string;
-			input: { user_id: string; title: string; description?: string };
+			input: { title: string; description?: string };
 		}) => api.createForum(vars.subjectId, vars.input),
 		onSuccess: refresh,
 	});
 	const createThread = useMutation({
 		mutationFn: (vars: {
 			forumId: string;
-			input: { user_id: string; title: string; body: string };
+			input: { title: string; body: string };
 		}) => api.createThread(vars.forumId, vars.input),
 		onSuccess: refresh,
 	});
 	const reply = useMutation({
-		mutationFn: (vars: {
-			threadId: string;
-			input: { user_id: string; body: string };
-		}) => api.replyToThread(vars.threadId, vars.input),
+		mutationFn: (vars: { threadId: string; input: { body: string } }) =>
+			api.replyToThread(vars.threadId, vars.input),
 		onSuccess: refresh,
 	});
 	const removePost = useMutation({
-		mutationFn: (vars: { postId: string; user_id: string }) =>
-			api.deleteForumPost(vars.postId, vars.user_id),
+		mutationFn: (vars: { postId: string }) => api.deleteForumPost(vars.postId),
 		onSuccess: refresh,
 	});
 
@@ -1253,8 +1488,7 @@ export function useQuizAttemptMutations(quizId?: string) {
 		void queryClient.invalidateQueries({ queryKey: ["studentQuizAttempts"] });
 	};
 	const start = useMutation({
-		mutationFn: (vars: { quizId: string; student_id: string }) =>
-			api.startQuizAttempt(vars.quizId, vars.student_id),
+		mutationFn: (vars: { quizId: string }) => api.startQuizAttempt(vars.quizId),
 		onSuccess: refresh,
 	});
 	const submit = useMutation({

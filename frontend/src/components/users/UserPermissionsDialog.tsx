@@ -80,7 +80,6 @@ export function UserPermissionsDialog({
 							if (!draft) return;
 							const request = save.mutateAsync({
 								permissionKeys: draft,
-								grantedBy: session?.user.id ?? "",
 							});
 							void toast.promise(request, {
 								loading: `Saving permissions for ${userName}…`,

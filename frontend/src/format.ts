@@ -125,3 +125,16 @@ export function initials(name: string): string {
 	if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
 	return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
+
+/** 2_400_000 -> "2.3 MB"; whole bytes under 1 KB. */
+export function formatBytes(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ["KB", "MB", "GB"];
+	let value = bytes / 1024;
+	let unit = 0;
+	while (value >= 1024 && unit < units.length - 1) {
+		value /= 1024;
+		unit += 1;
+	}
+	return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}

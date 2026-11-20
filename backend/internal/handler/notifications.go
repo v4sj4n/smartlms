@@ -2,10 +2,9 @@ package handler
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 type notificationOut struct {
@@ -17,14 +16,10 @@ type notificationOut struct {
 }
 
 // registerNotifications wires the in-app notification feed shown in the user
-// menu. Scoped by user_id until sessions land.
+// menu. The session decides whose feed it is.
 func registerNotifications(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /api/notifications", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		userID := callerFrom(r).ID
 		rows, err := db.QueryContext(r.Context(), `
 			SELECT id, title, message, read_at IS NOT NULL, created_at
 			FROM notifications WHERE user_id = ?
@@ -47,8 +42,10 @@ func registerNotifications(mux *http.ServeMux, db *sql.DB) {
 	})
 
 	mux.HandleFunc("POST /api/notifications/{id}/read", func(w http.ResponseWriter, r *http.Request) {
-		res, err := db.ExecContext(r.Context(), `UPDATE notifications SET read_at = ? WHERE id = ? AND read_at IS NULL`,
-			util.Now(), r.PathValue("id"))
+		// Scoped by owner: a notification id alone is not permission to touch it.
+		res, err := db.ExecContext(r.Context(),
+			`UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL`,
+			util.Now(), r.PathValue("id"), callerFrom(r).ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -62,15 +59,8 @@ func registerNotifications(mux *http.ServeMux, db *sql.DB) {
 	})
 
 	mux.HandleFunc("POST /api/notifications/read-all", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			UserID string `json:"user_id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
 		if _, err := db.ExecContext(r.Context(), `UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL`,
-			util.Now(), body.UserID); err != nil {
+			util.Now(), callerFrom(r).ID); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}

@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sky" data-buttons="solid" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OptimoLMS: a learning management system for schools</title>
+<meta name="description" content="Plan a school year week by week, grade in one gradebook, and let an assistant write lectures, quizzes and flashcards into the same subjects. Three roles share one permission set.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="OptimoLMS: a learning management system for schools">
+<meta property="og:description" content="Weeks, lectures, quizzes, a gradebook and an assistant that writes into the same subjects. One Go binary and a SQLite file.">
+<meta property="og:image" content="/share.jpg">
+<meta property="og:image:alt" content="The OptimoLMS hero: a school year read week by week, and week 3 of Algorithms open beside its lecture, quiz and flashcards.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f5f7fa">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/system.css">
+<link rel="stylesheet" href="/assets/cards.css">
+<link rel="stylesheet" href="/assets/motion.css">
+<link rel="stylesheet" href="/assets/backgrounds.css">
+<link rel="stylesheet" href="/assets/layout.css">
+<style>
+:root {
+  --p-bg: #f5f7fa; --p-surface: #ffffff; --p-ink: #171b20; --p-muted: #51565d;
+  --p-accent: #156cdd; --p-accent-ink: #f5f7fa; --p-action: #156cdd; --p-action-ink: #f5f7fa;
+  --p-inv-bg: #171b20; --p-inv-surface: #24282d; --p-inv-ink: #f5f7fa; --p-inv-muted: #989b9f;
+  --p-inv-accent: #156cdd; --p-inv-accent-ink: #f5f7fa; --p-inv-action: #156cdd; --p-inv-action-ink: #f5f7fa;
+  --font-display: "Schibsted Grotesk", system-ui, sans-serif;
+  --font-text: "Schibsted Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.035em;
+  --display-tracking-xl: -0.042em;
+  --ly-scale: 0.98;
+}
+</style>
+<link rel="stylesheet" href="/src/page.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="/assets/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="/assets/moments/moments.js">
+<link rel="modulepreload" href="/assets/moments/lib.js">
+<link rel="modulepreload" href="/assets/moments/cursor-spotlight/moment.js">
+<link rel="stylesheet" href="/assets/moments/cursor-spotlight/moment.css">
+</head>
+<body>
+<!-- type: software
+     deal: hero [centred], nav [nav-mega], close [close-word], footer [footer-columns], rhythm [dark-band], buttons [solid], mark [dots], grounds [sky]
+     moments: cursor-spotlight (the hero's window)
+     palette: the product's own (start.mjs brand): #f5f7fa ground, #171b20 ink, #156cdd action, so the
+     marketing page and the app read as one product; Schibsted Grotesk display and text, JetBrains Mono
+     for figures. No effect: the assistant's call line is the page's one piece of machinery. -->
+
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><svg class="logo" viewBox="-7 -7 554.92 504.7" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="223.63" cy="222.21" r="18"/><circle cx="317.81" cy="222.25" r="18"/><path d="M359.53,66.33c-76.07-97.22-230.81-14.69-200.86,101.95,22.83,83.41,105.62,184.79,3.67,247.44-71.56,47.36-191.6-21.66-155.83-109.58,17.51-44.17,76.19-55.56,107.44-23.35,18.73,18.72,28.63,59.72,7,59-20.47-.68-2.21-27.55-28.32-46.28-25.22-18.98-62.72-1-67.59,29.38-11.97,67.51,79.76,105.17,129.72,67.94,61.06-39.85,25.59-112.32.19-163.01C87.89,116.34,176.53-32.91,311.86,6.44c74.63,22.06,114.77,106.9,90.91,179.62-14,51.07-44.59,88.08-50.06,132.53-13.78,108.3,164.42,121.2,164.46,12.68-1.28-32.53-38.61-55.53-66.52-36.96-27.87,17.5-10.35,45.38-29.08,47.43-38.13.83,6.87-110.22,84.06-68.73,66.39,39.61,30.52,136.98-36.69,152.74-73.87,25.29-157.32-40.59-138.04-119.58,18.68-77.44,94.07-162.1,28.64-239.84Z" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/><path d="M270.6,390.58c-31.5,80.99-114.11,125.22-193.84,84.9-4.25-4.52-5.03-9.78-2.39-14.3,2.39-4.09,9.45-7.91,14.62-5.33,82.09,43.23,168.31-38.55,169.95-121.83-.47-15.53,22.57-16.8,23.26-.79,2.62,43.38,22.36,84.33,56.53,111.19,70.23,54.19,119.02-7.52,128.92,18.46,2.46,6.93-1.41,12.37-8.13,15.43-75.8,36.17-161.02-10.99-188.91-87.73Z" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/></svg>OptimoLMS</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item">
+        <a class="nav__link" href="#product">Product <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Teaching</p>
+              <a href="#product">Subjects<span>Read week by week</span></a>
+              <a href="#product">Quizzes<span>Attempts and review</span></a>
+              <a href="#gradebook">Gradebook<span>Components and letters</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Running it</p>
+              <a href="#access">Permissions<span>Roles and overrides</span></a>
+              <a href="#access">Two-factor<span>A code at sign-in</span></a>
+              <a href="#questions">Self-hosting<span>One binary, one file</span></a>
+            </div>
+            <a class="menu-card span-3 start-10" href="#assistant">
+              <div class="panel panel--inset"><div class="ui mock mock--card">
+                <p class="mock__q">Draft a quiz for week 3 of Algorithms</p>
+                <p class="mock__tool">create_quiz · Week 3</p>
+                <p class="mock__a">Ten questions on divide and conquer, with the answers.</p>
+              </div></div>
+              <span class="t-card">The assistant calls the API</span>
+              <span class="t-small muted">The same tools the screens use</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#gradebook">Gradebook</a></div>
+      <div class="nav__item"><a class="nav__link" href="#assistant">Assistant</a></div>
+      <div class="nav__item"><a class="nav__link" href="#questions">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="mailto:hello@optimolms.example?subject=Walkthrough">Book a walkthrough</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <h1 id="hero-h">LMS for schools and universities</h1>
+        <p class="hero__lead">Plan the year week by week, grade in one gradebook and let an assistant turn a topic into a lecture, a quiz and flashcards. Three roles share one permission set.</p>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="mailto:hello@optimolms.example?subject=Walkthrough">Book a walkthrough</a>
+          <a class="btn btn--secondary" href="#gradebook">See the gradebook</a>
+        </div>
+      </div>
+      <div class="hero__window" data-moment="cursor-spotlight" data-moment-opts='{"rest":[0.72,0.24],"radius":420}'>
+        <div class="ly-piece">
+          <div class="float float--l" aria-hidden="true">
+            <p class="float__h"><span class="float__file">PDF</span>Lecture-4-Complexity.pdf</p>
+            <p class="float__sub">Generating questions · 70%</p>
+            <span class="gb__bar float__bar"><i style="width:70%"></i></span>
+          </div>
+          <div class="float float--r" aria-hidden="true">
+            <p class="float__k">Upcoming</p>
+            <p class="float__task"><span>Complexity quiz</span><b>1 day left</b></p>
+            <p class="float__task"><span>Merge sort assignment</span><b>Friday</b></p>
+          </div>
+          <div class="ui app app--hero" role="img" aria-label="The OptimoLMS subject screen: a week list beside week 3 of Algorithms, with its lecture, quiz and flashcards">
+            <div class="app__bar"><span class="app__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="app__title">Algorithms · Autumn 2026</span><span class="app__sp"></span><span class="app__chip">Current year</span></div>
+            <div class="app__body">
+              <aside class="app__side" aria-hidden="true">
+                <span class="app__mod is-on">Subjects</span>
+                <span class="app__mod">Gradebook</span>
+                <span class="app__mod">Assignments</span>
+                <span class="app__mod">Quizzes</span>
+                <span class="app__mod">Assistant</span>
+                <span class="app__mod">Access</span>
+              </aside>
+              <div class="app__weeks" aria-hidden="true">
+                <p class="app__weeks-h">Weeks</p>
+                <span class="wk"><b>1</b>Foundations</span>
+                <span class="wk"><b>2</b>Sorting</span>
+                <span class="wk is-on"><b>3</b>Divide and conquer</span>
+                <span class="wk"><b>4</b>Greedy</span>
+                <span class="wk"><b>5</b>Graphs</span>
+                <span class="wk"><b>6</b>Dynamic</span>
+              </div>
+              <div class="app__main" aria-hidden="true">
+                <p class="app__eyebrow">Algorithms · Week 3</p>
+                <p class="app__h">Divide and conquer</p>
+                <div class="app__row"><span class="app__ic">L</span><span>Lecture · 12 slides</span><span class="app__meta">Tue 10:00</span></div>
+                <div class="app__row"><span class="app__ic">Q</span><span>Quiz · 10 questions</span><span class="app__meta">Opens Fri</span></div>
+                <div class="app__row"><span class="app__ic">F</span><span>Flashcards · 18 cards</span><span class="app__meta">Reviewed</span></div>
+                <div class="app__row"><span class="app__ic">A</span><span>Assignment · merge sort</span><span class="app__meta">Due 12 Oct</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="product" aria-labelledby="product-h" style="--h: 1">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="product-h">Subjects, read week by week. <span class="muted">The term is one column, from week 1 to the exam.</span></h2>
+      </div>
+      <div class="ui app app--wide" role="img" aria-label="Week 3 of Algorithms open beside its lecture outline, its ten-question quiz and its flashcards, with the assistant docked at the right">
+        <div class="app__bar"><span class="app__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="app__title">Algorithms · Week 3</span><span class="app__sp"></span><span class="app__chip">Lecturer</span></div>
+        <div class="app__body">
+          <div class="app__weeks" aria-hidden="true">
+            <p class="app__weeks-h">Weeks</p>
+            <span class="wk"><b>1</b>Foundations</span>
+            <span class="wk"><b>2</b>Sorting</span>
+            <span class="wk is-on"><b>3</b>Divide and conquer</span>
+            <span class="wk"><b>4</b>Greedy</span>
+            <span class="wk"><b>5</b>Graphs</span>
+            <span class="wk"><b>6</b>Dynamic</span>
+            <span class="wk"><b>7</b>Strings</span>
+            <span class="wk"><b>8</b>Revision</span>
+          </div>
+          <div class="app__main app__main--pane" aria-hidden="true">
+            <p class="app__eyebrow">Week 3 · 2 lectures · 1 quiz</p>
+            <p class="app__h">Divide and conquer</p>
+            <ul class="pane-list">
+              <li><span class="pane-list__ic">L1</span><span><b>Recursion and the master theorem</b><i>12 slides · Tuesday 10:00</i></span></li>
+              <li><span class="pane-list__ic">L2</span><span><b>Merge sort in practice</b><i>9 slides · Thursday 10:00</i></span></li>
+            </ul>
+            <p class="app__eyebrow app__eyebrow--gap">Quiz · 10 questions</p>
+            <ol class="pane-quiz">
+              <li>Split an array of 16 into halves until each holds one item. How many levels?</li>
+              <li>Which recurrence describes merge sort?</li>
+              <li>The merge step of two sorted runs of 4 costs how many comparisons at most?</li>
+              <li>Which algorithm keeps its worst case at n log n and sorts in place?</li>
+              <li>Doubling the input of a linear merge changes its cost by how much?</li>
+            </ol>
+            <p class="app__eyebrow app__eyebrow--gap">Flashcards · 18 cards</p>
+            <p class="pane-cards"><span>Recurrence</span><span>Base case</span><span>Merge step</span><span>Pivot</span><span>Subproblem</span><span>Depth log n</span></p>
+            <div class="pane-bar">
+              <span>Opened by 24 of 31 students</span>
+              <span class="pane-bar__track"><i style="width: 77%"></i></span>
+            </div>
+          </div>
+          <aside class="app__dock" aria-hidden="true">
+            <p class="app__weeks-h">Assistant</p>
+            <p class="mock__q">Add a quiz question on the master theorem</p>
+            <p class="mock__tool">create_quiz_question · Week 3</p>
+            <p class="mock__a">Added as question 4, answer marked B. It sits with the other nine until you publish.</p>
+            <p class="acts acts--dock"><span>Publish week</span><span>Preview</span></p>
+            <p class="app__foot">Ready · 3 models · key verified</p>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="gradebook" aria-labelledby="gradebook-h" style="--h: 1">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5">
+          <div class="section-head section-head--tight">
+            <h2 id="gradebook-h">One gradebook for the whole subject</h2>
+            <p>Components carry their own weight, the letter follows the school's scale, and a student sees the mark the moment it is posted.</p>
+          </div>
+          <div class="weights" role="img" aria-label="Weights: attendance 10%, quizzes 30%, final exam 60%">
+            <div class="weights__bar"><i style="flex:10"></i><i style="flex:30"></i><i style="flex:60"></i></div>
+            <ul class="weights__key">
+              <li><span class="weights__dot"></span>Attendance<b>10%</b></li>
+              <li><span class="weights__dot"></span>Quizzes, best 6 of 8<b>30%</b></li>
+              <li><span class="weights__dot"></span>Final exam<b>60%</b></li>
+            </ul>
+          </div>
+          <p class="sheet__note">A change to a weight recalculates every student's mark on the next page load.</p>
+          <a class="link" href="#access">See who may post a mark</a>
+        </div>
+        <div class="span-7 start-6">
+          <div class="ui gb" role="img" aria-label="The Algorithms gradebook: seven students with attendance, two quizzes, a weighted mark and a letter">
+            <div class="app__bar"><span class="app__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="app__title">Algorithms · Gradebook</span><span class="app__sp"></span><span class="app__chip">31 students</span></div>
+            <div class="gb__tools" aria-hidden="true"><span class="gb__tab is-on">Marks</span><span class="gb__tab">Components</span><span class="gb__tab">Scale</span><span class="app__sp"></span><span class="gb__state">Quiz 2 posted · 09:12</span></div>
+            <div class="gb__head"><span>Student</span><span>Att.</span><span>Quiz 1</span><span>Quiz 2</span><span>Mark</span><span>Grade</span></div>
+            <div class="gb__row"><span class="gb__who"><i class="gb__av">AD</i>Arta Dushku</span><span>92</span><span>88</span><span>91</span><span class="gb__mark"><b>90.4</b><span class="gb__bar"><i style="width:90.4%"></i></span></span><span class="sheet__letter" data-g="A">A</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">BK</i>Besnik Kowalski</span><span>84</span><span>76</span><span>81</span><span class="gb__mark"><b>79.6</b><span class="gb__bar"><i style="width:79.6%"></i></span></span><span class="sheet__letter" data-g="B">B</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">EH</i>Elira Hoxha</span><span>100</span><span>94</span><span>97</span><span class="gb__mark"><b>96.1</b><span class="gb__bar"><i style="width:96.1%"></i></span></span><span class="sheet__letter" data-g="A">A</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">GL</i>Gentiana Leka</span><span>68</span><span>62</span><span>71</span><span class="gb__mark"><b>68.2</b><span class="gb__bar"><i style="width:68.2%"></i></span></span><span class="sheet__letter" data-g="D">D</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">IB</i>Ilir Berisha</span><span>76</span><span>84</span><span>79</span><span class="gb__mark"><b>80.1</b><span class="gb__bar"><i style="width:80.1%"></i></span></span><span class="sheet__letter" data-g="B">B</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">LP</i>Ledio Prifti</span><span>54</span><span>58</span><span>49</span><span class="gb__mark"><b>53.8</b><span class="gb__bar"><i style="width:53.8%"></i></span></span><span class="sheet__letter" data-g="F">F</span></div><div class="gb__row"><span class="gb__who"><i class="gb__av">RZ</i>Rina Zeneli</span><span>72</span><span>68</span><span>74</span><span class="gb__mark"><b>71.6</b><span class="gb__bar"><i style="width:71.6%"></i></span></span><span class="sheet__letter" data-g="C">C</span></div>
+            <div class="gb__row gb__row--foot"><span class="gb__who">Class average</span><span>78</span><span>76</span><span>77</span><span class="gb__mark"><b>77.1</b><span class="gb__bar"><i style="width:77%"></i></span></span><span class="sheet__letter" data-g="C">C</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse" id="assistant" aria-labelledby="assistant-h" style="--h: 1">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="assistant-h">An assistant that writes into the same subjects</h2>
+        <p>Ask for a week's lecture or a ten-question quiz. Every tool call answers to the permissions of the person who asked.</p>
+      </div>
+      <div class="grid grid--top">
+      <div class="ui chat span-6" role="img" aria-label="A conversation: the lecturer asks for a quiz on divide and conquer, the assistant calls create_quiz for week 3, and returns ten questions">
+        <div class="chat__top"><span class="chat__agent" aria-hidden="true"></span><span>Assistant</span><span class="chat__model">3 models enabled</span></div>
+        <div class="chat__body">
+          <p class="msg msg--me">Draft a ten-question quiz for week 3 of Algorithms. Multiple choice, answers marked.</p>
+          <p class="tool"><span class="tool__ic" aria-hidden="true"></span>create_quiz · subject Algorithms · week 3 · 10 questions</p>
+          <p class="msg msg--bot"><span class="chat__agent" aria-hidden="true"></span>Ten questions on recursion, the master theorem and merge sort are in week 3, unpublished. Question 4 needs a diagram you have not uploaded.</p>
+          <p class="msg msg--me">Then add last year's merge sort handout to week 3.</p>
+          <p class="tool"><span class="tool__ic" aria-hidden="true"></span>create_lecture · subject Algorithms · week 3 · 9 slides</p>
+          <p class="msg msg--bot"><span class="chat__agent" aria-hidden="true"></span>Week 3 now has two lectures: the handout is the second, Thursday 10:00, unpublished until you publish the week.</p>
+          <p class="acts"><span>Publish</span><span>Edit</span></p>
+        </div>
+      </div>
+      <div class="span-6 start-7 tools">
+        <p class="t-label">What it may call</p>
+        <ul class="tools__list">
+          <li><code>create_subject</code><span>Name, code, school year</span></li>
+          <li><code>create_week</code><span>A week, its topic, its dates</span></li>
+          <li><code>create_lecture</code><span>Slides and the outline</span></li>
+          <li><code>create_assignment</code><span>Prompt, due date, marks</span></li>
+          <li><code>create_quiz</code><span>Questions, options, answers</span></li>
+          <li><code>create_flashcards</code><span>Front, back, week</span></li>
+          <li><code>create_forum_thread</code><span>Title, body, subject</span></li>
+        </ul>
+        <p class="tools__note">A call the caller may not make stops at the permission check, before anything is written.</p>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-surface" id="access" aria-labelledby="access-h" style="--h: 1; --hm: 2">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="access-h">Security and permissions. <span class="muted">Roles, per-user overrides and a code at every sign-in.</span></h2>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-4">
+          <h3>Permission checks on every request</h3>
+          <p>A permission is granted by role, overridden per person, and read again on each call, so a change takes effect without a new session.</p>
+          <div class="panel panel--inset">
+            <div class="ui mock mock--perm" role="img" aria-label="Three permission rows: subjects.manage for admin and lecturer, academic.view for all three roles, grades.manage for admin and lecturer">
+              <div class="perm"><code>subjects.manage</code><span class="tag">Admin</span><span class="tag">Lecturer</span><span class="tag tag--off">Student</span></div>
+              <div class="perm"><code>academic.view</code><span class="tag">Admin</span><span class="tag">Lecturer</span><span class="tag">Student</span></div>
+              <div class="perm"><code>grades.manage</code><span class="tag">Admin</span><span class="tag">Lecturer</span><span class="tag tag--off">Student</span></div>
+              <div class="perm"><code>assistant.configure</code><span class="tag">Admin</span><span class="tag tag--off">Lecturer</span><span class="tag tag--off">Student</span></div>
+            </div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4">
+          <h3>Two-factor codes at sign-in</h3>
+          <p>TOTP for every account, with recovery codes to print. An administrator can reset one, and the reset is logged with the session.</p>
+          <div class="panel panel--inset">
+            <div class="ui mock mock--totp" role="img" aria-label="A six-digit two-factor prompt with a recovery code line under it">
+              <p class="mock__label">Code from your authenticator</p>
+              <div class="otp"><span>4</span><span>8</span><span>2</span><span>9</span><span>1</span><span>7</span></div>
+              <p class="mock__hint">4 seconds left · 6 recovery codes unused</p>
+            </div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4">
+          <h3>Notifications for students</h3>
+          <p>A mark posted, a thread answered, a week published: each lands in the notification list, unread first, gone when it is read.</p>
+          <div class="panel panel--inset">
+            <div class="ui mock mock--notes" role="img" aria-label="Three notifications: a grade posted for Algorithms, a reply in the week 3 thread, a new quiz in Databases">
+              <div class="note"><span class="note__dot"></span><span>Mark posted · Algorithms week 2 quiz</span><span class="note__time">09:12</span></div>
+              <div class="note"><span class="note__dot"></span><span>Reply in the week 3 thread · Databases</span><span class="note__time">08:40</span></div>
+              <div class="note note--read"><span class="note__dot"></span><span>New quiz opens Friday · Algorithms</span><span class="note__time">Mon</span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p class="access__note">
+        <span>Every account can also pick its own typeface (Atkinson Hyperlegible, OpenDyslexic or the system one), its text size and a light or dark interface. The choice follows the account, not the browser.</span>
+        <a class="link" href="#questions">Read the questions</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="section" id="questions" aria-labelledby="questions-h" style="--h: 1">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="questions-h">Questions about running OptimoLMS</h2>
+      </div>
+      <div class="grid grid--top">
+      <div class="faq span-6">
+        <div class="faq__item">
+          <h3>What does OptimoLMS run on?</h3>
+          <p>One Go binary and a SQLite file. Migrations run at startup, so the schema moves with the release rather than in a separate step.</p>
+        </div>
+        <div class="faq__item">
+          <h3>Which AI provider can OptimoLMS use?</h3>
+          <p>Any OpenAI-compatible endpoint. A key is encrypted before it is stored and only replaces the old one after the provider answers.</p>
+        </div>
+        <div class="faq__item">
+          <h3>How does sign-in security work?</h3>
+          <p>Email, a password hashed with Argon2id, and a six-digit TOTP code. The session is an HttpOnly cookie and lasts 12 hours.</p>
+        </div>
+        <div class="faq__item">
+          <h3>Can the assistant write into OptimoLMS on its own?</h3>
+          <p>It calls the tools the interface uses: subject, week, lecture, assignment, quiz, flashcards, forum thread. Each call is checked against the caller's permissions first.</p>
+        </div>
+        <div class="faq__item">
+          <h3>Where does OptimoLMS keep its permissions?</h3>
+          <p>In the database, as named permissions per module, granted by role with per-user overrides. The answer is read on every request, never cached in the client.</p>
+        </div>
+      </div>
+      <div class="span-6 start-7">
+        <div class="ui panel-card" role="img" aria-label="The assistant settings: an OpenAI-compatible endpoint, a verified key, three models enabled and the tools the assistant may call">
+          <div class="app__bar"><span class="app__dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="app__title">Settings · Assistant</span><span class="app__sp"></span><span class="app__chip">Admin</span></div>
+          <div class="mock mock--card mock--prefs" aria-hidden="true">
+            <div class="pref"><span>Endpoint</span><code>api.provider.example/v1</code></div>
+            <div class="pref"><span>Key</span><span class="tag">Verified · encrypted</span></div>
+            <div class="pref"><span>Models</span><span class="seg"><b>3 enabled</b><i>2 off</i></span></div>
+            <div class="pref"><span>Tool calls</span><span class="seg"><b>Checked</b><i>Off</i></span></div>
+            <div class="pref"><span>Sign-in</span><span class="seg"><b>TOTP</b><i>Password only</i></span></div>
+            <div class="pref"><span>Session</span><code>HttpOnly · 12 h</code></div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div>
+          <h2 id="close-h">Book a walkthrough</h2>
+          <p class="t-lead">An hour with the gradebook and the assistant, on your own subject. We reply within a day.</p>
+        </div>
+        <a class="btn btn--primary btn--xl" href="mailto:hello@optimolms.example?subject=Walkthrough">Book a walkthrough<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">OptimoLMS</p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-5 stack-5">
+          <a class="footer__mark" href="#top"><svg class="logo" viewBox="-7 -7 554.92 504.7" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="223.63" cy="222.21" r="18"/><circle cx="317.81" cy="222.25" r="18"/><path d="M359.53,66.33c-76.07-97.22-230.81-14.69-200.86,101.95,22.83,83.41,105.62,184.79,3.67,247.44-71.56,47.36-191.6-21.66-155.83-109.58,17.51-44.17,76.19-55.56,107.44-23.35,18.73,18.72,28.63,59.72,7,59-20.47-.68-2.21-27.55-28.32-46.28-25.22-18.98-62.72-1-67.59,29.38-11.97,67.51,79.76,105.17,129.72,67.94,61.06-39.85,25.59-112.32.19-163.01C87.89,116.34,176.53-32.91,311.86,6.44c74.63,22.06,114.77,106.9,90.91,179.62-14,51.07-44.59,88.08-50.06,132.53-13.78,108.3,164.42,121.2,164.46,12.68-1.28-32.53-38.61-55.53-66.52-36.96-27.87,17.5-10.35,45.38-29.08,47.43-38.13.83,6.87-110.22,84.06-68.73,66.39,39.61,30.52,136.98-36.69,152.74-73.87,25.29-157.32-40.59-138.04-119.58,18.68-77.44,94.07-162.1,28.64-239.84Z" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/><path d="M270.6,390.58c-31.5,80.99-114.11,125.22-193.84,84.9-4.25-4.52-5.03-9.78-2.39-14.3,2.39-4.09,9.45-7.91,14.62-5.33,82.09,43.23,168.31-38.55,169.95-121.83-.47-15.53,22.57-16.8,23.26-.79,2.62,43.38,22.36,84.33,56.53,111.19,70.23,54.19,119.02-7.52,128.92,18.46,2.46,6.93-1.41,12.37-8.13,15.43-75.8,36.17-161.02-10.99-188.91-87.73Z" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/></svg>OptimoLMS</a>
+          <p class="footer__lede">A learning management system: subjects read week by week, one gradebook, and an assistant that writes into both.</p>
+        </div>
+        <div class="span-2 start-7 footer__col"><h3>Product</h3><ul><li><a href="#product">Subjects</a></li><li><a href="#gradebook">Gradebook</a></li><li><a href="#assistant">Assistant</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Running it</h3><ul><li><a href="#access">Permissions</a></li><li><a href="#access">Two-factor</a></li><li><a href="#questions">Questions</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Contact</h3><ul><li><a href="mailto:hello@optimolms.example?subject=Walkthrough">Email us</a></li><li><a href="#contact">Book a walkthrough</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 OptimoLMS</span>
+        <span><a href="#questions">Questions</a> &nbsp; <a href="mailto:hello@optimolms.example?subject=Hello">Email us</a></span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="/assets/system.js"></script>
+<script type="module" src="/assets/motion.js"></script>
+<script type="module" src="/assets/layout.js"></script>
+</body>
+</html>

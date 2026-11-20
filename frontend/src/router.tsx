@@ -11,6 +11,7 @@ import { dashboardRoute } from "./routes/dashboard";
 import { gradesRoute } from "./routes/grades";
 import { loginRoute } from "./routes/login";
 import { moduleOverviewRoute } from "./routes/module-overview";
+import { notificationsRoute } from "./routes/notifications";
 import { recordRoute } from "./routes/record";
 import { rootRoute } from "./routes/root";
 import { schoolYearsRoute } from "./routes/school-years";
@@ -18,6 +19,7 @@ import { settingsTree as settingsRoute } from "./routes/settings";
 import { studentsRoute } from "./routes/students";
 import { subjectDetailRoute } from "./routes/subject-detail";
 import { subjectsRoute } from "./routes/subjects";
+import { timetableRoute } from "./routes/timetable";
 import { usersRoute } from "./routes/users";
 
 const routeTree = rootRoute.addChildren([
@@ -35,6 +37,8 @@ const routeTree = rootRoute.addChildren([
 		assignmentDetailRoute,
 		gradesRoute,
 		recordRoute,
+		timetableRoute,
+		notificationsRoute,
 		accessRoute,
 		usersRoute,
 		studentsRoute,

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/util"
 )
 
 // schoolYearAPI builds the school-year and subject endpoints over a throwaway

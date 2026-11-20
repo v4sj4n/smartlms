@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"smartlms/backend/internal/auth"
-	"smartlms/backend/internal/keycrypt"
-	"smartlms/backend/internal/totp"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/auth"
+	"optimolms/backend/internal/keycrypt"
+	"optimolms/backend/internal/totp"
+	"optimolms/backend/internal/util"
 )
 
 // Two-factor authentication for every account, driven by a TOTP authenticator
@@ -30,12 +30,14 @@ import (
 //	management         status, disable, regenerate recovery codes
 //	way back in        an administrator can reset a locked-out account
 //
-// Identity is passed as user_id, the same convention the rest of this backend
-// follows until real sessions land; passwords are re-checked for operations
-// that weaken an account's security.
+// Everything here runs as the signed-in caller: the session names the account,
+// and these handlers never read a user id from the client. The one exception is
+// the administrator's reset, where the path id is the *target* and the route
+// policy is what requires an ADMIN session. Passwords are re-checked for
+// operations that weaken an account's security.
 
 const (
-	twoFactorIssuer = "SmartLMS"
+	twoFactorIssuer = "OptimoLMS"
 	// challengeTTL is how long the code step stays open: long enough to unlock
 	// a phone and read a code, short enough that a leaked ticket is worthless.
 	challengeTTL = 5 * time.Minute
@@ -591,8 +593,10 @@ func (s *twoFactorService) burnChallenge(ctx context.Context, challengeID string
 
 /* --- HTTP ----------------------------------------------------------------- */
 
+// twoFactorManageRequest is the body of the self-service endpoints: the caller
+// is the account being changed, so there is no user id in here — the session
+// decides. A password is re-checked where an operation weakens the account.
 type twoFactorManageRequest struct {
-	UserID   string `json:"user_id"`
 	Code     string `json:"code"`
 	Password string `json:"password"`
 }
@@ -619,15 +623,10 @@ func writeTwoFactorError(w http.ResponseWriter, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }
 
-func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
-	// GET /api/me/two-factor?user_id= — what the settings card renders.
+func registerTwoFactor(mux *http.ServeMux, service *twoFactorService, sessions *sessionStore) {
+	// GET /api/me/two-factor — what the settings card renders.
 	mux.HandleFunc("GET /api/me/two-factor", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		status, err := service.status(r.Context(), userID)
+		status, err := service.status(r.Context(), callerFrom(r).ID)
 		if err != nil {
 			writeTwoFactorError(w, err)
 			return
@@ -637,16 +636,7 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 
 	// POST /api/me/two-factor/setup — mint a pending secret plus its otpauth URI.
 	mux.HandleFunc("POST /api/me/two-factor/setup", func(w http.ResponseWriter, r *http.Request) {
-		var req twoFactorManageRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		if strings.TrimSpace(req.UserID) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		setup, err := service.startSetup(r.Context(), req.UserID)
+		setup, err := service.startSetup(r.Context(), callerFrom(r).ID)
 		if err != nil {
 			writeTwoFactorError(w, err)
 			return
@@ -661,11 +651,7 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if strings.TrimSpace(req.UserID) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		enabled, err := service.enable(r.Context(), req.UserID, req.Code)
+		enabled, err := service.enable(r.Context(), callerFrom(r).ID, req.Code)
 		if err != nil {
 			writeTwoFactorError(w, err)
 			return
@@ -680,11 +666,7 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if strings.TrimSpace(req.UserID) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		status, err := service.disable(r.Context(), req.UserID, req.Password)
+		status, err := service.disable(r.Context(), callerFrom(r).ID, req.Password)
 		if err != nil {
 			writeTwoFactorError(w, err)
 			return
@@ -699,11 +681,7 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if strings.TrimSpace(req.UserID) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		enabled, err := service.regenerateRecoveryCodes(r.Context(), req.UserID, req.Password)
+		enabled, err := service.regenerateRecoveryCodes(r.Context(), callerFrom(r).ID, req.Password)
 		if err != nil {
 			writeTwoFactorError(w, err)
 			return
@@ -711,7 +689,9 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 		writeJSON(w, http.StatusOK, enabled)
 	})
 
-	// POST /api/auth/login/2fa — second step of a sign-in: ticket + code.
+	// POST /api/auth/login/2fa — second step of a sign-in: ticket + code. The
+	// ticket, not the caller, names the account; a real session is what comes
+	// back, exactly as the password step hands one out.
 	mux.HandleFunc("POST /api/auth/login/2fa", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var req loginTwoFactorRequest
@@ -747,12 +727,7 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 			return
 		}
 
-		state, err := service.readState(ctx, result.userID)
-		if err != nil {
-			writeTwoFactorError(w, err)
-			return
-		}
-		payload, err := sessionPayload(ctx, service.db, state.userID, state.email, state.name, state.role)
+		payload, err := issueSessionFor(w, r, sessions, result.userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -761,7 +736,9 @@ func registerTwoFactor(mux *http.ServeMux, service *twoFactorService) {
 	})
 
 	// POST /api/users/{userID}/two-factor/reset — an administrator unlocking an
-	// account whose owner lost both the app and the recovery codes.
+	// account whose owner lost both the app and the recovery codes. The path id
+	// is the target; the caller is the administrator, and the route policy is
+	// what keeps this admin-only.
 	mux.HandleFunc("POST /api/users/{userID}/two-factor/reset", func(w http.ResponseWriter, r *http.Request) {
 		userID := r.PathValue("userID")
 		status, err := service.reset(r.Context(), userID)

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // Assistant chat history: one row per conversation, the UI messages stored
@@ -77,20 +77,13 @@ func registerAISessions(mux *http.ServeMux, db *sql.DB) {
 	notFound := func(w http.ResponseWriter) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "chat not found"})
 	}
-	userRequired := func(w http.ResponseWriter) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-	}
 	serverError := func(w http.ResponseWriter, message string) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": message})
 	}
 
 	mux.HandleFunc("GET /api/ai/sessions", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
-		userID := strings.TrimSpace(query.Get("user_id"))
-		if userID == "" {
-			userRequired(w)
-			return
-		}
+		userID := callerFrom(r).ID
 		page, _ := strconv.Atoi(query.Get("page"))
 		if page < 1 {
 			page = 1
@@ -135,27 +128,8 @@ func registerAISessions(mux *http.ServeMux, db *sql.DB) {
 	})
 
 	mux.HandleFunc("POST /api/ai/sessions", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			UserID string `json:"user_id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		userID := strings.TrimSpace(body.UserID)
-		if userID == "" {
-			userRequired(w)
-			return
-		}
+		userID := callerFrom(r).ID
 		ctx := r.Context()
-		var exists int
-		if err := db.QueryRowContext(ctx, `SELECT 1 FROM users WHERE id = ?`, userID).Scan(&exists); err == sql.ErrNoRows {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unknown user"})
-			return
-		} else if err != nil {
-			serverError(w, "The chat could not be created.")
-			return
-		}
 		id, now := util.NewID(), util.Now()
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO ai_chat_sessions (id, user_id, created_at, updated_at)
@@ -167,11 +141,7 @@ func registerAISessions(mux *http.ServeMux, db *sql.DB) {
 	})
 
 	mux.HandleFunc("GET /api/ai/sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			userRequired(w)
-			return
-		}
+		userID := callerFrom(r).ID
 		var out aiSessionDetailOut
 		var messages string
 		err := db.QueryRowContext(r.Context(), `
@@ -197,18 +167,13 @@ func registerAISessions(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 		var body struct {
-			UserID   string          `json:"user_id"`
 			Messages json.RawMessage `json:"messages"`
 		}
 		if err := json.Unmarshal(raw, &body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		userID := strings.TrimSpace(body.UserID)
-		if userID == "" {
-			userRequired(w)
-			return
-		}
+		userID := callerFrom(r).ID
 		if len(body.Messages) > aiSessionMaxBytes {
 			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "messages exceed 2MB"})
 			return
@@ -249,11 +214,7 @@ func registerAISessions(mux *http.ServeMux, db *sql.DB) {
 	})
 
 	mux.HandleFunc("DELETE /api/ai/sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			userRequired(w)
-			return
-		}
+		userID := callerFrom(r).ID
 		result, err := db.ExecContext(r.Context(),
 			`DELETE FROM ai_chat_sessions WHERE id = ? AND user_id = ?`, r.PathValue("id"), userID)
 		if err != nil {

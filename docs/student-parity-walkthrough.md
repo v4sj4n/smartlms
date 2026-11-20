@@ -1,4 +1,4 @@
-# SmartLMS: detailed sprint plan to reach UET LMS student parity
+# OptimoLMS: detailed sprint plan to reach UET LMS student parity
 
 > Audit date 2026-11-20 · branch `go-react` · reference: read-only crawl of `lms.uet.edu.al` (Moodle 4.x + UET `local/*` plugins).
 
@@ -19,7 +19,7 @@
 | Routing (FE) | TanStack Router, routes in `src/routes/*.tsx`, tree in `src/router.tsx` | |
 | Sidebar | `MODULE_DEFINITIONS` in `src/modules.ts`; `hasScreen: false` → placeholder `/modules/$moduleKey` | |
 | UI kit | `src/components/ui/*`. Behaviour comes from `@ui-sdk/react`, styles from `src/styles.css` (Tabs, Menu, Popover, Tooltip, Checkbox, Switch, Progress, Avatar, Accordion, Select, Dialog…) | |
-| Current identity (**broken**) | FE keeps the user in `localStorage` (`src/auth.tsx:49`). BE trusts `student_id` / `user_id` in the query or body, or the `X-SmartLMS-User` header (`handler/mcp.go:79-82`, `assignments.go:238`, `ai_chat.go:26`) | |
+| Identity | FE keeps a cache of the signed-in user in `localStorage` but hydrates from `GET /api/me` on boot. BE resolves the caller from the session cookie only — no `student_id` / `user_id` in a query or body and no `X-OptimoLMS-User` header decides who is calling (`handler/session.go`; `docs/STATUS.md` §1.1) | |
 
 ### 0.2 Conventions
 - **Migration numbering** continues at `000019`. One migration per concern, named `0000NN_<concern>.up.sql`.
@@ -40,17 +40,25 @@
 ### 0.4 Seed personas used in demos
 | Persona | Role | Use |
 |---|---|---|
-| `student@smartlms.local` | Student, group IE301, enrolled in the 5 FALL 2026-27 courses | Every student flow |
-| `student2@smartlms.local` | Student, same group | Cross-student access tests, messaging |
-| `lecturer@smartlms.local` | Pedagog, lecturer of 2+ courses | Grading, announcements, uploads |
-| `secretary@smartlms.local` | Secretary/staff | Service requests, re-exams, timetable |
-| `admin@smartlms.local` | Admin | Everything |
+| `student@optimolms.local` | Student, group IE301, enrolled in the 5 FALL 2026-27 courses | Every student flow |
+| `student2@optimolms.local` | Student, same group | Cross-student access tests, messaging |
+| `lecturer@optimolms.local` | Pedagog, lecturer of 2+ courses | Grading, announcements, uploads |
+| `secretary@optimolms.local` | Secretary/staff | Service requests, re-exams, timetable |
+| `admin@optimolms.local` | Admin | Everything |
 
 Add any persona that's missing in Sprint 1, story 1.8.
 
 ---
 
 ## Sprint 1: Security baseline (weeks 1–2) · **BLOCKER**
+
+> **Status 2026-11-21: the auth core has landed.** Stories 1.1 (minus the
+> sliding timeout), 1.2, 1.3 (`GET /api/me`, `POST /api/auth/logout`) and 1.4/1.5
+> are implemented in `backend/internal/handler/session.go` and the handlers it
+> guards; `docs/STATUS.md` §1.1 records the mechanism and the leftovers (per-IP
+> rate limiting, the `Origin` check, session listing, and personal access tokens
+> for MCP — the session's bearer token stands in for those today). The task lists
+> below are kept as the original plan.
 
 **Sprint goal:** every API request is tied to a server-verified user. No endpoint trusts an id sent by the client.
 
@@ -81,7 +89,7 @@ CREATE INDEX idx_sessions_user ON sessions(user_id);
 ### Story 1.2: Login and 2FA issue a cookie
 **Files:** `handler/auth.go`, `handler/two_factor.go`, `internal/config/config.go`.
 - [ ] After a successful `POST /api/auth/login` (no 2FA) or `POST /api/auth/login/2fa`, call `session.Create` and set:
-  `Set-Cookie: smartlms_session=<raw>; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000` plus `Secure` when `config.CookieSecure` (env `COOKIE_SECURE`, default `true` outside dev).
+  `Set-Cookie: optimolms_session=<raw>; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000` plus `Secure` when `config.CookieSecure` (env `COOKIE_SECURE`, default `true` outside dev).
 - [ ] The response body stays `sessionPayload(...)` (the FE still needs name, role and modules), but the FE must no longer treat it as proof of auth.
 - [ ] Rate limit stays as is (`000002_auth_lockout`).
 
@@ -99,10 +107,10 @@ CREATE INDEX idx_sessions_user ON sessions(user_id);
 - [ ] Public allow-list: `GET /api/health`, `GET /api/meta`, `POST /api/auth/login`, `POST /api/auth/login/2fa`. Everything else under `/api/` returns **401** without a principal.
 - [ ] Helpers: `principal(r) *session.Principal`, `requirePerm(key string, h http.HandlerFunc) http.HandlerFunc` (403 `{"error":"forbidden"}`), `isStaff(p)`.
 - [ ] **CSRF**: on unsafe methods (POST/PUT/PATCH/DELETE), require `Origin` to equal the configured FE origin (the CORS origin already in `main.go:48`), otherwise 403. SameSite=Lax covers the rest.
-- [ ] MCP (`/api/mcp`): keep bearer access for external MCP clients via a **personal access token** (see 1.6). Delete the `user_id` query and `X-SmartLMS-User` paths (`mcp.go:79-82`).
+- [ ] MCP (`/api/mcp`): keep bearer access for external MCP clients via a **personal access token** (see 1.6). Delete the `user_id` query and `X-OptimoLMS-User` paths (`mcp.go:79-82`).
 
 ### Story 1.5: Remove client-supplied identity everywhere
-Audit with `grep -rn 'student_id\|user_id\|X-SmartLMS-User' backend/internal/handler`. For each hit:
+Audit with `grep -rn 'student_id\|user_id\|X-OptimoLMS-User' backend/internal/handler`. For each hit:
 
 | Endpoint today | Change |
 |---|---|
@@ -718,7 +726,7 @@ Migration `000039_settings.up.sql`: `app_settings(key TEXT PRIMARY KEY, value TE
 - [ ] Staff: mark a payment received → registration/request moves on (`confirmed` / `in_review`).
 
 ### Story 7.4: Academic record from the secretary
-UET splits this into "Modules from Secretary" and "Grades from secretary". SmartLMS already has `/record` and `subject_results`.
+UET splits this into "Modules from Secretary" and "Grades from secretary". OptimoLMS already has `/record` and `subject_results`.
 - [ ] Extend `GET /api/me/record` with per-semester grouping: `{semesters:[{school_year, semester, modules:[{code,name,status,group,components:[{name,weight,points}], total, grade, synced_at}]}], gpa, credits_earned}`.
 - [ ] FE `/record`: semester `Accordion`s (latest open), components table, GPA summary card, and a "Download transcript" button (requests a `certificate` with type Listë Notash, prefilled).
 
@@ -754,7 +762,7 @@ Secretary opens a re-exam season → student sees 1 failed subject as eligible �
 - [ ] `GET /api/audit?entity_type=&entity_id=&actor=&from=&to=` (admin). FE `/admin/audit` table plus a "History" `Popover` next to grade cells.
 
 ### Story 8.4: Testing and quality gates
-- [ ] **Playwright** (`frontend/e2e/`) against a backend booted with a fresh seeded DB (`SMARTLMS_DB=:memory:` or a temp file):
+- [ ] **Playwright** (`frontend/e2e/`) against a backend booted with a fresh seeded DB (`OPTIMOLMS_DB=:memory:` or a temp file):
   1. `student-core.spec.ts`: login → my courses → open course → mark done → download resource → submit assignment → see grade.
   2. `quiz.spec.ts`: start, answer, reload and resume, submit, review.
   3. `services.spec.ts`: file a request → staff approves → student downloads the result.
@@ -811,8 +819,8 @@ Switch to Shqip → the whole flow is in Albanian → ⌘K "data com" finds Data
 ## Appendix C: New shared UI wrappers (ui-sdk behaviour + `styles.css` looks)
 `SegmentedControl` (S2) · `FileDrop` (S3) · `Radio`/`RadioGroup` (S4) · `Calendar`, `DatePicker`, `TimeInput` (S5) · `Drawer` (S6) · `Timeline` (S7) · `Command` (S8). Already done: Tabs, Menu, Popover, Tooltip, Checkbox, Switch, Progress, Avatar, Accordion, Select, Field inputs.
 
-## Appendix D: UET → SmartLMS mapping
-| UET page | SmartLMS |
+## Appendix D: UET → OptimoLMS mapping
+| UET page | OptimoLMS |
 |---|---|
 | `/my` Dashboard | `/` (S5 layout) |
 | `/my/courses.php` | `/my/courses` (S2) |

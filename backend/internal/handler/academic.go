@@ -1,13 +1,15 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // The academic structure the institution runs on:
@@ -894,6 +896,13 @@ func admitStudent(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		if status == "ACTIVE" {
+			if err := enrollInCurriculum(ctx, db, id); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+
 		writeJSON(w, http.StatusCreated, programmeStudentOut{
 			EnrollmentID: id, StudentID: body.StudentID, Name: studentName, Email: studentEmail,
 			SchoolYear: schoolYear, YearOfStudy: yearOfStudy, Status: status, EnrolledAt: now,
@@ -991,6 +1000,10 @@ func patchAdmission(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
+		if err := enrollInCurriculum(ctx, db, id); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -1056,6 +1069,10 @@ func assignCourse(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
+		if err := enrollProgrammeStudents(r.Context(), db, body.SubjectID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -1086,4 +1103,42 @@ func positiveOrNil(v int) any {
 		return nil
 	}
 	return v
+}
+
+// enrollInCurriculum enrols the student of an active admission in every subject
+// of their programme for their current year of study, so admitting a student
+// (or moving them up a year) gives them their subjects. Subjects they already
+// sit in are kept, and nothing is removed.
+func enrollInCurriculum(ctx context.Context, db *sql.DB, admissionID string) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO enrollments (id, student_id, subject_id, enrolled_at)
+		SELECT lower(hex(randomblob(16))), e.student_id, s.id, ?
+		FROM programme_enrollments e
+		JOIN subjects s ON s.programme_id = e.programme_id AND s.year_of_study = e.year_of_study
+		WHERE e.id = ? AND e.status = 'ACTIVE'
+		ON CONFLICT (student_id, subject_id) DO NOTHING`, util.Now(), admissionID)
+	if err != nil {
+		return fmt.Errorf("enrol in curriculum: %w", err)
+	}
+	return nil
+}
+
+// enrollProgrammeStudents enrols every student actively admitted to a
+// subject's programme, in the subject's year of study, in that subject. It runs
+// whenever a subject is placed in a programme, so adding a subject to a field
+// gives its students the subject. A subject without a programme or year is a
+// no-op, and existing enrolments are kept.
+func enrollProgrammeStudents(ctx context.Context, db *sql.DB, subjectID string) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO enrollments (id, student_id, subject_id, enrolled_at)
+		SELECT lower(hex(randomblob(16))), e.student_id, s.id, ?
+		FROM subjects s
+		JOIN programme_enrollments e ON e.programme_id = s.programme_id
+		     AND e.year_of_study = s.year_of_study AND e.status = 'ACTIVE'
+		WHERE s.id = ?
+		ON CONFLICT (student_id, subject_id) DO NOTHING`, util.Now(), subjectID)
+	if err != nil {
+		return fmt.Errorf("enrol programme students: %w", err)
+	}
+	return nil
 }

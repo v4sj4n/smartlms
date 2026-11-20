@@ -71,6 +71,12 @@ year-round course can carry both.
 - Every content form has a **Week** picker listing the subject's weeks as
   `Week 3 · Fall · 7 Dec 2026 – 13 Dec 2026`, with *No week yet* at the top.
   A draft does not have to sit in a week.
+- A week card's **+** opens that picker already answered: it offers *lecture*,
+  *assignment*, *quiz* and *flashcard*, and the form it opens is filed into the
+  week it was started from. Only the kinds the role may create (`*.manage`) are
+  listed, so a lecturer with `quizzes.manage` alone gets a one-item menu.
+  Seminars are stored as lectures — the API has one shape for both — so they
+  are added from the same entry.
 - Deleting a week **never deletes what was taught in it**. The content falls
   back to the *Not in a week yet* card at the bottom of the tab, ready to be
   refiled.
@@ -91,7 +97,9 @@ the weeks next to the label. The tab renders:
   to no week, or a note saying everything is filed.
 
 *Add week* and the per-week edit/delete actions appear only with
-`subjects.manage`.
+`subjects.manage`. Each card also carries a **+** that adds content to that
+week; it is shown when the role holds any of `lectures.manage`,
+`assignments.manage`, `quizzes.manage` or `flashcards.manage`.
 
 ## Seeding
 

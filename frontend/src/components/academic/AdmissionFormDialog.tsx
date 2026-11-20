@@ -128,7 +128,7 @@ export function AdmissionFormDialog({
 			description={
 				isEdit
 					? `${admission.name} · ${programme.name}`
-					: `Add a student to ${programme.name}. A student follows one programme at a time.`
+					: `Add a student to ${programme.name}. They are enrolled in its subjects for the chosen year. A student follows one programme at a time.`
 			}
 			onDismiss={onClose}
 			dismissible={!pending}

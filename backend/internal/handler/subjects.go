@@ -10,17 +10,18 @@ import (
 	"strconv"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 type lectureOut struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	ClassID     string `json:"class_id,omitempty"`
-	ClassName   string `json:"class_name,omitempty"`
-	ScheduledAt string `json:"scheduled_at,omitempty"`
-	WeekID      string `json:"week_id,omitempty"`
+	ID          string          `json:"id"`
+	Title       string          `json:"title"`
+	Description string          `json:"description,omitempty"`
+	ClassID     string          `json:"class_id,omitempty"`
+	ClassName   string          `json:"class_name,omitempty"`
+	ScheduledAt string          `json:"scheduled_at,omitempty"`
+	WeekID      string          `json:"week_id,omitempty"`
+	File        *lectureFileOut `json:"file,omitempty"`
 }
 
 // assignmentOut carries what a student needs to see on the assignment list:
@@ -49,13 +50,6 @@ type quizOut struct {
 	WeekID           string `json:"week_id,omitempty"`
 }
 
-type flashcardOut struct {
-	ID     string `json:"id"`
-	Front  string `json:"front"`
-	Back   string `json:"back"`
-	WeekID string `json:"week_id,omitempty"`
-}
-
 type subjectOut struct {
 	ID           string  `json:"id"`
 	Name         string  `json:"name"`
@@ -72,19 +66,19 @@ type subjectOut struct {
 	ProgrammeName string `json:"programme_name,omitempty"`
 	YearOfStudy   int    `json:"year_of_study,omitempty"`
 	Counts        struct {
-		Lectures    int `json:"lectures"`
-		Assignments int `json:"assignments"`
-		Quizzes     int `json:"quizzes"`
-		Flashcards  int `json:"flashcards"`
+		Lectures      int `json:"lectures"`
+		Assignments   int `json:"assignments"`
+		Quizzes       int `json:"quizzes"`
+		FlashcardSets int `json:"flashcard_sets"`
 	} `json:"counts"`
 }
 
 type subjectDetailOut struct {
 	subjectOut
-	Lectures    []lectureOut    `json:"lectures"`
-	Assignments []assignmentOut `json:"assignments"`
-	Quizzes     []quizOut       `json:"quizzes"`
-	Flashcards  []flashcardOut  `json:"flashcards"`
+	Lectures      []lectureOut      `json:"lectures"`
+	Assignments   []assignmentOut   `json:"assignments"`
+	Quizzes       []quizOut         `json:"quizzes"`
+	FlashcardSets []flashcardSetOut `json:"flashcard_sets"`
 }
 
 // registerSubjects wires course CRUD plus the content that lives inside a
@@ -108,9 +102,9 @@ func registerSubjects(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("PATCH /api/quizzes/{id}", patchQuiz(db))
 	mux.HandleFunc("DELETE /api/quizzes/{id}", deleteByID(db, "quizzes"))
 
-	mux.HandleFunc("POST /api/subjects/{id}/flashcards", createFlashcard(db))
-	mux.HandleFunc("PATCH /api/flashcards/{id}", patchFlashcard(db))
-	mux.HandleFunc("DELETE /api/flashcards/{id}", deleteByID(db, "flashcards"))
+	mux.HandleFunc("POST /api/subjects/{id}/flashcard-sets", createFlashcardSet(db))
+	mux.HandleFunc("PATCH /api/flashcard-sets/{id}", patchFlashcardSet(db))
+	mux.HandleFunc("DELETE /api/flashcard-sets/{id}", deleteByID(db, "flashcard_sets"))
 }
 
 /* ---------- shared update helper ---------- */
@@ -173,7 +167,7 @@ const subjectSelect = `
 	       (SELECT COUNT(*) FROM lectures   x WHERE x.subject_id = c.id),
 	       (SELECT COUNT(*) FROM assignments x WHERE x.subject_id = c.id),
 	       (SELECT COUNT(*) FROM quizzes    x WHERE x.subject_id = c.id),
-	       (SELECT COUNT(*) FROM flashcards x WHERE x.subject_id = c.id)
+	       (SELECT COUNT(*) FROM flashcard_sets x WHERE x.subject_id = c.id)
 	FROM subjects c
 	LEFT JOIN users u ON u.id = c.lecturer_id
 	LEFT JOIN programmes p ON p.id = c.programme_id`
@@ -183,7 +177,7 @@ func scanSubject(row interface{ Scan(...any) error }) (subjectOut, error) {
 	err := row.Scan(&c.ID, &c.Name, &c.Code, &c.Description,
 		&c.LecturerID, &c.LecturerName, &c.ECTS, &c.Semester, &c.SchoolYear,
 		&c.ProgrammeID, &c.ProgrammeName, &c.YearOfStudy,
-		&c.Counts.Lectures, &c.Counts.Assignments, &c.Counts.Quizzes, &c.Counts.Flashcards)
+		&c.Counts.Lectures, &c.Counts.Assignments, &c.Counts.Quizzes, &c.Counts.FlashcardSets)
 	return c, err
 }
 
@@ -218,16 +212,69 @@ func resolveCourseProgramme(ctx context.Context, db *sql.DB, programmeID string,
 	return programmeID, yearOfStudy, ""
 }
 
+// subjectStaff reports whether the caller runs a subject: an administrator, or
+// the lecturer the subject records as its own. That is what "staff" means for
+// the catalogue — holding subjects.view is not the same thing, because every
+// student holds it too.
+func subjectStaff(ctx context.Context, db *sql.DB, user *caller, subjectID string) (bool, error) {
+	if user.isAdmin() {
+		return true, nil
+	}
+	if user.ID == "" {
+		return false, nil
+	}
+	var n int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM subjects WHERE id = ? AND lecturer_id = ?`, subjectID, user.ID).Scan(&n); err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// callerSeesSubject is the read rule of the catalogue: staff see every subject,
+// everybody else only the subjects they are enrolled in. A request that carries
+// no identity at all never reached the session middleware (a test driving the
+// mux directly), and keeps the wide answer.
+func callerSeesSubject(ctx context.Context, db *sql.DB, user *caller, subjectID string) (bool, error) {
+	if user.ID == "" {
+		return true, nil
+	}
+	staff, err := subjectStaff(ctx, db, user, subjectID)
+	if err != nil || staff {
+		return staff, err
+	}
+	var n int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM enrollments WHERE subject_id = ? AND student_id = ?`,
+		subjectID, user.ID).Scan(&n); err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 func listSubjects(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page, size := pagination(r)
+		user := callerFrom(r)
 
 		// ?school_year=2026/2027 narrows the list to one academic year, the way
 		// the subjects screen's year filter asks for it.
-		where, args := "", []any{}
+		conditions, args := []string{}, []any{}
 		if year := strings.TrimSpace(r.URL.Query().Get("school_year")); year != "" {
-			where = ` WHERE c.school_year = ?`
+			conditions = append(conditions, `c.school_year = ?`)
 			args = append(args, year)
+		}
+		// A caller who does not run the catalogue only sees their own subjects:
+		// the ones they teach, and the ones they are enrolled in. Counts below
+		// are unaffected — they count the content of a row, not rows.
+		if user.ID != "" && !user.isAdmin() {
+			conditions = append(conditions,
+				`(c.lecturer_id = ? OR EXISTS (SELECT 1 FROM enrollments e WHERE e.subject_id = c.id AND e.student_id = ?))`)
+			args = append(args, user.ID, user.ID)
+		}
+		where := ""
+		if len(conditions) > 0 {
+			where = ` WHERE ` + strings.Join(conditions, ` AND `)
 		}
 
 		var total int
@@ -272,18 +319,33 @@ func getSubject(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// The detail is the subject's whole content, so it is only for the
+		// people the list would show it to. 403 rather than 404: the subject
+		// exists, this caller does not study it.
+		visible, err := callerSeesSubject(ctx, db, callerFrom(r), id)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if !visible {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "you are not enrolled in this subject"})
+			return
+		}
+
 		detail := subjectDetailOut{
-			subjectOut:  c,
-			Lectures:    []lectureOut{},
-			Assignments: []assignmentOut{},
-			Quizzes:     []quizOut{},
-			Flashcards:  []flashcardOut{},
+			subjectOut:    c,
+			Lectures:      []lectureOut{},
+			Assignments:   []assignmentOut{},
+			Quizzes:       []quizOut{},
+			FlashcardSets: []flashcardSetOut{},
 		}
 
 		lectureRows, err := db.QueryContext(ctx, `
 			SELECT x.id, x.title, COALESCE(x.description, ''), COALESCE(x.class_id, ''),
-			       COALESCE(cl.name, ''), COALESCE(x.scheduled_at, ''), COALESCE(x.week_id, '')
+			       COALESCE(cl.name, ''), COALESCE(x.scheduled_at, ''), COALESCE(x.week_id, ''),
+			       f.file_name, f.content_type, f.size, f.uploaded_at
 			FROM lectures x LEFT JOIN classes cl ON cl.id = x.class_id
+			LEFT JOIN lecture_files f ON f.lecture_id = x.id
 			WHERE x.subject_id = ? ORDER BY x.scheduled_at, x.title`, id)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -291,10 +353,19 @@ func getSubject(db *sql.DB) http.HandlerFunc {
 		}
 		for lectureRows.Next() {
 			var l lectureOut
-			if err := lectureRows.Scan(&l.ID, &l.Title, &l.Description, &l.ClassID, &l.ClassName, &l.ScheduledAt, &l.WeekID); err != nil {
+			var fileName, fileType, fileUploaded sql.NullString
+			var fileSize sql.NullInt64
+			if err := lectureRows.Scan(&l.ID, &l.Title, &l.Description, &l.ClassID, &l.ClassName, &l.ScheduledAt, &l.WeekID,
+				&fileName, &fileType, &fileSize, &fileUploaded); err != nil {
 				lectureRows.Close()
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
+			}
+			if fileName.Valid {
+				l.File = &lectureFileOut{
+					Name: fileName.String, Type: lectureFileType(fileType.String),
+					Size: fileSize.Int64, UploadedAt: fileUploaded.String,
+				}
 			}
 			detail.Lectures = append(detail.Lectures, l)
 		}
@@ -336,21 +407,12 @@ func getSubject(db *sql.DB) http.HandlerFunc {
 		}
 		quizRows.Close()
 
-		cardRows, err := db.QueryContext(ctx, `SELECT id, front, back, COALESCE(week_id, '') FROM flashcards WHERE subject_id = ? ORDER BY created_at`, id)
+		sets, err := loadFlashcardSets(ctx, db, id)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		for cardRows.Next() {
-			var f flashcardOut
-			if err := cardRows.Scan(&f.ID, &f.Front, &f.Back, &f.WeekID); err != nil {
-				cardRows.Close()
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-				return
-			}
-			detail.Flashcards = append(detail.Flashcards, f)
-		}
-		cardRows.Close()
+		detail.FlashcardSets = sets
 
 		writeJSON(w, http.StatusOK, detail)
 	}
@@ -425,6 +487,10 @@ func createSubject(db *sql.DB) http.HandlerFunc {
 				writeJSON(w, http.StatusConflict, map[string]string{"error": "a subject with that code already exists"})
 				return
 			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := enrollProgrammeStudents(r.Context(), db, id); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -564,6 +630,10 @@ func patchSubject(db *sql.DB) http.HandlerFunc {
 		}
 		if !found {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
+			return
+		}
+		if err := enrollProgrammeStudents(r.Context(), db, r.PathValue("id")); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -801,103 +871,6 @@ func patchQuiz(db *sql.DB) http.HandlerFunc {
 		}
 		if !found {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "quiz not found"})
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-/* ---------- flashcards ---------- */
-
-func createFlashcard(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		subjectID := r.PathValue("id")
-		var body struct {
-			Front  string `json:"front"`
-			Back   string `json:"back"`
-			WeekID string `json:"week_id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		if strings.TrimSpace(body.Front) == "" || strings.TrimSpace(body.Back) == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "front and back are required"})
-			return
-		}
-		if !rowExists(r.Context(), db, "subjects", subjectID) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
-			return
-		}
-		id, now := util.NewID(), util.Now()
-		weekID, problem := weekPlacement(r.Context(), db, subjectID, body.WeekID)
-		if problem != "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": problem})
-			return
-		}
-		if _, err := db.ExecContext(r.Context(),
-			`INSERT INTO flashcards (id, subject_id, front, back, week_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, subjectID, strings.TrimSpace(body.Front), strings.TrimSpace(body.Back), weekID, now, now); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusCreated, flashcardOut{
-			ID: id, Front: strings.TrimSpace(body.Front), Back: strings.TrimSpace(body.Back),
-			WeekID: strings.TrimSpace(body.WeekID),
-		})
-	}
-}
-
-func patchFlashcard(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Front  *string `json:"front"`
-			Back   *string `json:"back"`
-			WeekID *string `json:"week_id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		var b setBuilder
-		if body.Front != nil {
-			if strings.TrimSpace(*body.Front) == "" {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "front cannot be empty"})
-				return
-			}
-			b.set("front", strings.TrimSpace(*body.Front))
-		}
-		if body.Back != nil {
-			if strings.TrimSpace(*body.Back) == "" {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "back cannot be empty"})
-				return
-			}
-			b.set("back", strings.TrimSpace(*body.Back))
-		}
-		if body.WeekID != nil {
-			subjectID, ok := subjectOf(r.Context(), db, "flashcards", r.PathValue("id"))
-			if !ok {
-				writeJSON(w, http.StatusNotFound, map[string]string{"error": "flashcard not found"})
-				return
-			}
-			weekID, problem := weekPlacement(r.Context(), db, subjectID, *body.WeekID)
-			if problem != "" {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": problem})
-				return
-			}
-			b.set("week_id", weekID)
-		}
-		if b.empty() {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nothing to update"})
-			return
-		}
-		found, err := b.updateRow(r.Context(), db, "flashcards", r.PathValue("id"))
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		if !found {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "flashcard not found"})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

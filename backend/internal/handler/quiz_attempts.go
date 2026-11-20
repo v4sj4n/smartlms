@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 /* ============================================================================
@@ -47,24 +47,16 @@ func startQuizAttempt(db *sql.DB) http.HandlerFunc {
 		ctx := r.Context()
 		quizID := r.PathValue("id")
 
-		var body struct {
-			StudentID string `json:"student_id"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		if body.StudentID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "student_id is required"})
-			return
-		}
+		// The attempt belongs to the person taking the quiz: the session says who
+		// that is, and the enrollment check below confirms they may take it.
+		studentID := callerFrom(r).ID
 
 		var timeLimit sql.NullInt64
 		err := db.QueryRowContext(ctx, `
 			SELECT COALESCE(q.time_limit_minutes, 0)
 			FROM quizzes q
 			JOIN enrollments e ON e.subject_id = q.subject_id AND e.student_id = ?
-			WHERE q.id = ?`, body.StudentID, quizID).Scan(&timeLimit)
+			WHERE q.id = ?`, studentID, quizID).Scan(&timeLimit)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "not enrolled in this subject"})
 			return
@@ -87,7 +79,7 @@ func startQuizAttempt(db *sql.DB) http.HandlerFunc {
 			SELECT id, started_at, expires_at, status, completed_at
 			FROM quiz_attempts
 			WHERE quiz_id = ? AND student_id = ? AND status = 'in_progress'
-			ORDER BY started_at DESC LIMIT 1`, quizID, body.StudentID).
+			ORDER BY started_at DESC LIMIT 1`, quizID, studentID).
 			Scan(&existingID, &startedAt, &expiresAt, &status, &completedAt)
 		if err == nil {
 			writeJSON(w, http.StatusOK, attemptOut{
@@ -111,7 +103,7 @@ func startQuizAttempt(db *sql.DB) http.HandlerFunc {
 
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO quiz_attempts (id, quiz_id, student_id, score, started_at, expires_at, status)
-			VALUES (?, ?, ?, 0, ?, ?, 'in_progress')`, id, quizID, body.StudentID, now, expires); err != nil {
+			VALUES (?, ?, ?, 0, ?, ?, 'in_progress')`, id, quizID, studentID, now, expires); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -170,6 +162,10 @@ func submitQuizAttempt(db *sql.DB) http.HandlerFunc {
 		}
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if studentID != callerFrom(r).ID && !callerFrom(r).can("quizzes.manage") {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "this attempt belongs to another student"})
 			return
 		}
 		if status != "in_progress" {
@@ -257,7 +253,14 @@ func listQuizAttempts(db *sql.DB) http.HandlerFunc {
 			       COALESCE(a.expires_at, ''), COALESCE(a.completed_at, '')
 			FROM quiz_attempts a WHERE a.quiz_id = ?`
 		args := []any{quizID}
-		if studentID := r.URL.Query().Get("student_id"); studentID != "" {
+		// Staff can look at one student's attempts; a student only ever sees
+		// their own, whatever the query string asks for.
+		user := callerFrom(r)
+		studentID := strings.TrimSpace(r.URL.Query().Get("student_id"))
+		if !user.can("quizzes.manage") {
+			studentID = user.ID
+		}
+		if studentID != "" {
 			query += ` AND a.student_id = ?`
 			args = append(args, studentID)
 		}
@@ -288,6 +291,11 @@ func listQuizAttempts(db *sql.DB) http.HandlerFunc {
 // listStudentQuizAttempts feeds the attempt history page (G6).
 func listStudentQuizAttempts(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		studentID := r.PathValue("id")
+		if !allowStudentRecord(r, studentID, "quizzes.manage") {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "you can only see your own attempts"})
+			return
+		}
 		rows, err := db.QueryContext(r.Context(), `
 			SELECT a.id, a.quiz_id, q.title, s.id, s.name, COALESCE(a.score, 0),
 			       COALESCE((SELECT SUM(qq.points) FROM quiz_questions qq WHERE qq.quiz_id = q.id), 0),
@@ -296,7 +304,7 @@ func listStudentQuizAttempts(db *sql.DB) http.HandlerFunc {
 			JOIN quizzes q ON q.id = a.quiz_id
 			JOIN subjects s ON s.id = q.subject_id
 			WHERE a.student_id = ?
-			ORDER BY a.started_at DESC`, r.PathValue("id"))
+			ORDER BY a.started_at DESC`, studentID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return

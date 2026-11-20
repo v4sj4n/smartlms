@@ -13,7 +13,7 @@ export function NotFoundPage() {
 				</span>
 				<h1 className="centered-page__title">Page not found</h1>
 				<p className="centered-page__body">
-					That address does not match a screen in SmartLMS. It may have been
+					That address does not match a screen in OptimoLMS. It may have been
 					renamed, or the link may be incomplete.
 				</p>
 				<div className="centered-page__actions">

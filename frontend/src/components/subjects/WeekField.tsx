@@ -8,6 +8,9 @@ export const SEASON_LABEL: Record<WeekSeason, string> = {
 	SUMMER: "Summer",
 };
 
+/** Week 0: course-wide content, stored as "no week". */
+export const GENERAL_WEEK_LABEL = "Week 0 · General";
+
 /** "23 Nov 2026 – 29 Nov 2026", or "No dates set". */
 export function weekRange(week: CourseWeek): string {
 	if (!week.starts_on && !week.ends_on) return "No dates set";
@@ -22,8 +25,8 @@ export function weekLabel(week: CourseWeek): string {
 }
 
 /**
- * Picks the week a piece of content is taught in. An empty choice means "not
- * scheduled into a week yet", which is a valid place for a draft.
+ * Picks the week a piece of content is taught in. The empty choice is week 0,
+ * "General": content for the whole course rather than one teaching week.
  */
 export function WeekField({
 	subjectId,
@@ -43,7 +46,7 @@ export function WeekField({
 	const weeks = useWeeks(subjectId);
 
 	const options = [
-		{ value: "", label: "No week yet" },
+		{ value: "", label: GENERAL_WEEK_LABEL },
 		...(weeks.data?.weeks ?? []).map((week) => ({
 			value: week.id,
 			label: weekLabel(week),
@@ -63,8 +66,8 @@ export function WeekField({
 				weeks.isPending
 					? "Loading the week plan…"
 					: weeks.data && weeks.data.weeks.length === 0
-						? "This subject has no weeks yet; add them on the Weeks tab."
-						: "Which week of the term this is taught in."
+						? "Only General for now; add teaching weeks on the Weeks tab."
+						: "Which week of the term this is taught in, or General for the whole course."
 			}
 		/>
 	);

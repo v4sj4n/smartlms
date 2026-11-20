@@ -1,4 +1,4 @@
-# The SmartLMS MCP server
+# The OptimoLMS MCP server
 
 The backend is an MCP server. Its tools are the backend's own create actions, so
 the assistant can build real course content — not just talk about it — and any
@@ -10,16 +10,19 @@ MCP client can drive the same actions.
 |---|---|
 | Endpoint | `POST /api/mcp` (JSON-RPC 2.0, Streamable HTTP transport, JSON responses) |
 | Protocol version | `2025-06-18` |
-| Catalogue for the UI | `GET /api/mcp/tools?user_id=…` |
-| Catalogue row | `mcp_apps.key = 'smartlms'` (migration `000018_mcp_smartlms`) |
+| Catalogue for the UI | `GET /api/mcp/tools` |
+| Catalogue row | `mcp_apps.key = 'optimolms'` (migration `000018_mcp_optimolms`) |
 | Registry | `backend/internal/handler/mcp_tools.go` |
 | Transport + JSON-RPC | `backend/internal/handler/mcp.go` |
 | Chat integration | `backend/internal/handler/ai_chat.go` |
 
-Identity travels the way the rest of this API travels today: `?user_id=` or the
-`X-SmartLMS-User` header. That is the placeholder for the session from
-`docs/STATUS.md` item 1 — when sessions land, the id comes from the cookie and
-the parameter disappears.
+Identity comes from the session, like every other route: an MCP client signs in
+through `POST /api/auth/login` and then either keeps the `optimolms_session`
+cookie a browser would keep, or sends the token from that response as
+`Authorization: Bearer <token>`. There is no `user_id` parameter and no identity
+header — a caller cannot name an account it is not signed in as (`session.go`,
+`docs/STATUS.md` §1.1). A request without a session is answered 401 before the
+JSON-RPC endpoint is reached.
 
 `GET /api/mcp` answers `405` on purpose: this server replies with JSON, it does
 not hold an SSE stream open.
@@ -39,7 +42,7 @@ who is signed in.
 | `create_assignment` | `assignments.manage` | Adds a published assignment with due date, points, submission type |
 | `create_quiz` | `quizzes.manage` | Creates the quiz shell |
 | `add_quiz_question` | `quizzes.manage` | Appends an `mcq`, `true_false` or `short_answer` question |
-| `create_flashcards` | `flashcards.manage` | Adds one or more cards in a single call |
+| `create_flashcard_set` | `flashcards.manage` | Creates a titled set of front/back cards in a single call |
 | `create_forum_thread` | `forums.moderate` | Starts a topic, creating the subject's forum on first use |
 | `post_forum_reply` | `forums.post` | Replies to a thread as the signed-in user |
 
@@ -52,8 +55,8 @@ different arguments.
 ## How the assistant uses it
 
 The MCP tab on `/assistant` shows the server, its endpoint and its tools, and
-holds the switch: a person connects SmartLMS there (`user_mcp_apps` with
-`app_key = 'smartlms'`).
+holds the switch: a person connects OptimoLMS there (`user_mcp_apps` with
+`app_key = 'optimolms'`).
 
 `POST /api/ai/chat` then:
 

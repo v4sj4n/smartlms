@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 /*
@@ -198,7 +198,7 @@ func roleMCPTools() []mcpTool {
 		{
 			Name: "study_flashcards", Title: "Study flashcards", Module: "flashcards",
 			Permission:  "flashcards.view",
-			Description: "The flashcard deck of a subject you take or teach.",
+			Description: "The flashcard sets of a subject you take or teach, each with its front/back cards.",
 			InputSchema: schemaObject(map[string]any{"subject_id": subjectID}, "subject_id"),
 			Run:         onReadableSubject(subjectFromArg, runStudyFlashcards),
 		},
@@ -465,22 +465,11 @@ func runListQuizzes(ctx context.Context, db *sql.DB, userID string, args map[str
 }
 
 func runStudyFlashcards(ctx context.Context, db *sql.DB, _ string, args map[string]any) (any, error) {
-	rows, err := db.QueryContext(ctx,
-		`SELECT id, front, back FROM flashcards WHERE subject_id = ? ORDER BY created_at LIMIT 200`,
-		argString(args, "subject_id"))
+	sets, err := loadFlashcardSets(ctx, db, argString(args, "subject_id"))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	cards := []map[string]any{}
-	for rows.Next() {
-		var id, front, back string
-		if err := rows.Scan(&id, &front, &back); err != nil {
-			return nil, err
-		}
-		cards = append(cards, map[string]any{"id": id, "front": front, "back": back})
-	}
-	return map[string]any{"cards": cards, "count": len(cards)}, rows.Err()
+	return map[string]any{"sets": sets, "count": len(sets)}, nil
 }
 
 func runListForumThreads(ctx context.Context, db *sql.DB, _ string, args map[string]any) (any, error) {
@@ -554,8 +543,10 @@ func runListSubmissions(ctx context.Context, db *sql.DB, _ string, args map[stri
 	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT s.id, u.name, u.email, COALESCE(s.content, ''), COALESCE(s.file_url, ''), s.status,
-		       s.score, COALESCE(s.feedback, ''), s.submitted_at
+		       s.score, COALESCE(s.feedback, ''), s.submitted_at,
+		       f.file_name, f.file_kind, f.file_size
 		FROM assignment_submissions s JOIN users u ON u.id = s.student_id
+		LEFT JOIN submission_files f ON f.submission_id = s.id
 		WHERE s.assignment_id = ? ORDER BY s.submitted_at`, assignmentID)
 	if err != nil {
 		return nil, err
@@ -564,14 +555,28 @@ func runListSubmissions(ctx context.Context, db *sql.DB, _ string, args map[stri
 	out := []map[string]any{}
 	for rows.Next() {
 		var id, name, email, content, fileURL, status, feedback, submittedAt string
+		var fileName, fileKind sql.NullString
+		var fileSize sql.NullInt64
 		var score *float64
-		if err := rows.Scan(&id, &name, &email, &content, &fileURL, &status, &score, &feedback, &submittedAt); err != nil {
+		if err := rows.Scan(&id, &name, &email, &content, &fileURL, &status, &score, &feedback, &submittedAt,
+			&fileName, &fileKind, &fileSize); err != nil {
 			return nil, err
 		}
-		out = append(out, map[string]any{
+		row := map[string]any{
 			"id": id, "student": name, "email": email, "content": content, "file_url": fileURL,
 			"status": status, "score": score, "feedback": feedback, "submitted_at": submittedAt,
-		})
+			"file_name": nil, "file_kind": nil, "file_size": nil,
+		}
+		if fileName.Valid {
+			row["file_name"] = fileName.String
+		}
+		if fileKind.Valid {
+			row["file_kind"] = fileKind.String
+		}
+		if fileSize.Valid {
+			row["file_size"] = fileSize.Int64
+		}
+		out = append(out, row)
 	}
 	return map[string]any{"submissions": out, "count": len(out)}, rows.Err()
 }

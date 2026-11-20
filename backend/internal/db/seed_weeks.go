@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 // A demo term is four weeks long: enough to show the shape of a course without

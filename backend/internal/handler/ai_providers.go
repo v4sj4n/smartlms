@@ -8,14 +8,14 @@ import (
 	"net/url"
 	"strings"
 
-	"smartlms/backend/internal/ai"
-	"smartlms/backend/internal/keycrypt"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/keycrypt"
+	"optimolms/backend/internal/util"
 )
 
 // OpenAI-compatible endpoints, either institutional (admin-managed) or
 // personal (one per user). Keys are stored encrypted; responses carry only a
-// masked hint. scoped by user_id until sessions land.
+// masked hint. The caller comes from the session, so "personal" always means
+// the person making the request.
 type aiProviderOut struct {
 	ID           string `json:"id"`
 	Scope        string `json:"scope"`
@@ -26,6 +26,14 @@ type aiProviderOut struct {
 	KeyHint      string `json:"key_hint,omitempty"`
 	DefaultModel string `json:"default_model,omitempty"`
 	ModelCount   int    `json:"model_count"`
+	// EnabledModelCount is how many of those models chat may pick from.
+	EnabledModelCount int `json:"enabled_model_count"`
+	// Last verification outcome, so the list can show a status pill:
+	// "" (never checked), ok, no_models, invalid_key, unreachable, timeout,
+	// endpoint_missing or rate_limited.
+	Health       string `json:"health"`
+	HealthDetail string `json:"health_detail,omitempty"`
+	CheckedAt    string `json:"checked_at,omitempty"`
 }
 
 type aiModelOut struct {
@@ -38,7 +46,6 @@ const (
 	maxProviderName = 80
 	maxBaseURL      = 300
 	maxAPIKeyLength = 400
-	userRequired    = "user_id is required"
 )
 
 // roleOf reads the user's role name, used to expand ADMIN module access.
@@ -95,20 +102,10 @@ func configureDenied(ctx context.Context, db *sql.DB, userID string) (int, strin
 	return 0, ""
 }
 
-func scanProviderCount(ctx context.Context, db *sql.DB, providerID string) (int, error) {
-	var count int
-	err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai_models WHERE provider_id = ?`, providerID).Scan(&count)
-	return count, err
-}
-
 func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) {
 	mux.HandleFunc("GET /api/ai/providers", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
+		userID := callerFrom(r).ID
 		scope := r.URL.Query().Get("scope")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
 		if scope != "institutional" && scope != "personal" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "scope must be institutional or personal"})
 			return
@@ -120,10 +117,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			}
 		}
 
-		rows, err := db.QueryContext(r.Context(), `
-			SELECT p.id, p.scope, p.name, p.base_url, p.api_key_cipher IS NOT NULL, p.key_hint,
-			       p.is_enabled, p.default_model,
-			       (SELECT COUNT(*) FROM ai_models m WHERE m.provider_id = p.id)
+		rows, err := db.QueryContext(r.Context(), providerSelect+`
 			FROM ai_providers p
 			WHERE p.scope = ? AND (p.owner_user_id IS NULL OR p.owner_user_id = ?)
 			ORDER BY p.name`,
@@ -136,16 +130,11 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 
 		items := []aiProviderOut{}
 		for rows.Next() {
-			var p aiProviderOut
-			var enabled bool
-			var hasKey bool
-			if err := rows.Scan(&p.ID, &p.Scope, &p.Name, &p.BaseURL, &hasKey, &p.KeyHint,
-				&enabled, &p.DefaultModel, &p.ModelCount); err != nil {
+			p, err := scanProviderOut(rows)
+			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
-			p.IsEnabled = enabled
-			p.HasKey = hasKey
 			items = append(items, p)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"items": items})
@@ -153,7 +142,6 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 
 	mux.HandleFunc("POST /api/ai/providers", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			UserID  string `json:"user_id"`
 			Scope   string `json:"scope"`
 			Name    string `json:"name"`
 			BaseURL string `json:"base_url"`
@@ -162,13 +150,9 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		req.UserID = strings.TrimSpace(req.UserID)
+		userID := callerFrom(r).ID
 		req.Name = strings.TrimSpace(req.Name)
 		req.BaseURL = strings.TrimRight(strings.TrimSpace(req.BaseURL), "/")
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
 		if req.Scope == "" {
 			req.Scope = "personal"
 		}
@@ -188,7 +172,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			// One personal provider per user; re-adding replaces nothing, the
 			// existing card must be edited or deleted first.
 			var count int
-			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai_providers WHERE scope = 'personal' AND owner_user_id = ?`, req.UserID).Scan(&count); err != nil {
+			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai_providers WHERE scope = 'personal' AND owner_user_id = ?`, userID).Scan(&count); err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
@@ -200,7 +184,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "scope must be institutional or personal"})
 			return
 		} else {
-			if status, message := configureDenied(ctx, db, req.UserID); status != 0 {
+			if status, message := configureDenied(ctx, db, userID); status != 0 {
 				writeJSON(w, status, map[string]string{"error": message})
 				return
 			}
@@ -209,7 +193,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 		id, now := util.NewID(), util.Now()
 		var owner any
 		if req.Scope == "personal" {
-			owner = req.UserID
+			owner = userID
 		}
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO ai_providers (id, scope, owner_user_id, name, base_url, is_enabled, created_at, updated_at)
@@ -225,7 +209,6 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 
 	mux.HandleFunc("PATCH /api/ai/providers/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			UserID       string `json:"user_id"`
 			IsEnabled    *bool  `json:"is_enabled"`
 			DefaultModel string `json:"default_model"`
 		}
@@ -233,11 +216,8 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
 		ctx := r.Context()
+		userID := callerFrom(r).ID
 		row, err := loadProvider(ctx, db, r.PathValue("id"))
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "provider not found"})
@@ -247,7 +227,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		allowed, err := canManage(ctx, db, row, req.UserID)
+		allowed, err := canManage(ctx, db, row, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -265,7 +245,8 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			}
 		}
 		if req.DefaultModel != "" {
-			// Defaults must point at an actual model of this provider.
+			// Defaults must point at an actual model of this provider, and
+			// picking one switches it on.
 			var count int
 			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ai_models WHERE provider_id = ? AND model_id = ?`,
 				row.ID, req.DefaultModel).Scan(&count); err != nil {
@@ -276,36 +257,32 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown model for this provider"})
 				return
 			}
-			if _, err := db.ExecContext(ctx, `UPDATE ai_providers SET default_model = ?, updated_at = ? WHERE id = ?`,
-				req.DefaultModel, util.Now(), row.ID); err != nil {
+			tx, err := db.BeginTx(ctx, nil)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			if err := pinDefault(ctx, tx, row.ID, req.DefaultModel); err != nil {
+				_ = tx.Rollback()
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			if err := tx.Commit(); err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
 		}
 
-		updated, err := loadProvider(ctx, db, row.ID)
+		updated, err := loadProviderOut(ctx, db, row.ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		count, err := scanProviderCount(ctx, db, row.ID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusOK, aiProviderOut{
-			ID: updated.ID, Scope: updated.Scope, BaseURL: updated.BaseURL,
-			IsEnabled: updated.IsEnabled, HasKey: updated.APIKeyCipher.Valid,
-			KeyHint: updated.KeyHint, DefaultModel: updated.DefaultModel, ModelCount: count,
-		})
+		writeJSON(w, http.StatusOK, updated)
 	})
 
 	mux.HandleFunc("DELETE /api/ai/providers/{id}", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
+		userID := callerFrom(r).ID
 		ctx := r.Context()
 		row, err := loadProvider(ctx, db, r.PathValue("id"))
 		if err == sql.ErrNoRows {
@@ -332,86 +309,8 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// Saving a key stores it encrypted and pulls the model catalogue in the
-	// same request: paste, save, models appear. A failed catalogue refresh
-	// keeps the key but warns, since some proxies do not expose /models.
-	mux.HandleFunc("PUT /api/ai/providers/{id}/key", func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			UserID string `json:"user_id"`
-			APIKey string `json:"api_key"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
-			return
-		}
-		req.APIKey = strings.TrimSpace(req.APIKey)
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
-		if req.APIKey == "" || len(req.APIKey) > maxAPIKeyLength {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "An API key of up to 400 characters is required"})
-			return
-		}
-		ctx := r.Context()
-		row, err := loadProvider(ctx, db, r.PathValue("id"))
-		if err == sql.ErrNoRows {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "provider not found"})
-			return
-		}
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		allowed, err := canManage(ctx, db, row, req.UserID)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		if !allowed {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "you cannot manage this provider"})
-			return
-		}
-
-		cipher, err := crypt.Encrypt(req.APIKey)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-		if _, err := db.ExecContext(ctx, `UPDATE ai_providers SET api_key_cipher = ?, key_hint = ?, updated_at = ? WHERE id = ?`,
-			cipher, keycrypt.Hint(req.APIKey), util.Now(), row.ID); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
-		}
-
-		out := map[string]any{"status": "ok", "key_hint": keycrypt.Hint(req.APIKey)}
-		models, listErr := ai.ListModels(ctx, row.BaseURL, req.APIKey)
-		if listErr != nil {
-			out["warning"] = "Key saved, but the model list could not be read: " + listErr.Error()
-			out["model_count"] = 0
-			writeJSON(w, http.StatusOK, out)
-			return
-		}
-
-		for _, modelID := range models {
-			if _, err := db.ExecContext(ctx, `
-				INSERT INTO ai_models (id, provider_id, model_id, is_enabled) VALUES (?, ?, ?, 0)
-				ON CONFLICT(provider_id, model_id) DO NOTHING`,
-				util.NewID(), row.ID, modelID); err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-				return
-			}
-		}
-		out["model_count"] = len(models)
-		writeJSON(w, http.StatusOK, out)
-	})
-
 	mux.HandleFunc("GET /api/ai/providers/{id}/models", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
+		userID := callerFrom(r).ID
 		ctx := r.Context()
 		row, err := loadProvider(ctx, db, r.PathValue("id"))
 		if err == sql.ErrNoRows {
@@ -454,19 +353,15 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 	// enables it and clears the previous default).
 	mux.HandleFunc("PATCH /api/ai/models/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			UserID    string `json:"user_id"`
-			IsEnabled *bool  `json:"is_enabled"`
-			IsDefault *bool  `json:"is_default"`
+			IsEnabled *bool `json:"is_enabled"`
+			IsDefault *bool `json:"is_default"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if req.UserID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": userRequired})
-			return
-		}
 		ctx := r.Context()
+		userID := callerFrom(r).ID
 		var providerID, modelID string
 		err := db.QueryRowContext(ctx, `SELECT provider_id, model_id FROM ai_models WHERE id = ?`, r.PathValue("id")).
 			Scan(&providerID, &modelID)
@@ -483,7 +378,7 @@ func registerAIProviders(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		allowed, err := canManage(ctx, db, provider, req.UserID)
+		allowed, err := canManage(ctx, db, provider, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return

@@ -15,7 +15,7 @@ func Load() Config {
 	const devSecret = "dev-insecure-encryption-secret"
 	return Config{
 		Port:             getEnv("PORT", "8081"),
-		DatabasePath:     getEnv("DB_PATH", "smartlms.db"),
+		DatabasePath:     getEnv("DB_PATH", "optimolms.db"),
 		EncryptionSecret: getEnv("AI_ENCRYPTION_SECRET", devSecret),
 	}
 }

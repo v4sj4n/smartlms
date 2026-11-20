@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"smartlms/backend/internal/config"
-	"smartlms/backend/internal/keycrypt"
+	"optimolms/backend/internal/config"
+	"optimolms/backend/internal/keycrypt"
 )
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -16,7 +16,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func Register(mux *http.ServeMux, db *sql.DB, serverConfig config.Config) {
+// Register wires every route and returns the handler the server serves: the mux
+// behind withSessions, which resolves the caller and enforces the route policy.
+// Nothing below needs to re-check who is calling; handlers read the caller from
+// the request context (callerFrom).
+func Register(mux *http.ServeMux, db *sql.DB, serverConfig config.Config) http.Handler {
 	// Provider API keys are encrypted at rest with a secret from the
 	// environment (AI_ENCRYPTION_SECRET in internal/config).
 	crypt, err := keycrypt.New(serverConfig.EncryptionSecret)
@@ -31,6 +35,7 @@ func Register(mux *http.ServeMux, db *sql.DB, serverConfig config.Config) {
 		panic(fmt.Sprintf("two-factor secret encryption: %v", err))
 	}
 	twoFactor := &twoFactorService{db: db, crypt: twoFactorCrypt}
+	sessions := &sessionStore{db: db}
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		dbStatus := "up"
@@ -39,24 +44,31 @@ func Register(mux *http.ServeMux, db *sql.DB, serverConfig config.Config) {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{
 			"status":  "ok",
-			"service": "smartlms-backend",
+			"service": "optimolms-backend",
 			"db":      dbStatus,
 		})
 	})
-	registerAuth(mux, db, twoFactor)
+	registerSession(mux, sessions)
+	registerAuth(mux, db, twoFactor, sessions)
 	registerMeta(mux, db)
 	registerAcademic(mux, db)
 	registerSchoolYears(mux, db)
 	registerCampuses(mux, db)
 	registerRoles(mux, db)
 	registerSubjects(mux, db)
+	registerSubjectEnrollments(mux, db)
+	registerSchedule(mux, db)
+	registerLectureFiles(mux, db)
 	registerWeeks(mux, db)
 	registerAssignments(mux, db)
+	registerSubmissionFiles(mux, db)
+	registerGeneralSettings(mux, db)
 	registerGrades(mux, db)
 	registerForums(mux, db)
 	registerQuizAttempts(mux, db)
 	registerUsers(mux, db)
-	registerTwoFactor(mux, twoFactor)
+	registerStudents(mux, db)
+	registerTwoFactor(mux, twoFactor, sessions)
 	registerNotifications(mux, db)
 	registerUserPermissions(mux, db)
 	registerAISettings(mux, db)
@@ -64,6 +76,9 @@ func Register(mux *http.ServeMux, db *sql.DB, serverConfig config.Config) {
 	registerUserMcpApps(mux, db)
 	registerMCP(mux, db)
 	registerAIProviders(mux, db, crypt)
+	registerAIProviderSetup(mux, db, crypt)
 	registerAIChat(mux, db, crypt)
 	registerAISessions(mux, db)
+
+	return withSessions(mux, sessions)
 }

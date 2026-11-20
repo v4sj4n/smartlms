@@ -134,18 +134,18 @@ func TestGenerateSecretIsUsableAndRandom(t *testing.T) {
 }
 
 func TestURICarriesWhatAppsExpect(t *testing.T) {
-	uri := URI("SmartLMS", "student@school.edu", rfcSecret)
+	uri := URI("OptimoLMS", "student@school.edu", rfcSecret)
 	if !strings.HasPrefix(uri, "otpauth://totp/") {
 		t.Fatalf("uri = %q", uri)
 	}
-	if !strings.Contains(uri, "/SmartLMS:student@school.edu?") {
+	if !strings.Contains(uri, "/OptimoLMS:student@school.edu?") {
 		t.Errorf("uri label should be Issuer:account: %s", uri)
 	}
 	for _, want := range []string{
 		// The key URI format keeps the label human-readable; ':' and '@' are
 		// legal in a path segment and every authenticator app parses them.
 		"secret=" + rfcSecret,
-		"issuer=SmartLMS",
+		"issuer=OptimoLMS",
 		"algorithm=SHA1",
 		"digits=6",
 		"period=30",

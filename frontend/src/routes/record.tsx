@@ -1,45 +1,25 @@
 import { ArrowLeft, Printer, SealCheck } from "@phosphor-icons/react";
 import { createRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { errorMessage, type RecordEntry } from "../api";
+import { errorMessage } from "../api";
 import { useAuth } from "../auth";
 import { ModuleGate } from "../components/ModuleGate";
-import { GradeStatusBadge } from "../components/subjects/SubjectGradeView";
+import { GradeScale } from "../components/record/GradeScale";
+import { groupBySchoolYear } from "../components/record/history";
+import { RecordYear } from "../components/record/RecordYear";
 import {
-	Badge,
 	Button,
 	Card,
 	EmptyState,
 	ErrorState,
 	PageHeader,
 	SkeletonStack,
-	Table,
-	Td,
-	Th,
 } from "../components/ui";
+import { Tabs } from "../components/ui/Tabs";
 import { StudentDirectory } from "../components/users/StudentDirectory";
 import { useStudentRecord } from "../queries";
 import { appLayoutRoute } from "./app-layout";
-
-type Group = { key: string; label: string; entries: RecordEntry[] };
-
-function groupEntries(entries: RecordEntry[]): Group[] {
-	const groups = new Map<string, Group>();
-
-	for (const entry of entries) {
-		const key = `${entry.school_year ?? "—"}·${entry.semester ?? "—"}`;
-		const label = `${entry.school_year ?? "No academic year"} · ${
-			entry.semester === "SECOND" ? "Semester II" : "Semester I"
-		}`;
-		const group = groups.get(key) ?? { key, label, entries: [] };
-		group.entries.push(entry);
-		groups.set(key, group);
-	}
-
-	return [...groups.values()].sort((left, right) =>
-		right.key.localeCompare(left.key),
-	);
-}
+import "../components/record/record-history.css";
 
 /** `?student=<id>&name=<display name>`: which student staff are looking at. */
 type RecordSearch = { student?: string; name?: string };
@@ -53,6 +33,20 @@ function parseRecordSearch(search: Record<string, unknown>): RecordSearch {
 	return parsed;
 }
 
+/** Skeleton that mirrors the real layout: summary card above, tables below. */
+function RecordSkeleton() {
+	return (
+		<>
+			<Card>
+				<SkeletonStack rows={2} />
+			</Card>
+			<Card>
+				<SkeletonStack rows={5} />
+			</Card>
+		</>
+	);
+}
+
 function RecordContent() {
 	const { session } = useAuth();
 	const search = recordRoute.useSearch();
@@ -60,11 +54,19 @@ function RecordContent() {
 	// Students always see their own card; staff pick a student first.
 	const studentId = isStudent ? session?.user.id : search.student;
 	const record = useStudentRecord(studentId);
+	/** Year the reader picked; the newest year is the fallback. */
+	const [selectedYear, setSelectedYear] = useState<string | null>(null);
 
-	const groups = useMemo(
-		() => groupEntries(record.data?.entries ?? []),
+	const years = useMemo(
+		() => groupBySchoolYear(record.data?.entries ?? []),
 		[record.data],
 	);
+
+	// A selection that no longer exists (a different student, a refetch) falls
+	// back to the newest year rather than showing an empty page.
+	const activeYear =
+		years.find((year) => year.key === selectedYear) ?? years[0];
+	const isHistory = years.length > 1;
 
 	if (!studentId) {
 		return (
@@ -87,6 +89,11 @@ function RecordContent() {
 				</Link>
 			)}
 			<PageHeader
+				eyebrow={
+					activeYear && !isHistory
+						? `School year ${activeYear.label}`
+						: undefined
+				}
 				title={isStudent ? "Study record" : (search.name ?? "Study record")}
 				description={
 					isStudent
@@ -106,9 +113,7 @@ function RecordContent() {
 			/>
 
 			{record.isPending ? (
-				<Card>
-					<SkeletonStack rows={7} />
-				</Card>
+				<RecordSkeleton />
 			) : record.isError ? (
 				<Card>
 					<ErrorState
@@ -117,131 +122,40 @@ function RecordContent() {
 						onRetry={() => void record.refetch()}
 					/>
 				</Card>
-			) : (
+			) : years.length === 0 ? (
+				<Card>
+					<EmptyState
+						icon={SealCheck}
+						title="Nothing on the record yet"
+						description="Subjects appear once there is an enrollment and the gradebook has points."
+					/>
+				</Card>
+			) : activeYear ? (
 				<>
-					<Card>
-						<div className="grade-summary">
-							<div>
-								<p className="metric__label">GPA</p>
-								<p className="metric__value num">
-									{record.data.gpa === null ? "–" : record.data.gpa.toFixed(2)}
-									<span className="metric__foot"> / 10</span>
-								</p>
-							</div>
-							<div>
-								<p className="metric__label">Credits earned</p>
-								<p className="metric__value num">
-									{record.data.credits_earned}
-								</p>
-							</div>
-							<div>
-								<p className="metric__label">Credits in flight</p>
-								<p className="metric__value num">
-									{record.data.credits_in_flight}
-								</p>
-							</div>
-							<div>
-								<p className="metric__label">Subjects passed</p>
-								<p className="metric__value num">
-									{record.data.subjects_passed}
-								</p>
-							</div>
-							<div>
-								<p className="metric__label">Subjects failed</p>
-								<p className="metric__value num">
-									{record.data.subjects_failed}
-								</p>
-							</div>
-						</div>
-						<p className="card__hint">
-							GPA is the ECTS-weighted average of the 4-10 grades of passed
-							subjects. Pass mark: {record.data.pass_grade}.
-						</p>
-					</Card>
-
-					{groups.length === 0 ? (
-						<Card>
-							<EmptyState
-								icon={SealCheck}
-								title="Nothing on the record yet"
-								description="Subjects appear once there is an enrollment and the gradebook has points."
-							/>
-						</Card>
+					{isHistory ? (
+						<Tabs
+							className="record-history"
+							aria-label="School year"
+							value={activeYear.key}
+							onValueChange={setSelectedYear}
+							items={years.map((year) => ({
+								value: year.key,
+								label: year.label,
+								content: (
+									<RecordYear year={year} passGrade={record.data.pass_grade} />
+								),
+							}))}
+						/>
 					) : (
-						groups.map((group) => (
-							<Card key={group.key} className="card--flush">
-								<div className="gradebook__toolbar">
-									<h2 className="card__title">{group.label}</h2>
-									<span className="card__hint num">
-										{group.entries.reduce(
-											(sum, entry) => sum + (entry.ects ?? 0),
-											0,
-										)}{" "}
-										ECTS
-									</span>
-								</div>
-								<Table caption={group.label}>
-									<thead>
-										<tr>
-											<Th>Subject</Th>
-											<Th align="right">ECTS</Th>
-											<Th align="right">Points</Th>
-											<Th align="right">Grade</Th>
-											<Th>Status</Th>
-											<Th>Sitting</Th>
-										</tr>
-									</thead>
-									<tbody>
-										{group.entries.map((entry) => (
-											<tr key={`${entry.subject_id}-${entry.attempt_no}`}>
-												<Td>
-													<span className="table__primary">
-														{entry.subject_name}
-													</span>
-													{entry.is_official ? (
-														<span className="table__secondary">
-															<Badge tone="success">official</Badge>
-															{entry.override_note
-																? ` ${entry.override_note}`
-																: null}
-														</span>
-													) : entry.is_overridden ? (
-														<span className="table__secondary">
-															exam office override
-														</span>
-													) : null}
-												</Td>
-												<Td align="right">
-													<span className="num">{entry.ects ?? "—"}</span>
-												</Td>
-												<Td align="right">
-													<span className="num">
-														{entry.total_points === null
-															? "—"
-															: entry.total_points.toFixed(2)}
-													</span>
-												</Td>
-												<Td align="right">
-													<span className="num">{entry.grade ?? "—"}</span>
-												</Td>
-												<Td>
-													<GradeStatusBadge
-														status={entry.status}
-														passGrade={record.data?.pass_grade ?? 5}
-													/>
-												</Td>
-												<Td>
-													<span className="num">#{entry.attempt_no}</span>
-												</Td>
-											</tr>
-										))}
-									</tbody>
-								</Table>
-							</Card>
-						))
+						<RecordYear
+							year={activeYear}
+							passGrade={record.data.pass_grade}
+							title="Grades and credits"
+						/>
 					)}
+					<GradeScale bands={record.data.bands} />
 				</>
-			)}
+			) : null}
 		</>
 	);
 }

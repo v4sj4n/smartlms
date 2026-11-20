@@ -1,0 +1,28 @@
+/* Study record · school-year history.
+   Only the rules the shared stylesheet has no idiom for: the band chips, and
+   the print behaviour of the year tabs. Everything else reuses styles.css. */
+
+/* Grade-scale chips: one wrapped legend line inside a card. */
+.record-scale {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	padding: 0 16px 16px;
+}
+
+/* Subject cell: the name, then the official/override line under it. The shared
+   .table__primary/.table__secondary pair is inline by default. */
+.record-subject {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+}
+
+@media print {
+	/* The tab bar is navigation, not record content. The printed page carries
+	   the selected year in the summary card's title instead. */
+	.record-history .tabs__list {
+		display: none !important;
+	}
+}

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"smartlms/backend/internal/auth"
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/keycrypt"
-	"smartlms/backend/internal/totp"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/auth"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/keycrypt"
+	"optimolms/backend/internal/totp"
+	"optimolms/backend/internal/util"
 )
 
 // testService builds a two-factor service over a throwaway database holding one

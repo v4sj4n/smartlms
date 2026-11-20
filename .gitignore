@@ -43,3 +43,11 @@ backend/bin/
 backend/server
 backend/*.db
 backend/*.db-*
+
+# landing build
+landing/node_modules/
+landing/dist/
+
+# agent tooling
+.claude/
+.agents/

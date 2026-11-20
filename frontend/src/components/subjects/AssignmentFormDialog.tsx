@@ -12,10 +12,13 @@ import { WeekField } from "./WeekField";
 /** Add or edit an assignment: due date, points and how students hand it in. */
 export function AssignmentFormDialog({
 	subjectId,
+	weekId,
 	assignment,
 	onClose,
 }: {
 	subjectId: string;
+	/** Week this content is filed into on create, when opened from a week. */
+	weekId?: string;
 	assignment?: Assignment;
 	onClose: () => void;
 }) {
@@ -31,7 +34,7 @@ export function AssignmentFormDialog({
 			max_points: assignment ? String(assignment.max_points) : "100",
 			submission_type: assignment?.submission_type ?? "both",
 			allow_late: assignment?.allow_late ?? true,
-			week_id: assignment?.week_id ?? "",
+			week_id: assignment?.week_id ?? weekId ?? "",
 		},
 		onSubmit: async ({ value }) => {
 			setServerError(null);

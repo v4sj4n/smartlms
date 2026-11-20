@@ -166,7 +166,6 @@ export function ForumPanel({
 										await createForum.mutateAsync({
 											subjectId,
 											input: {
-												user_id: userId,
 												title: title.trim(),
 												description: description.trim() || undefined,
 											},
@@ -308,7 +307,6 @@ function ForumCard({
 												await createThread.mutateAsync({
 													forumId: forum.id,
 													input: {
-														user_id: userId,
 														title: title.trim(),
 														body: body.trim(),
 													},
@@ -430,7 +428,7 @@ function ThreadRow({
 										try {
 											await reply.mutateAsync({
 												threadId: thread.id,
-												input: { user_id: userId, body: body.trim() },
+												input: { body: body.trim() },
 											});
 											toastSuccess("Reply posted");
 											setBody("");

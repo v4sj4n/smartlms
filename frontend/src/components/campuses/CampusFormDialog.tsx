@@ -58,7 +58,7 @@ export function CampusFormDialog({
 			description={
 				isEdit
 					? "Rename the campus or correct its address."
-					: "Campuses hold stories, and stories hold rooms."
+					: "Campuses hold floors, and floors hold rooms."
 			}
 			onDismiss={onClose}
 			dismissible={!pending}

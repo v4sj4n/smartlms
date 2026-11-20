@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"smartlms/backend/internal/db"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/db"
+	"optimolms/backend/internal/util"
 )
 
 // academicIDs are the people the tests admit and teach: one student, one

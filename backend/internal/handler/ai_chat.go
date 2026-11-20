@@ -14,8 +14,8 @@ import (
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 
-	"smartlms/backend/internal/keycrypt"
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/keycrypt"
+	"optimolms/backend/internal/util"
 )
 
 // POST /api/ai/chat streams an OpenAI-compatible completion back to the
@@ -23,7 +23,6 @@ import (
 // useChat parses. Provider keys are decrypted in memory only; the user's
 // assistant settings plus their page context become the system message.
 type aiChatRequest struct {
-	UserID   string        `json:"user_id"`
 	ModelID  string        `json:"model_id"`
 	Messages []aiUIMessage `json:"messages"`
 	Context  aiChatContext `json:"context"`
@@ -90,10 +89,21 @@ func resolveAIProvider(ctx context.Context, db *sql.DB, userID string) (chatProv
 	return row, err
 }
 
-// The provider's default model, else its first enabled stored model.
+// The provider's default model, else its first enabled stored model. A default
+// the admin has since switched off is skipped: chat must never reach for a
+// model the catalogue says is unavailable.
 func resolveAIModel(ctx context.Context, db *sql.DB, provider chatProvider) (string, error) {
 	if provider.DefaultModel != "" {
-		return provider.DefaultModel, nil
+		var enabled int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM ai_models
+			WHERE provider_id = ? AND model_id = ? AND is_enabled = 1`,
+			provider.ID, provider.DefaultModel).Scan(&enabled); err != nil {
+			return "", err
+		}
+		if enabled > 0 {
+			return provider.DefaultModel, nil
+		}
 	}
 	var model string
 	err := db.QueryRowContext(ctx, `
@@ -186,6 +196,49 @@ type chatModelProviderOut struct {
 type chatModelsOut struct {
 	Providers      []chatModelProviderOut `json:"providers"`
 	DefaultModelID *string                `json:"default_model_id"`
+	// Ready is true when at least one provider can answer right now: enabled,
+	// keyed and with a model switched on. The UI keeps the assistant hidden
+	// while this is false, rather than offering a chat that cannot answer.
+	Ready bool `json:"ready"`
+	// Reason explains Ready=false: no_provider, inactive_provider or no_model.
+	Reason string `json:"reason,omitempty"`
+}
+
+// Chat readiness reasons, so the client can say what is missing instead of
+// guessing from an empty list.
+const (
+	reasonNoProvider       = "no_provider"
+	reasonInactiveProvider = "inactive_provider"
+	reasonNoModel          = "no_model"
+)
+
+// chatReadiness answers "would a chat work right now?" and, when it would not,
+// which of the three things is missing: a provider at all, a provider that is
+// switched on and keyed, or a model switched on for it.
+func chatReadiness(ctx context.Context, db *sql.DB, userID string) (string, error) {
+	const query = `
+		SELECT
+			(SELECT COUNT(*) FROM ai_providers p
+			 WHERE p.scope = 'institutional' OR (p.scope = 'personal' AND p.owner_user_id = ?)),
+			(SELECT COUNT(*) FROM ai_providers p WHERE ` + usableProviderClause + `),
+			(SELECT COUNT(*) FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id
+			 WHERE m.is_enabled = 1 AND ` + usableProviderClause + `)`
+
+	var anyProvider, usableProvider, enabledModels int
+	if err := db.QueryRowContext(ctx, query, userID, userID, userID).
+		Scan(&anyProvider, &usableProvider, &enabledModels); err != nil {
+		return "", err
+	}
+	switch {
+	case enabledModels > 0:
+		return "", nil
+	case usableProvider > 0:
+		return reasonNoModel, nil
+	case anyProvider > 0:
+		return reasonInactiveProvider, nil
+	default:
+		return reasonNoProvider, nil
+	}
 }
 
 // listChatModels: chat-ready providers (usable, with at least one enabled
@@ -225,6 +278,14 @@ func listChatModels(ctx context.Context, db *sql.DB, userID string) (chatModelsO
 	if defaultID != "" {
 		out.DefaultModelID = &defaultID
 	}
+	reason, err := chatReadiness(ctx, db, userID)
+	if err != nil {
+		return out, err
+	}
+	out.Ready = len(out.Providers) > 0
+	if !out.Ready {
+		out.Reason = reason
+	}
 	return out, nil
 }
 
@@ -256,12 +317,20 @@ func estimateTokens(text string) int64 {
 	return (n + 3) / 4
 }
 
+// aiChatFormattingRules tells the model how the chat renders replies, so math,
+// code and diagrams come out typeset instead of as raw or broken markup.
+const aiChatFormattingRules = `Formatting (replies render as GitHub-flavoured markdown with KaTeX and Mermaid):
+- Math: write LaTeX. Inline math goes in $...$, standalone equations in $$...$$ on their own lines. Never put math in code blocks or plain text like "E = mc^2".
+- Code: always use fenced code blocks with a language tag (` + "```python" + `, ` + "```sql" + `, ...). Keep inline identifiers in single backticks. Show complete, runnable snippets with consistent indentation.
+- Diagrams: use ` + "```mermaid" + ` only for real structure (flows, sequences, relationships). Keep node labels short plain text in double quotes; never put LaTeX or $ signs inside Mermaid. Put any formula in a $$...$$ block next to the diagram instead.
+- Use headings, lists and tables when they make the answer easier to scan; don't pad short answers.`
+
 // buildAIChatSystemPrompt: identity + personalization + stored prompt + the page
 // the user was on + what the MCP tools let the assistant actually do, all kept
 // inside the permissions the user holds.
 func buildAIChatSystemPrompt(page, title string, s *aiSettingsOut, scope accessScope) string {
 	var b strings.Builder
-	b.WriteString("You are " + s.AssistantName + ", the assistant inside SmartLMS.")
+	b.WriteString("You are " + s.AssistantName + ", the assistant inside OptimoLMS.")
 	if s.DisplayName != "" {
 		fmt.Fprintf(&b, " The user's name is %s; address them by it.", s.DisplayName)
 	}
@@ -274,6 +343,7 @@ func buildAIChatSystemPrompt(page, title string, s *aiSettingsOut, scope accessS
 	if s.Notes != "" {
 		fmt.Fprintf(&b, " Extra context about the user: %s", s.Notes)
 	}
+	b.WriteString("\n\n" + aiChatFormattingRules)
 	if s.SystemPrompt != "" {
 		b.WriteString("\n\n" + s.SystemPrompt)
 	}
@@ -281,7 +351,7 @@ func buildAIChatSystemPrompt(page, title string, s *aiSettingsOut, scope accessS
 	if len(scope.Modules) > 0 || len(scope.Permissions) > 0 {
 		b.WriteString("\n\nAccess limits you must respect:")
 		if len(scope.Modules) > 0 {
-			fmt.Fprintf(&b, " the user's SmartLMS modules are %s;", strings.Join(scope.Modules, ", "))
+			fmt.Fprintf(&b, " the user's OptimoLMS modules are %s;", strings.Join(scope.Modules, ", "))
 		}
 		if len(scope.Permissions) > 0 {
 			fmt.Fprintf(&b, " their permissions are %s;", strings.Join(scope.Permissions, ", "))
@@ -290,7 +360,7 @@ func buildAIChatSystemPrompt(page, title string, s *aiSettingsOut, scope accessS
 		b.WriteString(" If they ask for something outside their permissions, say plainly that you cannot help with it in their account and suggest they ask an administrator for access. Never invent data, records or screens they cannot see.")
 	}
 	if page != "" {
-		fmt.Fprintf(&b, "\n\nThe user reached you from the SmartLMS page '%s'", page)
+		fmt.Fprintf(&b, "\n\nThe user reached you from the OptimoLMS page '%s'", page)
 		if title != "" {
 			fmt.Fprintf(&b, " while viewing '%s'. Use that material as context when it is relevant, and offer to explain or summarise it.", title)
 		} else {
@@ -303,11 +373,7 @@ func buildAIChatSystemPrompt(page, title string, s *aiSettingsOut, scope accessS
 // registerAIChat wires the streaming endpoint.
 func registerAIChat(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) {
 	mux.HandleFunc("GET /api/ai/chat-models", func(w http.ResponseWriter, r *http.Request) {
-		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		userID := callerFrom(r).ID
 		out, err := listChatModels(r.Context(), db, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Models could not be listed."})
@@ -327,11 +393,7 @@ func registerAIChat(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) {
 		// The assistant is permission-gated: without assistant.use the user
 		// never reaches a provider, whatever the UI shows.
 		ctx := r.Context()
-		userID := strings.TrimSpace(req.UserID)
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
+		userID := callerFrom(r).ID
 		scope, err := loadAccessScope(ctx, db, userID)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unknown user"})
@@ -399,7 +461,7 @@ func registerAIChat(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) {
 			return
 		}
 
-		// The SmartLMS MCP server is the assistant's hands: the tools that
+		// The OptimoLMS MCP server is the assistant's hands: the tools that
 		// create real content. They are offered only when this person connected
 		// the server in the MCP tab, and only within their own permissions.
 		connected, err := mcpServerConnected(ctx, db, userID)
@@ -424,15 +486,15 @@ func registerAIChat(mux *http.ServeMux, db *sql.DB, crypt *keycrypt.Crypt) {
 
 		systemPrompt := buildAIChatSystemPrompt(req.Context.Page, req.Context.Title, &settings, scope)
 		if len(toolDefs) > 0 {
-			systemPrompt += "\n\nYou can act in SmartLMS through your MCP tools: " + mcpToolNames(toolByName) +
+			systemPrompt += "\n\nYou can act in OptimoLMS through your MCP tools: " + mcpToolNames(toolByName) +
 				". Walkthrough: call list_subjects to learn the subject ids, then create what the user asked for. " +
 				"Only say you created, added or posted something after the tool call returned successfully, and " +
 				"quote the id it returned. When a tool returns an error, tell the user what the backend refused " +
 				"and why — never retry behind their back with different arguments."
 		} else {
-			systemPrompt += "\n\nSmartLMS tools are not connected for this person, so you cannot create subjects, " +
+			systemPrompt += "\n\nOptimoLMS tools are not connected for this person, so you cannot create subjects, " +
 				"weeks, lectures, assignments, quizzes, flashcards or forum threads. If they ask you to, tell them " +
-				"to open AI assistant › MCP and connect SmartLMS, then ask again."
+				"to open AI assistant › MCP and connect OptimoLMS, then ask again."
 		}
 
 		// Rebuild the model-side conversation from the UIMessage parts.

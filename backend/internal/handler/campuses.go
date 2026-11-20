@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 type classOut struct {

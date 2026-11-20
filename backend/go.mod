@@ -1,4 +1,4 @@
-module smartlms/backend
+module optimolms/backend
 
 go 1.27
 

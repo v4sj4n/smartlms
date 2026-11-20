@@ -1,12 +1,13 @@
 {
-  "name": "smartlms",
+  "name": "optimolms",
   "private": true,
   "version": "0.2.0",
-  "description": "SmartLMS rebuild — Go backend + React (Vite, TanStack Router/Query) frontend",
+  "description": "OptimoLMS rebuild — Go backend + React (Vite, TanStack Router/Query) frontend",
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"cd backend && go run ./cmd/server\" \"cd frontend && npm run dev\"",
     "dev:backend": "cd backend && go run ./cmd/server",
     "dev:frontend": "cd frontend && npm run dev",
+    "dev:landing": "cd landing && npm run dev",
     "build": "cd frontend && npm run build",
     "test": "cd backend && go test ./..."
   },

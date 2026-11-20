@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
 /* ============================================================================
@@ -43,6 +43,9 @@ type assignmentListOut struct {
 	SubmittedAt string   `json:"submitted_at,omitempty"`
 }
 
+// submissionOut is one handed-in assignment. The file summary is three nullable
+// fields — name, kind and size — and never the bytes: those live behind
+// GET /api/submissions/{id}/file (see submission_files.go).
 type submissionOut struct {
 	ID           string   `json:"id"`
 	AssignmentID string   `json:"assignment_id"`
@@ -50,6 +53,9 @@ type submissionOut struct {
 	StudentName  string   `json:"student_name,omitempty"`
 	Content      string   `json:"content,omitempty"`
 	FileURL      string   `json:"file_url,omitempty"`
+	FileName     *string  `json:"file_name"`
+	FileKind     *string  `json:"file_kind"`
+	FileSize     *int64   `json:"file_size"`
 	Status       string   `json:"status"`
 	Score        *float64 `json:"score"`
 	MaxPoints    int      `json:"max_points"`
@@ -57,6 +63,20 @@ type submissionOut struct {
 	SubmittedAt  string   `json:"submitted_at"`
 	GradedAt     string   `json:"graded_at,omitempty"`
 }
+
+// submissionSelect is the shared column list behind every submission payload:
+// the row, the assignment's point ceiling, the student's name, and the summary of
+// the stored file when there is one. Callers add their own WHERE and ORDER BY.
+const submissionSelect = `
+	SELECT sub.id, sub.assignment_id, sub.student_id, COALESCE(u.name, ''),
+	       COALESCE(sub.content, ''), COALESCE(sub.file_url, ''), sub.status,
+	       sub.score, a.max_points, COALESCE(sub.feedback, ''), sub.submitted_at,
+	       COALESCE(sub.graded_at, ''),
+	       sf.file_name, sf.file_kind, sf.file_size
+	FROM assignment_submissions sub
+	JOIN assignments a ON a.id = sub.assignment_id
+	LEFT JOIN users u ON u.id = sub.student_id
+	LEFT JOIN submission_files sf ON sf.submission_id = sub.id`
 
 func registerAssignments(mux *http.ServeMux, db *sql.DB) {
 	// Student view: every assignment across the subjects they are enrolled in.
@@ -227,6 +247,17 @@ func patchAssignment(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "assignment not found"})
 			return
 		}
+		// A gradebook component built from this assignment carries its title
+		// and point ceiling, so editing either here follows through to the
+		// grade instead of leaving two different numbers behind.
+		if body.Title != nil || body.MaxPoints != nil {
+			_, _ = db.ExecContext(r.Context(), `
+				UPDATE grade_components
+				SET name = COALESCE((SELECT title FROM assignments WHERE id = ?), name),
+				    max_points = COALESCE((SELECT max_points FROM assignments WHERE id = ?), max_points)
+				WHERE assignment_id = ?`,
+				r.PathValue("id"), r.PathValue("id"), r.PathValue("id"))
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -235,11 +266,8 @@ func patchAssignment(db *sql.DB) http.HandlerFunc {
 // the student is enrolled in, joined with their own submission (G4).
 func listAssignmentsForStudent(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		studentID := r.URL.Query().Get("student_id")
-		if studentID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "student_id is required"})
-			return
-		}
+		// The caller's own list: the session says whose enrollments count.
+		studentID := callerFrom(r).ID
 
 		rows, err := db.QueryContext(r.Context(), `
 			SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(cl.name, ''),
@@ -331,16 +359,11 @@ func getAssignment(db *sql.DB) http.HandlerFunc {
 			detail["subject_name"] = subjectName
 		}
 
-		if studentID := r.URL.Query().Get("student_id"); studentID != "" {
-			sub, err := scanSubmission(db.QueryRowContext(ctx, `
-				SELECT sub.id, sub.assignment_id, sub.student_id, COALESCE(u.name, ''),
-				       COALESCE(sub.content, ''), COALESCE(sub.file_url, ''), sub.status,
-				       sub.score, a.max_points, COALESCE(sub.feedback, ''), sub.submitted_at,
-				       COALESCE(sub.graded_at, '')
-				FROM assignment_submissions sub
-				JOIN assignments a ON a.id = sub.assignment_id
-				LEFT JOIN users u ON u.id = sub.student_id
-				WHERE sub.assignment_id = ? AND sub.student_id = ?`, id, studentID))
+		// The caller's own submission on this assignment, when they handed one in.
+		studentID := callerFrom(r).ID
+		{
+			sub, err := scanSubmission(db.QueryRowContext(ctx,
+				submissionSelect+` WHERE sub.assignment_id = ? AND sub.student_id = ?`, id, studentID))
 			if err == nil {
 				detail["submission"] = sub
 			} else if err != sql.ErrNoRows {
@@ -355,9 +378,23 @@ func getAssignment(db *sql.DB) http.HandlerFunc {
 
 func scanSubmission(row interface{ Scan(...any) error }) (submissionOut, error) {
 	var s submissionOut
+	var fileName, fileKind sql.NullString
+	var fileSize sql.NullInt64
 	err := row.Scan(&s.ID, &s.AssignmentID, &s.StudentID, &s.StudentName,
 		&s.Content, &s.FileURL, &s.Status, &s.Score, &s.MaxPoints, &s.Feedback,
-		&s.SubmittedAt, &s.GradedAt)
+		&s.SubmittedAt, &s.GradedAt, &fileName, &fileKind, &fileSize)
+	if fileName.Valid {
+		name := fileName.String
+		s.FileName = &name
+	}
+	if fileKind.Valid {
+		kind := fileKind.String
+		s.FileKind = &kind
+	}
+	if fileSize.Valid {
+		size := fileSize.Int64
+		s.FileSize = &size
+	}
 	return s, err
 }
 
@@ -369,18 +406,14 @@ func submitAssignment(db *sql.DB) http.HandlerFunc {
 		assignmentID := r.PathValue("id")
 
 		var body struct {
-			StudentID string `json:"student_id"`
-			Content   string `json:"content"`
-			FileURL   string `json:"file_url"`
+			Content string `json:"content"`
+			FileURL string `json:"file_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
-		if body.StudentID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "student_id is required"})
-			return
-		}
+		studentID := callerFrom(r).ID
 
 		var dueAt sql.NullString
 		var allowLate bool
@@ -390,7 +423,7 @@ func submitAssignment(db *sql.DB) http.HandlerFunc {
 			SELECT COALESCE(a.due_at, ''), a.allow_late, a.submission_type, a.is_published
 			FROM assignments a
 			JOIN enrollments e ON e.subject_id = a.subject_id AND e.student_id = ?
-			WHERE a.id = ?`, body.StudentID, assignmentID).
+			WHERE a.id = ?`, studentID, assignmentID).
 			Scan(&dueAt, &allowLate, &submissionType, &published)
 		if err == sql.ErrNoRows {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "not enrolled in this subject"})
@@ -428,7 +461,7 @@ func submitAssignment(db *sql.DB) http.HandlerFunc {
 		var existingID, existingStatus string
 		err = db.QueryRowContext(ctx,
 			`SELECT id, status FROM assignment_submissions WHERE assignment_id = ? AND student_id = ?`,
-			assignmentID, body.StudentID).Scan(&existingID, &existingStatus)
+			assignmentID, studentID).Scan(&existingID, &existingStatus)
 		now := util.Now()
 
 		if err == nil {
@@ -447,7 +480,7 @@ func submitAssignment(db *sql.DB) http.HandlerFunc {
 				INSERT INTO assignment_submissions
 				  (id, assignment_id, student_id, content, file_url, status, submitted_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				existingID, assignmentID, body.StudentID, body.Content, nullIfEmpty(body.FileURL), status, now, now)
+				existingID, assignmentID, studentID, body.Content, nullIfEmpty(body.FileURL), status, now, now)
 		}
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -461,16 +494,8 @@ func submitAssignment(db *sql.DB) http.HandlerFunc {
 // listSubmissions is the lecturer's grading queue for one assignment.
 func listSubmissions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.QueryContext(r.Context(), `
-			SELECT sub.id, sub.assignment_id, sub.student_id, COALESCE(u.name, ''),
-			       COALESCE(sub.content, ''), COALESCE(sub.file_url, ''), sub.status,
-			       sub.score, a.max_points, COALESCE(sub.feedback, ''), sub.submitted_at,
-			       COALESCE(sub.graded_at, '')
-			FROM assignment_submissions sub
-			JOIN assignments a ON a.id = sub.assignment_id
-			LEFT JOIN users u ON u.id = sub.student_id
-			WHERE sub.assignment_id = ?
-			ORDER BY u.name`, r.PathValue("id"))
+		rows, err := db.QueryContext(r.Context(),
+			submissionSelect+` WHERE sub.assignment_id = ? ORDER BY u.name`, r.PathValue("id"))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -493,16 +518,13 @@ func listSubmissions(db *sql.DB) http.HandlerFunc {
 // listStudentSubmissions feeds the student's own assignment history (G6).
 func listStudentSubmissions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.QueryContext(r.Context(), `
-			SELECT sub.id, sub.assignment_id, sub.student_id, COALESCE(u.name, ''),
-			       COALESCE(sub.content, ''), COALESCE(sub.file_url, ''), sub.status,
-			       sub.score, a.max_points, COALESCE(sub.feedback, ''), sub.submitted_at,
-			       COALESCE(sub.graded_at, '')
-			FROM assignment_submissions sub
-			JOIN assignments a ON a.id = sub.assignment_id
-			LEFT JOIN users u ON u.id = sub.student_id
-			WHERE sub.student_id = ?
-			ORDER BY sub.submitted_at DESC`, r.PathValue("id"))
+		studentID := r.PathValue("id")
+		if !allowStudentRecord(r, studentID, "assignments.grade") {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "you can only see your own submissions"})
+			return
+		}
+		rows, err := db.QueryContext(r.Context(),
+			submissionSelect+` WHERE sub.student_id = ? ORDER BY sub.submitted_at DESC`, studentID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -529,7 +551,6 @@ func gradeSubmission(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var body struct {
-			GraderID string   `json:"grader_id"`
 			Score    *float64 `json:"score"`
 			Feedback string   `json:"feedback"`
 		}
@@ -555,11 +576,12 @@ func gradeSubmission(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if body.GraderID != "" {
-			if err := requireSubjectStaff(ctx, db, body.GraderID, subjectID); err != nil {
-				writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
-				return
-			}
+		// Grading is a staff action on the subject, and the grader recorded on
+		// the row is the signed-in lecturer (or admin) who did it.
+		graderID := callerFrom(r).ID
+		if err := requireSubjectStaff(ctx, db, graderID, subjectID); err != nil {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+			return
 		}
 		if body.Score != nil && (*body.Score < 0 || *body.Score > float64(maxPoints)) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "score is outside 0..max_points"})
@@ -579,11 +601,16 @@ func gradeSubmission(db *sql.DB) http.HandlerFunc {
 			UPDATE assignment_submissions
 			SET score = ?, feedback = ?, status = ?, graded_at = ?, graded_by = ?, updated_at = ?
 			WHERE id = ?`,
-			score, body.Feedback, status, nullableString(status == "graded", now), nullIfEmpty(body.GraderID), now,
+			score, body.Feedback, status, nullableString(status == "graded", now), nullIfEmpty(graderID), now,
 			r.PathValue("id")); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
+
+		// When the assignment is one of the subject's graded items, the score
+		// lands in the gradebook too, so the student's running total is right
+		// without the lecturer keying the points twice.
+		syncComponentFromSubmission(ctx, db, assignmentID, studentID, body.Score, graderID, now)
 
 		writeJSON(w, http.StatusOK, map[string]string{"status": status})
 	}

@@ -192,7 +192,7 @@ export function StaffGradesOverview() {
 	const gradebooks = useQueries({
 		queries: items.map((subject) => ({
 			queryKey: queryKeys.gradebook(subject.id),
-			queryFn: () => api.gradebook(subject.id, session.user.id),
+			queryFn: () => api.gradebook(subject.id),
 			staleTime: 10_000,
 		})),
 	});

@@ -1,4 +1,4 @@
-# SmartLMS (OptimoLMS)
+# OptimoLMS
 
 A Next.js learning management system with week-based courses, assignments, quizzes, AI tutoring, clubs, and academic scheduling.
 

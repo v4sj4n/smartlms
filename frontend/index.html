@@ -6,16 +6,16 @@
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="SmartLMS — campuses, users and role permissions for the learning management platform."
+      content="OptimoLMS — campuses, users and role permissions for the learning management platform."
     />
-    <title>SmartLMS</title>
+    <title>OptimoLMS</title>
     <!-- Resolve the theme before first paint so there is no flash of the wrong one. -->
     <script>
-      (function () {
-        var STORAGE_KEY = "smartlms.theme.v1";
+      (() => {
+        var STORAGE_KEY = "optimolms.theme.v1";
         var preference = "system";
         try {
-          var stored = window.localStorage.getItem(STORAGE_KEY);
+          const stored = window.localStorage.getItem(STORAGE_KEY);
           if (stored === "light" || stored === "dark" || stored === "system") {
             preference = stored;
           }
@@ -40,8 +40,15 @@
         root.setAttribute("data-theme-preference", preference);
         root.style.colorScheme = theme;
         try {
-          var font = window.localStorage.getItem("smartlms.font.v1");
+          const font = window.localStorage.getItem("optimolms.font.v1");
           if (font === "legible" || font === "dyslexic") root.setAttribute("data-font", font);
+          // Accent ids mirror ACCENTS in scripts/accents.mjs; CSS falls back
+          // to blue for anything unknown.
+          const accent = window.localStorage.getItem("optimolms.accent.v1");
+          if (accent && /^[a-z]+$/.test(accent)) root.setAttribute("data-accent", accent);
+          const contrast = window.localStorage.getItem("optimolms.contrast.v1");
+          const more = window.matchMedia("(prefers-contrast: more)").matches;
+          root.setAttribute("data-contrast", contrast === "high" || more ? "high" : "standard");
         } catch (error) {
           /* persistence is optional */
         }

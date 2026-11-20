@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SmartLMS now features a comprehensive permission and module-based access control system that replaces the basic role-based checks throughout the application. This system provides fine-grained control over what users can access and do within the platform.
+The OptimoLMS now features a comprehensive permission and module-based access control system that replaces the basic role-based checks throughout the application. This system provides fine-grained control over what users can access and do within the platform.
 
 ## Architecture
 

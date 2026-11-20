@@ -6,28 +6,36 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"smartlms/backend/internal/util"
+	"optimolms/backend/internal/util"
 )
 
-// Per-user appearance (theme + reading font), served to everybody. Scoped by
-// user_id until sessions land (same convention as AI settings).
+// Per-user appearance (theme, reading font, accent, contrast), served to everybody. The session
+// names the person; the body carries only the preferences.
 type userAppearanceOut struct {
 	UserID    string `json:"user_id"`
 	Theme     string `json:"theme"`
 	Font      string `json:"font"`
+	Accent    string `json:"accent"`
+	Contrast  string `json:"contrast"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 var (
 	validThemes = map[string]bool{"system": true, "light": true, "dark": true}
 	validFonts  = map[string]bool{"system": true, "legible": true, "dyslexic": true}
+	// Mirrors ACCENTS in frontend/scripts/accents.mjs.
+	validAccents = map[string]bool{
+		"blue": true, "teal": true, "green": true, "yellow": true,
+		"orange": true, "red": true, "pink": true, "violet": true,
+	}
+	validContrasts = map[string]bool{"system": true, "high": true}
 )
 
 func loadUserAppearance(ctx context.Context, db *sql.DB, userID string) (userAppearanceOut, error) {
-	out := userAppearanceOut{UserID: userID, Theme: "system", Font: "system"}
+	out := userAppearanceOut{UserID: userID, Theme: "system", Font: "system", Accent: "blue", Contrast: "system"}
 	err := db.QueryRowContext(ctx,
-		`SELECT theme, font, updated_at FROM user_appearance WHERE user_id = ?`, userID).
-		Scan(&out.Theme, &out.Font, &out.UpdatedAt)
+		`SELECT theme, font, accent, contrast, updated_at FROM user_appearance WHERE user_id = ?`, userID).
+		Scan(&out.Theme, &out.Font, &out.Accent, &out.Contrast, &out.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return out, nil
 	}
@@ -36,12 +44,7 @@ func loadUserAppearance(ctx context.Context, db *sql.DB, userID string) (userApp
 
 func registerUserAppearance(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /api/me/appearance", func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
-		}
-		out, err := loadUserAppearance(r.Context(), db, userID)
+		out, err := loadUserAppearance(r.Context(), db, callerFrom(r).ID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -55,27 +58,42 @@ func registerUserAppearance(mux *http.ServeMux, db *sql.DB) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
 			return
 		}
+		// Whose appearance this is comes from the session; the body only carries
+		// the choices.
+		userID := callerFrom(r).ID
+		req.UserID = userID
+		// Clients that predate accent and contrast leave them out.
+		if req.Accent == "" {
+			req.Accent = "blue"
+		}
+		if req.Contrast == "" {
+			req.Contrast = "system"
+		}
 		switch {
-		case req.UserID == "":
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id is required"})
-			return
 		case !validThemes[req.Theme]:
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "theme must be system, light or dark"})
 			return
 		case !validFonts[req.Font]:
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "font must be system, legible or dyslexic"})
 			return
+		case !validAccents[req.Accent]:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "accent must be blue, teal, green, yellow, orange, red, pink or violet"})
+			return
+		case !validContrasts[req.Contrast]:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "contrast must be system or high"})
+			return
 		}
 		if _, err := db.ExecContext(r.Context(), `
-			INSERT INTO user_appearance (user_id, theme, font, updated_at)
-			VALUES (?, ?, ?, ?)
+			INSERT INTO user_appearance (user_id, theme, font, accent, contrast, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT(user_id) DO UPDATE SET
-				theme = excluded.theme, font = excluded.font, updated_at = excluded.updated_at`,
-			req.UserID, req.Theme, req.Font, util.Now()); err != nil {
+				theme = excluded.theme, font = excluded.font, accent = excluded.accent,
+				contrast = excluded.contrast, updated_at = excluded.updated_at`,
+			userID, req.Theme, req.Font, req.Accent, req.Contrast, util.Now()); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		out, err := loadUserAppearance(r.Context(), db, req.UserID)
+		out, err := loadUserAppearance(r.Context(), db, userID)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return

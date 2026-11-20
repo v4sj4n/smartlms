@@ -1,4 +1,5 @@
 import {
+	ArrowClockwise,
 	Buildings,
 	Check,
 	CheckCircle,
@@ -6,6 +7,7 @@ import {
 	Copy,
 	Gauge,
 	GearSix,
+	Key,
 	Plugs,
 	PlugsConnected,
 	Plus,
@@ -13,6 +15,7 @@ import {
 	Timer,
 	Trash,
 	User,
+	WarningCircle,
 	X,
 } from "@phosphor-icons/react";
 import { createRoute, useNavigate } from "@tanstack/react-router";
@@ -28,6 +31,8 @@ import {
 	api,
 	errorMessage,
 	type McpTool,
+	type ProviderHealth,
+	providerErrorCode,
 } from "../api";
 import { useAuth } from "../auth";
 import { useAssistantAccess } from "../chat/access";
@@ -50,7 +55,7 @@ import {
 	TextArea,
 	TextField,
 } from "../components/ui";
-import { humanize } from "../format";
+import { formatRelative, humanize } from "../format";
 import {
 	useAiProviderList,
 	useAiProviderMutations,
@@ -61,7 +66,7 @@ import {
 	useProviderModels,
 	useUpdateAiSettings,
 } from "../queries";
-import { toast, toastApiError, toastSuccess } from "../toast";
+import { toast, toastApiError, toastError, toastSuccess } from "../toast";
 import { appLayoutRoute } from "./app-layout";
 
 /* --- Shared bits ----------------------------------------------------------- */
@@ -448,7 +453,408 @@ function PersonalizationTab({
 	);
 }
 
-/* --- Providers tab: per-user OpenAI-compatible endpoints ---------------------- */
+/* --- Providers tab: connect once, then manage models ------------------------- */
+
+/**
+ * A preset is a name plus a base URL, so setup starts filled in instead of
+ * blank. The key still goes through the backend's verification before anything
+ * is written, so a preset is convenience, never a trust shortcut.
+ */
+const PROVIDER_PRESETS: {
+	key: string;
+	name: string;
+	baseUrl: string;
+	hint: string;
+}[] = [
+	{
+		key: "openai",
+		name: "OpenAI",
+		baseUrl: "https://api.openai.com/v1",
+		hint: "GPT models",
+	},
+	{
+		key: "anthropic",
+		name: "Anthropic",
+		baseUrl: "https://api.anthropic.com/v1",
+		hint: "Claude models",
+	},
+	{
+		key: "gemini",
+		name: "Gemini",
+		baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+		hint: "Google Gemini",
+	},
+	{
+		key: "grok",
+		name: "Grok",
+		baseUrl: "https://api.x.ai/v1",
+		hint: "xAI Grok",
+	},
+	{
+		key: "mistral",
+		name: "Mistral",
+		baseUrl: "https://api.mistral.ai/v1",
+		hint: "Mistral models",
+	},
+	{
+		// Nothing filled in: the admin names and points their own endpoint.
+		key: "others",
+		name: "",
+		baseUrl: "",
+		hint: "Any OpenAI-compatible endpoint",
+	},
+];
+
+/** The pill on a provider row: can chat use it right now, and if not, why. */
+function providerStatus(provider: AiProvider): {
+	label: string;
+	tone: "success" | "warning" | "error" | "neutral";
+	detail?: string;
+} {
+	if (!provider.has_key) {
+		return {
+			label: "No key",
+			tone: "warning",
+			detail: "Paste a key to start this provider.",
+		};
+	}
+	if (!provider.is_enabled) {
+		return {
+			label: "Disabled",
+			tone: "neutral",
+			detail:
+				provider.health !== "" && provider.health !== "ok"
+					? provider.health_detail
+					: "Switched off: chat skips this provider until you turn it back on.",
+		};
+	}
+	switch (provider.health) {
+		case "ok":
+			return provider.enabled_model_count > 0
+				? {
+						label: `Ready · ${provider.enabled_model_count} ${
+							provider.enabled_model_count === 1 ? "model" : "models"
+						}`,
+						tone: "success",
+					}
+				: {
+						label: "No models on",
+						tone: "warning",
+						detail: "Switch on at least one model below.",
+					};
+		case "invalid_key":
+			return {
+				label: "Invalid key",
+				tone: "error",
+				detail: provider.health_detail,
+			};
+		case "endpoint_missing":
+			return {
+				label: "Wrong base URL",
+				tone: "error",
+				detail: provider.health_detail,
+			};
+		case "unreachable":
+			return {
+				label: "Unreachable",
+				tone: "error",
+				detail: provider.health_detail,
+			};
+		case "timeout":
+			return {
+				label: "Timed out",
+				tone: "error",
+				detail: provider.health_detail,
+			};
+		case "rate_limited":
+			return {
+				label: "Rate limited",
+				tone: "warning",
+				detail: provider.health_detail,
+			};
+		case "no_models":
+			return {
+				label: "No models",
+				tone: "warning",
+				detail: provider.health_detail,
+			};
+		default:
+			return {
+				label: provider.is_enabled ? "Not verified" : "Disabled",
+				tone: "neutral",
+				detail: "Run a connection test to check this key.",
+			};
+	}
+}
+
+/** The short name of a verification outcome, for toasts. */
+function healthLabel(code: ProviderHealth): string {
+	switch (code) {
+		case "ok":
+			return "Ready";
+		case "invalid_key":
+			return "Invalid key";
+		case "endpoint_missing":
+			return "Wrong base URL";
+		case "unreachable":
+			return "Unreachable";
+		case "timeout":
+			return "Timed out";
+		case "rate_limited":
+			return "Rate limited";
+		case "no_models":
+			return "No models";
+		default:
+			return "Not verified";
+	}
+}
+
+/**
+ * One inline explanation for a refused key, wherever it was typed. The message
+ * comes from the backend's classification (bad key, wrong URL, timeout), so the
+ * next step is in the text rather than in a support ticket.
+ */
+function KeyProblem({
+	problem,
+	onSaveAnyway,
+	saving,
+}: {
+	problem: { code?: ProviderHealth; message: string };
+	onSaveAnyway?: () => void;
+	saving?: boolean;
+}) {
+	return (
+		<div className="key-problem" role="alert">
+			<WarningCircle size={16} weight="fill" aria-hidden="true" />
+			<div className="key-problem__body">
+				<p className="key-problem__message">{problem.message}</p>
+				{onSaveAnyway && problem.code !== "invalid_key" ? (
+					<button
+						type="button"
+						className="link-button"
+						disabled={saving}
+						onClick={onSaveAnyway}
+					>
+						Save without verifying
+					</button>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function SaveKeyField({
+	provider,
+	userId,
+	onDone,
+}: {
+	provider: AiProvider;
+	userId: string;
+	onDone: () => void;
+}) {
+	const { saveKey } = useAiProviderMutations(userId);
+	const [apiKey, setApiKey] = useState("");
+	const [problem, setProblem] = useState<{
+		code?: ProviderHealth;
+		message: string;
+	} | null>(null);
+
+	const save = async (allowUnverified = false) => {
+		setProblem(null);
+		try {
+			const result = await saveKey.mutateAsync({
+				providerId: provider.id,
+				apiKey: apiKey.trim(),
+				allowUnverified,
+			});
+			toastSuccess(
+				"Key saved",
+				result.enabled_model_count > 0
+					? `${result.enabled_model_count} of ${result.model_count} models on`
+					: `${result.model_count} models discovered`,
+			);
+			setApiKey("");
+			onDone();
+		} catch (caught) {
+			// The old key is still stored: say so, because that is the point.
+			setProblem({
+				code: providerErrorCode(caught),
+				message: errorMessage(caught),
+			});
+		}
+	};
+
+	return (
+		<div className="provider-key">
+			<span className="provider-key__label">
+				{provider.has_key ? "Replace key" : "API key"}
+			</span>
+			<div className="provider-key__row">
+				<input
+					className="input"
+					type="password"
+					value={apiKey}
+					onChange={(event) => setApiKey(event.target.value)}
+					placeholder={
+						provider.has_key
+							? "•••••••• stored. A new key is checked before it replaces it"
+							: "Paste the provider key"
+					}
+					aria-label={`API key for ${provider.name}`}
+					autoComplete="off"
+				/>
+				<Button
+					size="sm"
+					disabled={apiKey.trim() === "" || saveKey.isPending}
+					onClick={() => void save()}
+				>
+					{saveKey.isPending ? (
+						<CircleNotch
+							size={14}
+							weight="bold"
+							className="spinner"
+							aria-hidden="true"
+						/>
+					) : null}
+					{saveKey.isPending ? "Checking…" : "Save key"}
+				</Button>
+			</div>
+			{problem ? (
+				<KeyProblem
+					problem={problem}
+					saving={saveKey.isPending}
+					onSaveAnyway={() => void save(true)}
+				/>
+			) : null}
+		</div>
+	);
+}
+
+/** The catalogue under a provider: search, bulk actions, one default. */
+function ProviderModels({
+	provider,
+	userId,
+}: {
+	provider: AiProvider;
+	userId: string;
+}) {
+	const models = useProviderModels(provider.id, userId);
+	const { updateModel, bulkModels } = useAiProviderMutations(userId);
+	const [filter, setFilter] = useState("");
+
+	const items = models.data?.items ?? [];
+	const needle = filter.trim().toLowerCase();
+	const visible = needle
+		? items.filter((model) => model.model_id.toLowerCase().includes(needle))
+		: items;
+	const busy = bulkModels.isPending || updateModel.isPending;
+
+	const runBulk = (
+		action: "enable_all" | "disable_all" | "enable_recommended",
+	) => {
+		bulkModels.mutate(
+			{ providerId: provider.id, action },
+			{
+				onError: (error) =>
+					toastApiError(error, "The models could not be updated"),
+			},
+		);
+	};
+
+	return (
+		<div className="models-block__body">
+			<div className="model-actions">
+				<input
+					className="input"
+					type="search"
+					value={filter}
+					onChange={(event) => setFilter(event.target.value)}
+					placeholder={`Filter ${items.length} models…`}
+					aria-label={`Filter models of ${provider.name}`}
+				/>
+				<Button
+					size="sm"
+					variant="secondary"
+					disabled={busy}
+					onClick={() => runBulk("enable_recommended")}
+				>
+					Enable recommended
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					disabled={busy}
+					onClick={() => runBulk("enable_all")}
+				>
+					Enable all
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					disabled={busy}
+					onClick={() => runBulk("disable_all")}
+				>
+					Disable all
+				</Button>
+			</div>
+
+			{models.isError ? (
+				<ErrorState
+					title="Models could not be loaded"
+					message={errorMessage(models.error)}
+					onRetry={() => void models.refetch()}
+				/>
+			) : items.length === 0 ? (
+				<p className="models-block__empty">
+					No models stored yet. Save the key to discover them.
+				</p>
+			) : (
+				<div className="model-list">
+					{visible.length === 0 ? (
+						<p className="models-block__empty">Nothing matches “{filter}”.</p>
+					) : (
+						visible.map((model) => (
+							<div key={model.id} className="model-row">
+								<label className="model-row__name">
+									<input
+										type="checkbox"
+										checked={model.is_enabled}
+										onChange={(event) =>
+											updateModel.mutate({
+												providerId: provider.id,
+												modelId: model.id,
+												isEnabled: event.target.checked,
+											})
+										}
+									/>
+									<span className="num">{model.model_id}</span>
+								</label>
+								{provider.default_model === model.model_id ? (
+									<Badge tone="primary">Default</Badge>
+								) : (
+									<button
+										type="button"
+										className="link-button"
+										disabled={!model.is_enabled}
+										onClick={() =>
+											updateModel.mutate({
+												providerId: provider.id,
+												modelId: model.id,
+												isDefault: true,
+											})
+										}
+									>
+										Set default
+									</button>
+								)}
+							</div>
+						))
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
 
 function ProviderCard({
 	provider,
@@ -459,14 +865,14 @@ function ProviderCard({
 	userId: string;
 	onDelete: () => void;
 }) {
-	const [keyDraft, setKeyDraft] = useState("");
-	const [modelsOpen, setModelsOpen] = useState(false);
-	const models = useProviderModels(
-		modelsOpen ? provider.id : undefined,
-		userId,
+	const [keyOpen, setKeyOpen] = useState(false);
+	// A provider with nothing switched on opens its catalogue: that is the one
+	// thing left to do, so it should not be hidden behind a disclosure.
+	const [modelsOpen, setModelsOpen] = useState(
+		provider.enabled_model_count === 0,
 	);
-	const { toggleProvider, saveKey, updateModel } =
-		useAiProviderMutations(userId);
+	const { toggleProvider, testProvider } = useAiProviderMutations(userId);
+	const status = providerStatus(provider);
 
 	return (
 		<Card>
@@ -474,9 +880,7 @@ function ProviderCard({
 				title={
 					<span className="provider-card__title">
 						{provider.name}
-						<Badge tone={provider.is_enabled ? "success" : "neutral"}>
-							{provider.is_enabled ? "Enabled" : "Disabled"}
-						</Badge>
+						<Badge tone={status.tone}>{status.label}</Badge>
 					</span>
 				}
 				icon={<GearSix size={16} weight="regular" aria-hidden="true" />}
@@ -510,10 +914,27 @@ function ProviderCard({
 					{provider.base_url} <CopyButton text={provider.base_url} />
 				</p>
 
+				{status.detail || provider.checked_at ? (
+					<div className="provider-card__status">
+						{status.detail ? (
+							<span className="provider-card__detail">{status.detail}</span>
+						) : null}
+						{provider.checked_at ? (
+							<span className="provider-card__checked">
+								Checked {formatRelative(provider.checked_at)}
+							</span>
+						) : null}
+					</div>
+				) : null}
+
 				<p className="provider-card__flags">
-					<Badge tone={provider.has_key ? "success" : "warning"}>
-						{provider.has_key ? "Key saved" : "No key"}
-					</Badge>
+					{provider.has_key ? (
+						<span className="provider-card__default">
+							Key <span className="num">{provider.key_hint ?? "saved"}</span>
+						</span>
+					) : (
+						<Badge tone="warning">No key</Badge>
+					)}
 					{provider.default_model ? (
 						<span className="provider-card__default">
 							Default model:{" "}
@@ -522,56 +943,61 @@ function ProviderCard({
 					) : null}
 				</p>
 
-				<div className="provider-key">
-					<span className="provider-key__label">API key</span>
-					<div className="provider-key__row">
-						<input
-							className="input"
-							type="password"
-							value={keyDraft}
-							onChange={(event) => setKeyDraft(event.target.value)}
-							placeholder={
-								provider.has_key
-									? "•••••••• saved. Enter a new one to replace it"
-									: "Paste the provider key"
-							}
-							aria-label={`API key for ${provider.name}`}
-							autoComplete="off"
-						/>
-						<Button
-							size="sm"
-							onClick={() =>
-								saveKey.mutate(
-									{ providerId: provider.id, apiKey: keyDraft.trim() },
-									{
-										onSuccess: (result) => {
-											setKeyDraft("");
-											toastSuccess(
-												result.warning
-													? "Key saved with a warning"
-													: "Key saved",
-												result.warning ??
-													`${result.model_count} models fetched from ${provider.name}`,
-											);
-										},
-										onError: (error) =>
-											toastApiError(error, "Key could not be saved"),
-									},
-								)
-							}
-						>
-							{saveKey.isPending ? (
-								<CircleNotch
-									size={14}
-									weight="bold"
-									className="spinner"
-									aria-hidden="true"
-								/>
-							) : null}
-							Save key
-						</Button>
-					</div>
+				<div className="provider-card__tools">
+					<Button
+						size="sm"
+						variant="secondary"
+						disabled={testProvider.isPending || !provider.has_key}
+						onClick={() =>
+							testProvider.mutate(provider.id, {
+								onSuccess: (result) => {
+									if (result.ok) {
+										toastSuccess(
+											`${provider.name} answered`,
+											`${result.enabled_model_count} of ${result.model_count} models on`,
+										);
+										return;
+									}
+									toastError(
+										`${provider.name}: ${healthLabel(result.code)}`,
+										result.message,
+									);
+								},
+								onError: (error) =>
+									toastApiError(error, "The connection could not be tested"),
+							})
+						}
+					>
+						{testProvider.isPending ? (
+							<CircleNotch
+								size={14}
+								weight="bold"
+								className="spinner"
+								aria-hidden="true"
+							/>
+						) : (
+							<ArrowClockwise size={14} weight="bold" aria-hidden="true" />
+						)}
+						{testProvider.isPending ? "Testing…" : "Test connection"}
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={() => setKeyOpen((open) => !open)}
+						aria-expanded={keyOpen}
+					>
+						<Key size={14} weight="regular" aria-hidden="true" />
+						{provider.has_key ? "Rotate key" : "Add key"}
+					</Button>
 				</div>
+
+				{keyOpen ? (
+					<SaveKeyField
+						provider={provider}
+						userId={userId}
+						onDone={() => setKeyOpen(false)}
+					/>
+				) : null}
 
 				<div className="models-block">
 					<button
@@ -581,56 +1007,10 @@ function ProviderCard({
 						onClick={() => setModelsOpen((value) => !value)}
 					>
 						<span aria-hidden="true">{modelsOpen ? "▾" : "›"}</span>
-						Manage models ({provider.model_count})
+						Models ({provider.enabled_model_count} of {provider.model_count} on)
 					</button>
-
 					{modelsOpen ? (
-						models.isError ? (
-							<ErrorState
-								title="Models could not be loaded"
-								message={errorMessage(models.error)}
-								onRetry={() => void models.refetch()}
-							/>
-						) : (
-							<div className="model-list">
-								{(models.data?.items ?? []).map((model) => (
-									<div key={model.id} className="model-row">
-										<label className="model-row__name">
-											<input
-												type="checkbox"
-												checked={model.is_enabled}
-												onChange={(event) =>
-													updateModel.mutate({
-														providerId: provider.id,
-														modelId: model.id,
-														isEnabled: event.target.checked,
-													})
-												}
-											/>
-											<span className="num">{model.model_id}</span>
-										</label>
-										{provider.default_model === model.model_id ? (
-											<Badge tone="primary">Default</Badge>
-										) : (
-											<button
-												type="button"
-												className="link-button"
-												disabled={!model.is_enabled}
-												onClick={() =>
-													updateModel.mutate({
-														providerId: provider.id,
-														modelId: model.id,
-														isDefault: true,
-													})
-												}
-											>
-												Set default
-											</button>
-										)}
-									</div>
-								))}
-							</div>
-						)
+						<ProviderModels provider={provider} userId={userId} />
 					) : null}
 				</div>
 			</div>
@@ -665,6 +1045,159 @@ function CopyButton({ text }: { text: string }) {
 	);
 }
 
+/**
+ * Setup on one screen: pick a preset or type the endpoint, paste the key, and
+ * press one button. The backend verifies the key, discovers the models and
+ * switches on a starter set, so there is no second screen of toggles.
+ */
+function ConnectProviderDialog({
+	scope,
+	userId,
+	onClose,
+}: {
+	scope: "institutional" | "personal";
+	userId: string;
+	onClose: () => void;
+}) {
+	const { connectProvider } = useAiProviderMutations(userId);
+	const [preset, setPreset] = useState(PROVIDER_PRESETS[0].key);
+	const [name, setName] = useState(PROVIDER_PRESETS[0].name);
+	const [baseUrl, setBaseUrl] = useState(PROVIDER_PRESETS[0].baseUrl);
+	const [apiKey, setApiKey] = useState("");
+	const [problem, setProblem] = useState<{
+		code?: ProviderHealth;
+		message: string;
+	} | null>(null);
+
+	const choosePreset = (entry: (typeof PROVIDER_PRESETS)[number]) => {
+		// Clicking the preset already chosen is not a change: keep the key.
+		if (entry.key === preset) return;
+		setPreset(entry.key);
+		setName(entry.name);
+		setBaseUrl(entry.baseUrl);
+		// A key typed for one provider does not belong to the next one, so
+		// switching provider clears both the key and the failure it caused.
+		setApiKey("");
+		setProblem(null);
+	};
+
+	const connect = async (allowUnverified = false) => {
+		setProblem(null);
+		try {
+			const result = await connectProvider.mutateAsync({
+				scope,
+				name: name.trim(),
+				baseUrl: baseUrl.trim(),
+				apiKey: apiKey.trim(),
+				preset,
+				allowUnverified,
+			});
+			const on = result.provider.enabled_model_count;
+			toastSuccess(
+				`${result.provider.name} connected`,
+				result.default_model
+					? `${on} ${on === 1 ? "model" : "models"} on · default ${result.default_model}`
+					: `${result.provider.model_count} models found`,
+			);
+			onClose();
+		} catch (caught) {
+			setProblem({
+				code: providerErrorCode(caught),
+				message: errorMessage(caught),
+			});
+		}
+	};
+
+	return (
+		<Dialog
+			title={
+				scope === "institutional"
+					? "Connect an AI provider"
+					: "Connect your provider"
+			}
+			description="Everything in one step: the key is checked against the endpoint, its models are discovered, and a fast default is switched on — no second screen of model toggles."
+			onDismiss={onClose}
+			footer={
+				<>
+					<Button variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button
+						variant="primary"
+						disabled={connectProvider.isPending || baseUrl.trim() === ""}
+						onClick={() => void connect()}
+					>
+						{connectProvider.isPending ? (
+							<CircleNotch
+								size={14}
+								weight="bold"
+								className="spinner"
+								aria-hidden="true"
+							/>
+						) : null}
+						{connectProvider.isPending ? "Checking…" : "Connect & discover"}
+					</Button>
+				</>
+			}
+		>
+			<div className="stack--sm">
+				<div
+					className="provider-presets"
+					role="group"
+					aria-label="Provider presets"
+				>
+					{PROVIDER_PRESETS.map((entry) => (
+						<button
+							key={entry.key}
+							type="button"
+							className={
+								entry.key === preset
+									? "provider-preset provider-preset--on"
+									: "provider-preset"
+							}
+							aria-pressed={entry.key === preset}
+							onClick={() => choosePreset(entry)}
+						>
+							<span className="provider-preset__name">{entry.name}</span>
+							<span className="provider-preset__hint">{entry.hint}</span>
+						</button>
+					))}
+				</div>
+
+				<TextField
+					label="Name"
+					value={name}
+					onChange={setName}
+					placeholder="e.g. School gateway"
+				/>
+				<TextField
+					label="Base URL"
+					value={baseUrl}
+					onChange={setBaseUrl}
+					placeholder="https://api.example.com/v1"
+				/>
+
+				<TextField
+					label="API key"
+					type="password"
+					value={apiKey}
+					onChange={setApiKey}
+					placeholder="sk-…"
+					hint="Encrypted at rest and never returned to the browser. Nothing is stored until the endpoint accepts it."
+				/>
+
+				{problem ? (
+					<KeyProblem
+						problem={problem}
+						saving={connectProvider.isPending}
+						onSaveAnyway={() => void connect(true)}
+					/>
+				) : null}
+			</div>
+		</Dialog>
+	);
+}
+
 function ProvidersTab({
 	userId,
 	canConfigure,
@@ -680,12 +1213,20 @@ function ProvidersTab({
 
 	return (
 		<div className="stack">
-			<h2 className="assistant-tab-heading">AI providers</h2>
-			<p className="assistant-tab-heading__desc">
-				{canConfigure
-					? "Institutional OpenAI-compatible endpoints. Add one, save its key, pick its models."
-					: "Your own OpenAI-compatible endpoint. Chats you start with it stay yours."}
-			</p>
+			<div className="assistant-tab-head">
+				<div>
+					<h2 className="assistant-tab-heading">AI providers</h2>
+					<p className="assistant-tab-heading__desc">
+						{canConfigure
+							? "Institutional OpenAI-compatible endpoints, shared with everyone the school serves."
+							: "Your own OpenAI-compatible endpoint. Chats you start with it stay yours."}
+					</p>
+				</div>
+				<Button variant="primary" onClick={() => setAdding(true)}>
+					<Plus size={14} weight="bold" aria-hidden="true" />
+					Connect provider
+				</Button>
+			</div>
 
 			{providers.isPending ? (
 				<Card>
@@ -718,12 +1259,13 @@ function ProvidersTab({
 						}
 						description={
 							canConfigure
-								? "Add an OpenAI-compatible endpoint, save its key, pick its models."
-								: "Add your own OpenAI-compatible endpoint and API key. Chats you start with it stay yours."
+								? "Pick a provider — OpenAI, Anthropic, Gemini, Grok, Mistral or your own endpoint — paste the key once, and the models are discovered and switched on for you."
+								: "Connect your own endpoint: the key is verified, the models appear, and a sensible default is switched on."
 						}
 						action={
 							<Button variant="primary" onClick={() => setAdding(true)}>
-								<Plus size={14} weight="bold" aria-hidden="true" /> Add provider
+								<Plus size={14} weight="bold" aria-hidden="true" />
+								Connect provider
 							</Button>
 						}
 					/>
@@ -742,7 +1284,7 @@ function ProvidersTab({
 			)}
 
 			{adding ? (
-				<AddProviderDialog
+				<ConnectProviderDialog
 					scope={scope}
 					userId={userId}
 					onClose={() => setAdding(false)}
@@ -760,69 +1302,6 @@ function ProvidersTab({
 				/>
 			) : null}
 		</div>
-	);
-}
-
-function AddProviderDialog({
-	scope,
-	userId,
-	onClose,
-}: {
-	scope: "institutional" | "personal";
-	userId: string;
-	onClose: () => void;
-}) {
-	const [name, setName] = useState("");
-	const [baseUrl, setBaseUrl] = useState("");
-	const [error, setError] = useState<string | null>(null);
-
-	const create = async () => {
-		setError(null);
-		try {
-			await api.addAiProvider({
-				user_id: userId,
-				scope,
-				name,
-				base_url: baseUrl,
-			});
-			onClose();
-		} catch (caught) {
-			setError(errorMessage(caught));
-		}
-	};
-
-	return (
-		<Dialog
-			title="Add provider"
-			description="Every entry is an OpenAI-compatible endpoint: name it, paste its base URL, then store its key."
-			onDismiss={onClose}
-			footer={
-				<>
-					<Button variant="ghost" onClick={onClose}>
-						Cancel
-					</Button>
-					<Button variant="primary" onClick={() => void create()}>
-						Add provider
-					</Button>
-				</>
-			}
-		>
-			<div className="stack--sm">
-				<TextField
-					label="Name"
-					value={name}
-					onChange={setName}
-					placeholder="e.g. OpenRouter"
-				/>
-				<TextField
-					label="Base URL"
-					value={baseUrl}
-					onChange={setBaseUrl}
-					placeholder="https://api.example.com/v1"
-				/>
-				{error ? <p className="form-note">{error}</p> : null}
-			</div>
-		</Dialog>
 	);
 }
 
@@ -867,7 +1346,7 @@ function groupToolsByModule(tools: McpTool[]): [string, McpTool[]][] {
  * is answered per permission, so what is greyed out here is exactly what the
  * account cannot do on a screen either.
  */
-function SmartLmsServerCard({ userId }: { userId: string }) {
+function OptimoLmsServerCard({ userId }: { userId: string }) {
 	const server = useMcpServerTools(userId);
 	const connect = useConnectMcpApp(userId);
 	const disconnect = useDisconnectMcpApp(userId);
@@ -876,13 +1355,13 @@ function SmartLmsServerCard({ userId }: { userId: string }) {
 
 	const toggle = () => {
 		const request = connected
-			? disconnect.mutateAsync("smartlms")
-			: connect.mutateAsync("smartlms");
+			? disconnect.mutateAsync("optimolms")
+			: connect.mutateAsync("optimolms");
 		void toast.promise(request, {
-			loading: connected ? "Disconnecting SmartLMS…" : "Connecting SmartLMS…",
+			loading: connected ? "Disconnecting OptimoLMS…" : "Connecting OptimoLMS…",
 			success: connected
-				? "SmartLMS disconnected — the assistant can no longer create content"
-				: "SmartLMS connected — the assistant can now create content",
+				? "OptimoLMS disconnected — the assistant can no longer create content"
+				: "OptimoLMS connected — the assistant can now create content",
 			error: (caught) => errorMessage(caught),
 		});
 	};
@@ -895,7 +1374,7 @@ function SmartLmsServerCard({ userId }: { userId: string }) {
 			<CardHeader
 				title={
 					<span className="provider-card__title">
-						SmartLMS
+						OptimoLMS
 						<Badge tone={connected ? "success" : "outline"}>
 							{connected ? "Connected" : "Not connected"}
 						</Badge>
@@ -965,7 +1444,7 @@ function SmartLmsServerCard({ userId }: { userId: string }) {
 						</div>
 						{!connected ? (
 							<InlineNote>
-								Connect SmartLMS and the assistant can create subjects, weeks,
+								Connect OptimoLMS and the assistant can create subjects, weeks,
 								lectures, assignments, quizzes, flashcards and forum threads for
 								you. Until then it only answers questions.
 							</InlineNote>
@@ -1020,11 +1499,11 @@ function McpTab({ userId }: { userId: string }) {
 		<div className="stack">
 			<h2 className="assistant-tab-heading">MCP</h2>
 			<p className="assistant-tab-heading__desc">
-				Servers the assistant can act through. SmartLMS ships its own: the
+				Servers the assistant can act through. OptimoLMS ships its own: the
 				backend&apos;s create actions, offered as MCP tools. The assistant uses
 				only what you connect, and only inside your permissions.
 			</p>
-			<SmartLmsServerCard userId={userId} />
+			<OptimoLmsServerCard userId={userId} />
 			<McpAppsPanel
 				userId={userId}
 				title="Other apps"

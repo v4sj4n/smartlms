@@ -30,9 +30,10 @@ import {
 } from "react";
 import { type AiChatProvider, api } from "../api";
 import { useAuth } from "../auth";
+import { useAiChatModels } from "../queries";
 import { toast } from "../toast";
 import { getChatMaterial, useChatMaterial } from "./context";
-import { HistoryMenu, RecentChats } from "./HistoryMenu";
+import { HistoryMenu } from "./HistoryMenu";
 import { Markdown } from "./Markdown";
 import { MessageStats } from "./MessageStats";
 import { ModelMenu } from "./ModelMenu";
@@ -41,7 +42,7 @@ import { Thinking } from "./Thinking";
 import { useAssistantName } from "./useAssistantChat";
 
 /** The model picked in the composer, per browser. */
-const MODEL_KEY = "smartlms.ai.model";
+const MODEL_KEY = "optimolms.ai.model";
 /** Distance from the bottom (px) that still counts as "following" the reply. */
 const FOLLOW_SLACK = 48;
 
@@ -102,7 +103,7 @@ const TOOL_LABELS: Record<string, string> = {
 	create_assignment: "Created an assignment",
 	create_quiz: "Created a quiz",
 	add_quiz_question: "Added a quiz question",
-	create_flashcards: "Added flashcards",
+	create_flashcard_set: "Created a flashcard set",
 	create_forum_thread: "Started a forum thread",
 	post_forum_reply: "Replied in the forum",
 };
@@ -334,7 +335,6 @@ function AiAssistantPanel({
 	const sessionIdRef = useRef<string | null>(null);
 	const bodyRef = useRef<Record<string, unknown>>({});
 	bodyRef.current = {
-		user_id: userId,
 		model_id: modelId ?? undefined,
 		context: { page: pathname, title: getChatMaterial()?.title ?? "" },
 	};
@@ -363,7 +363,7 @@ function AiAssistantPanel({
 			const id = sessionIdRef.current;
 			if (id && userId) {
 				void api
-					.saveAiSessionMessages(id, userId, finished)
+					.saveAiSessionMessages(id, finished)
 					.then(() => setSessionsVersion((v) => v + 1))
 					.catch(() => undefined);
 			}
@@ -408,35 +408,27 @@ function AiAssistantPanel({
 		setAway(false);
 	};
 
-	// Re-read what's chat-ready each time it opens: settings may have changed.
+	// What's chat-ready, read when the panel opens: settings may have changed.
+	// The same cached query is what the launcher gates on, so opening the panel
+	// costs no extra request.
+	const chatModels = useAiChatModels(open ? userId : undefined);
 	useEffect(() => {
-		if (!open || !userId) return;
-		let cancelled = false;
-		api
-			.aiChatModels(userId)
-			.then((data) => {
-				if (cancelled) return;
-				setProviders(data.providers);
-				const all = data.providers.flatMap((provider) => provider.models);
-				let stored: string | null = null;
-				try {
-					stored = window.localStorage.getItem(MODEL_KEY);
-				} catch {
-					stored = null;
-				}
-				setModelId(
-					all.some((model) => model.id === stored)
-						? stored
-						: (data.default_model_id ?? all[0]?.id ?? null),
-				);
-			})
-			.catch(() => {
-				if (!cancelled) setProviders([]);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [open, userId]);
+		const data = chatModels.data;
+		if (!open || !userId || !data) return;
+		setProviders(data.providers);
+		const all = data.providers.flatMap((provider) => provider.models);
+		let stored: string | null = null;
+		try {
+			stored = window.localStorage.getItem(MODEL_KEY);
+		} catch {
+			stored = null;
+		}
+		setModelId(
+			all.some((model) => model.id === stored)
+				? stored
+				: (data.default_model_id ?? all[0]?.id ?? null),
+		);
+	}, [open, userId, chatModels.data]);
 
 	const pickModel = (id: string) => {
 		setModelId(id);
@@ -476,7 +468,7 @@ function AiAssistantPanel({
 	}
 
 	async function deleteSession(id: string) {
-		await api.deleteAiSession(id, userId);
+		await api.deleteAiSession(id);
 		if (sessionIdRef.current === id) newChat();
 		setSessionsVersion((v) => v + 1);
 	}
@@ -484,7 +476,7 @@ function AiAssistantPanel({
 	async function openSession(id: string) {
 		if (busy) void stop();
 		try {
-			const data = await api.aiSession(id, userId);
+			const data = await api.aiSession(id);
 			clearError();
 			setSession(id);
 			setMessages((data.messages ?? []) as UIMessage[]);
@@ -506,7 +498,7 @@ function AiAssistantPanel({
 		if (!text || busy || error) return;
 		if (!sessionIdRef.current && userId) {
 			try {
-				const created = await api.createAiSession(userId);
+				const created = await api.createAiSession();
 				setSession(created.id);
 			} catch {
 				// History is a nicety: the chat still works without a saved session.
@@ -551,7 +543,7 @@ function AiAssistantPanel({
 		setMessages(next);
 		if (sessionIdRef.current) {
 			void api
-				.saveAiSessionMessages(sessionIdRef.current, userId, next)
+				.saveAiSessionMessages(sessionIdRef.current, next)
 				.catch(() => undefined);
 		}
 	}
@@ -987,17 +979,6 @@ function AiAssistantPanel({
 
 				{!(page && empty) ? composer : null}
 			</section>
-
-			{page ? (
-				<RecentChats
-					userId={userId}
-					currentId={sessionId}
-					version={sessionsVersion}
-					onPick={(id) => void openSession(id)}
-					onNew={newChat}
-					canNew={!empty}
-				/>
-			) : null}
 
 			{!page ? (
 				<button

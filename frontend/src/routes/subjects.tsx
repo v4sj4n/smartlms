@@ -2,16 +2,20 @@ import {
 	Books,
 	Cards,
 	Chalkboard,
+	DotsThree,
 	Exam,
+	List,
 	LockKey,
 	PencilSimple,
 	Plus,
 	Presentation,
+	SquaresFour,
 	Trash,
 } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { createRoute, Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
-import { errorMessage, type Subject } from "../api";
+import { api, errorMessage, type Subject } from "../api";
 import { useAuth } from "../auth";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ModuleGate } from "../components/ModuleGate";
@@ -23,15 +27,15 @@ import {
 	Chip,
 	EmptyState,
 	ErrorState,
-	IconButton,
 	InlineNote,
+	Menu,
 	PageHeader,
 	type PageSize,
 	Pagination,
 	Select,
 	SkeletonStack,
 } from "../components/ui";
-import { useSchoolYears, useSubjectMutations, useSubjects } from "../queries";
+import { queryKeys, useSubjectMutations, useSubjects } from "../queries";
 import {
 	DEFAULT_PAGE_SIZE,
 	type ListSearch,
@@ -45,6 +49,55 @@ type DialogState =
 	| { kind: "edit"; subject: Subject }
 	| { kind: "delete"; subject: Subject }
 	| null;
+
+type ViewMode = "grid" | "list";
+const VIEW_STORAGE_KEY = "optimolms.subjects.view";
+
+function readViewMode(): ViewMode {
+	try {
+		return localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "grid";
+	} catch {
+		return "grid";
+	}
+}
+
+function ViewToggle({
+	value,
+	onChange,
+}: {
+	value: ViewMode;
+	onChange: (next: ViewMode) => void;
+}) {
+	const options: { mode: ViewMode; label: string; icon: ReactNode }[] = [
+		{
+			mode: "grid",
+			label: "Grid view",
+			icon: <SquaresFour size={15} weight="regular" aria-hidden="true" />,
+		},
+		{
+			mode: "list",
+			label: "List view",
+			icon: <List size={15} weight="regular" aria-hidden="true" />,
+		},
+	];
+	return (
+		<div className="segmented" role="group" aria-label="Layout">
+			{options.map((option) => (
+				<button
+					key={option.mode}
+					type="button"
+					className={`segmented__option segmented__option--icon${value === option.mode ? " segmented__option--active" : ""}`}
+					aria-label={option.label}
+					aria-pressed={value === option.mode}
+					title={option.label}
+					onClick={() => onChange(option.mode)}
+				>
+					{option.icon}
+				</button>
+			))}
+		</div>
+	);
+}
 
 function CountChip({
 	icon,
@@ -67,13 +120,17 @@ function SubjectRow({
 	subject,
 	canManage,
 	onDialog,
+	tile = false,
 }: {
 	subject: Subject;
 	canManage: boolean;
 	onDialog: (dialog: DialogState) => void;
+	tile?: boolean;
 }) {
 	return (
-		<article className="subject-row">
+		<article
+			className={tile ? "card subject-row subject-row--tile" : "subject-row"}
+		>
 			<div className="subject-row__main">
 				<div className="subject-row__title">
 					<Link
@@ -123,37 +180,37 @@ function SubjectRow({
 				/>
 				<CountChip
 					icon={<Cards size={13} weight="regular" aria-hidden="true" />}
-					value={subject.counts.flashcards}
-					label="flashcards"
+					value={subject.counts.flashcard_sets}
+					label="flashcard sets"
 				/>
 			</div>
 
-			<div className="subject-row__actions">
-				<Link
-					to="/subjects/$subjectId"
-					params={{ subjectId: subject.id }}
-					className="btn btn--secondary btn--sm"
-				>
-					Open
-				</Link>
-				{canManage ? (
-					<>
-						<IconButton
-							label={`Edit ${subject.name}`}
-							icon={
-								<PencilSimple size={15} weight="regular" aria-hidden="true" />
-							}
-							onClick={() => onDialog({ kind: "edit", subject })}
-						/>
-						<IconButton
-							label={`Delete ${subject.name}`}
-							icon={<Trash size={15} weight="regular" aria-hidden="true" />}
-							tone="danger"
-							onClick={() => onDialog({ kind: "delete", subject })}
-						/>
-					</>
-				) : null}
-			</div>
+			{canManage ? (
+				<div className="subject-row__menu">
+					<Menu
+						aria-label={`Manage ${subject.name}`}
+						trigger={<DotsThree size={16} weight="bold" aria-hidden="true" />}
+						triggerClassName="icon-btn"
+						items={[
+							{
+								key: "edit",
+								label: "Edit subject",
+								icon: (
+									<PencilSimple size={14} weight="regular" aria-hidden="true" />
+								),
+								onSelect: () => onDialog({ kind: "edit", subject }),
+							},
+							{
+								key: "delete",
+								label: "Delete subject",
+								icon: <Trash size={14} weight="regular" aria-hidden="true" />,
+								destructive: true,
+								onSelect: () => onDialog({ kind: "delete", subject }),
+							},
+						]}
+					/>
+				</div>
+			) : null}
 		</article>
 	);
 }
@@ -165,11 +222,34 @@ function SubjectsPage() {
 		school_year,
 	} = subjectsRoute.useSearch();
 	const navigate = useNavigate();
-	const subjects = useSubjects({ page, page_size, school_year });
-	const schoolYears = useSchoolYears();
-	const { hasPermission } = useAuth();
+	const { hasPermission, hasModule } = useAuth();
+	// The year filter is built from the school-years catalogue, which is a
+	// different module: students hold neither the module nor its permission, so
+	// asking for it would 403 in the background and leave a filter with nothing
+	// in it but "All school years". Callers without it get no filter at all, and
+	// a school_year left in an old link is ignored rather than applied invisibly
+	// — the list keeps working for them, and every row names its own year.
+	const canFilterByYear =
+		hasModule("school-years") || hasPermission("school-years.view");
+	const yearFilter = canFilterByYear ? school_year : undefined;
+	const subjects = useSubjects({ page, page_size, school_year: yearFilter });
+	const schoolYears = useQuery({
+		queryKey: queryKeys.schoolYears,
+		queryFn: api.schoolYears,
+		staleTime: 30_000,
+		enabled: canFilterByYear,
+	});
 	const { deleteSubject } = useSubjectMutations();
 	const [dialog, setDialog] = useState<DialogState>(null);
+	const [view, setViewState] = useState<ViewMode>(readViewMode);
+	const setView = (next: ViewMode) => {
+		setViewState(next);
+		try {
+			localStorage.setItem(VIEW_STORAGE_KEY, next);
+		} catch {
+			// Private mode: the choice just lasts for this visit.
+		}
+	};
 	const canManage = hasPermission("subjects.manage");
 
 	const goToPage = (next: number) => {
@@ -213,19 +293,24 @@ function SubjectsPage() {
 				description="Each subject owns its lectures, seminars, quizzes and flashcards."
 				actions={
 					<>
-						<Select
-							compact
-							aria-label="Filter subjects by school year"
-							value={school_year ?? ""}
-							onChange={setYear}
-							options={[
-								{ value: "", label: "All school years" },
-								...(schoolYears.data?.items ?? []).map((year) => ({
-									value: year.name,
-									label: year.is_active ? `${year.name} · current` : year.name,
-								})),
-							]}
-						/>
+						<ViewToggle value={view} onChange={setView} />
+						{canFilterByYear ? (
+							<Select
+								compact
+								aria-label="Filter subjects by school year"
+								value={yearFilter ?? ""}
+								onChange={setYear}
+								options={[
+									{ value: "", label: "All school years" },
+									...(schoolYears.data?.items ?? []).map((year) => ({
+										value: year.name,
+										label: year.is_active
+											? `${year.name} · current`
+											: year.name,
+									})),
+								]}
+							/>
+						) : null}
 						{canManage ? (
 							<Button
 								variant="primary"
@@ -273,19 +358,19 @@ function SubjectsPage() {
 					<EmptyState
 						icon={Books}
 						title={
-							school_year
-								? `No subjects in ${school_year}`
+							yearFilter
+								? `No subjects in ${yearFilter}`
 								: "No subjects yet — create your first subject"
 						}
 						description={
-							school_year
+							yearFilter
 								? "Nothing is filed under this year yet. Widen the filter to see the other years."
 								: canManage
 									? "A subject groups its own lectures, seminars, quizzes and flashcards."
 									: "Once a lecturer or administrator adds a subject it appears here."
 						}
 						action={
-							school_year ? (
+							yearFilter ? (
 								<Button
 									variant="secondary"
 									size="sm"
@@ -307,28 +392,46 @@ function SubjectsPage() {
 					/>
 				</Card>
 			) : (
-				<Card className="card--flush">
-					<div className="subject-list">
-						{subjects.data.items.map((subject) => (
-							<SubjectRow
-								key={subject.id}
-								subject={subject}
-								canManage={canManage}
-								onDialog={setDialog}
+				<div className="subject-results">
+					{view === "grid" ? (
+						<div className="subject-grid">
+							{subjects.data.items.map((subject) => (
+								<SubjectRow
+									key={subject.id}
+									subject={subject}
+									canManage={canManage}
+									onDialog={setDialog}
+									tile
+								/>
+							))}
+						</div>
+					) : (
+						<Card className="card--flush">
+							<div className="subject-list">
+								{subjects.data.items.map((subject) => (
+									<SubjectRow
+										key={subject.id}
+										subject={subject}
+										canManage={canManage}
+										onDialog={setDialog}
+									/>
+								))}
+							</div>
+						</Card>
+					)}
+					<Card className="card--flush">
+						<div className="card__footer">
+							<Pagination
+								page={page}
+								pageSize={page_size}
+								total={subjects.data.total}
+								itemLabel="subjects"
+								onPageChange={goToPage}
+								onPageSizeChange={setPageSize}
 							/>
-						))}
-					</div>
-					<div className="card__footer">
-						<Pagination
-							page={page}
-							pageSize={page_size}
-							total={subjects.data.total}
-							itemLabel="subjects"
-							onPageChange={goToPage}
-							onPageSizeChange={setPageSize}
-						/>
-					</div>
-				</Card>
+						</div>
+					</Card>
+				</div>
 			)}
 
 			{dialog === "create" ? (
@@ -351,8 +454,9 @@ function SubjectsPage() {
 							This deletes <strong>{dialog.subject.counts.lectures}</strong>{" "}
 							lectures, <strong>{dialog.subject.counts.assignments}</strong>{" "}
 							assignments, <strong>{dialog.subject.counts.quizzes}</strong>{" "}
-							quizzes and <strong>{dialog.subject.counts.flashcards}</strong>{" "}
-							flashcards. This cannot be undone.
+							quizzes and{" "}
+							<strong>{dialog.subject.counts.flashcard_sets}</strong> flashcard
+							sets. This cannot be undone.
 						</>
 					}
 					confirmLabel="Delete subject"

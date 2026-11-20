@@ -18,7 +18,7 @@ import {
 	type LoginResult,
 } from "../api";
 import { useAuth } from "../auth";
-import { Button } from "../components/ui";
+import { Button, OptimoLogo } from "../components/ui";
 import { firstError } from "../form";
 import { formatLockoutTime } from "../format";
 import { toastApiError, toastError, toastSuccess } from "../toast";
@@ -49,10 +49,21 @@ type FormAlert =
 	| { kind: "error"; message: string }
 	| null;
 
+/**
+ * Seeded accounts, shown to whoever runs a dev server. `import.meta.env.DEV` is
+ * false in a production build, so `vite build` drops the hint (and the list)
+ * from the bundle entirely and the sign-in screen carries no credentials.
+ */
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV;
+
 const DEMO_ACCOUNTS = [
-	{ email: "admin@smartlms.dev", password: "admin123", role: "Admin" },
-	{ email: "lecturer@smartlms.dev", password: "lecturer123", role: "Lecturer" },
-	{ email: "student@smartlms.dev", password: "student123", role: "Student" },
+	{ email: "admin@optimolms.dev", password: "admin123", role: "Admin" },
+	{
+		email: "lecturer@optimolms.dev",
+		password: "lecturer123",
+		role: "Lecturer",
+	},
+	{ email: "student@optimolms.dev", password: "student123", role: "Student" },
 ];
 
 /**
@@ -327,11 +338,9 @@ function LoginPage() {
 			<div className="login__panel">
 				<div className="login__top">
 					<div className="login__brand">
-						<span className="sidebar__mark" aria-hidden="true">
-							SL
-						</span>
+						<OptimoLogo className="sidebar__logo" />
 						<span className="sidebar__wordmark">
-							<span className="sidebar__name">SmartLMS</span>
+							<span className="sidebar__name">OptimoLMS</span>
 							<span className="sidebar__caption">Learning platform</span>
 						</span>
 					</div>
@@ -345,7 +354,7 @@ function LoginPage() {
 						<p className="login__description">
 							{challenge
 								? `Two-factor is on for ${challenge.name}'s account. One more step and you are in.`
-								: "Use your SmartLMS account to reach the modules your role allows."}
+								: "Use your OptimoLMS account to reach the modules your role allows."}
 						</p>
 					</div>
 
@@ -554,7 +563,7 @@ function LoginPage() {
 						</form>
 					)}
 
-					{challenge ? null : (
+					{SHOW_DEMO_ACCOUNTS && !challenge ? (
 						<div className="login__demo">
 							<span>Demo accounts</span>
 							<div className="login__demo-list">
@@ -566,7 +575,7 @@ function LoginPage() {
 								))}
 							</div>
 						</div>
-					)}
+					) : null}
 				</section>
 			</div>
 		</div>

@@ -12,6 +12,7 @@ export function Dialog({
 	footer,
 	onDismiss,
 	dismissible = true,
+	size = "md",
 }: {
 	title: string;
 	description?: string;
@@ -19,6 +20,8 @@ export function Dialog({
 	footer?: ReactNode;
 	onDismiss: () => void;
 	dismissible?: boolean;
+	/** "lg" widens the dialog for editors that need room (a card deck). */
+	size?: "md" | "lg";
 }) {
 	const ref = useRef<HTMLDialogElement>(null);
 	const titleId = useRef(
@@ -37,7 +40,7 @@ export function Dialog({
 	return (
 		<dialog
 			ref={ref}
-			className="dialog"
+			className={size === "lg" ? "dialog dialog--lg" : "dialog"}
 			aria-labelledby={titleId.current}
 			onCancel={(event) => {
 				// Escape closes natively; keep the parent's state in charge instead.

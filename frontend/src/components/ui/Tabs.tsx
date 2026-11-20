@@ -39,7 +39,7 @@ export function Tabs({
 			value={value}
 			defaultValue={defaultValue ?? items[0]?.value}
 			onValueChange={(next) => next !== null && onValueChange?.(next)}
-			className={["tabs", className ?? ""].filter(Boolean).join(" ")}
+			className={["ui-tabs", className ?? ""].filter(Boolean).join(" ")}
 		>
 			<TabsList className="tabs__list" aria-label={ariaLabel}>
 				{items.map((item) => (
