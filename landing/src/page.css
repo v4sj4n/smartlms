@@ -794,6 +794,7 @@
 		grid-template-columns: 1fr;
 	}
 	.app--wide .app__body {
+		grid-template-columns: minmax(0, 1fr);
 		height: auto;
 	}
 	.app__main--pane {
@@ -842,10 +843,10 @@
 	/* the hero's story is the week list: the pane under it would only be cut by the fade, and five
 	   weeks are all the frame holds before the fade starts */
 	.app--hero .app__main {
-		display: none;
+		padding: 14px 16px;
 	}
-	.app--hero .app__weeks > :nth-child(n + 7) {
-		display: none;
+	.app--hero .app__main .app__row:nth-child(n + 4) {
+		display: flex;
 	}
 	/* the wide frame gives its rail to the week pane, which is the story on a phone */
 	.app--wide .app__weeks {
@@ -986,9 +987,10 @@
 }
 
 /* on a phone the assistant and the questions take a whole screen, so the next section stays out */
+/* a phone: sections size to their content, so a short one leaves no empty screen under it */
 @media (max-width: 639px) {
-	#assistant {
-		min-height: 100svh;
+	main > :is(section, .section):not(.hero, .section--hero) {
+		min-height: 0;
 	}
 }
 
@@ -1066,14 +1068,13 @@
 	border-radius: 10px;
 	background: var(--surface);
 	box-shadow: inset 0 0 0 1px var(--rule);
-	transition:
-		box-shadow 0.2s ease,
-		translate 0.2s ease;
+	transition: box-shadow 150ms ease-out;
 }
-.tools__list li:hover {
-	translate: 0 -2px;
-	box-shadow: inset 0 0 0 1px
-		color-mix(in oklab, var(--accent) 55%, var(--rule));
+@media (hover: hover) and (pointer: fine) {
+	.tools__list li:hover {
+		box-shadow: inset 0 0 0 1px
+			color-mix(in oklab, var(--accent) 55%, var(--rule));
+	}
 }
 .tools__list code::before {
 	content: "";
@@ -1238,8 +1239,10 @@
 	border-top: 1px solid var(--rule-soft);
 	font-variant-numeric: tabular-nums;
 }
-.gb__row:hover {
-	background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+@media (hover: hover) {
+	.gb__row:hover {
+		background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+	}
 }
 .gb__row--foot {
 	background: color-mix(in oklab, var(--ink) 2.5%, var(--surface));
@@ -1326,7 +1329,7 @@
 		margin-left: var(--s-5);
 	}
 	#assistant .chat,
-	#questions .faq {
+	#questions .qa {
 		margin-right: var(--s-3);
 	}
 }
@@ -1409,4 +1412,215 @@
 	.float {
 		display: none;
 	}
+}
+
+/* where the links fold into the menu, the main action floats bottom right instead of crowding the bar */
+.fab {
+	display: none;
+}
+@media (max-width: 1023px) {
+	.nav:not(.is-open) .nav__actions {
+		display: none;
+	}
+	/* the theme toggle sits beside the menu button, pushed right together */
+	.nav .theme-toggle {
+		margin-left: auto;
+		margin-right: 0;
+	}
+	.nav.is-open .nav__actions + .theme-toggle {
+		margin-left: var(--s-2);
+	}
+	.nav .theme-toggle + .nav__toggle {
+		margin-left: var(--s-2);
+	}
+	a.btn.fab {
+		display: inline-flex;
+		position: fixed;
+		left: auto;
+		top: auto;
+		right: max(16px, env(safe-area-inset-right));
+		bottom: max(16px, env(safe-area-inset-bottom));
+		z-index: 50;
+		box-shadow: 0 8px 24px -6px rgb(0 0 0 / 0.28);
+	}
+	body:has(.nav.is-open) a.btn.fab {
+		display: none;
+	}
+}
+
+/* a phone: the hero window sits further down its frame, with even sides */
+@media (max-width: 639px) {
+	.hero--centred .hero__window > .ly-piece {
+		top: var(--s-7);
+		left: var(--s-5);
+		width: calc(100% - 2 * var(--s-5));
+	}
+}
+
+/* the questions: an accordion, one row per question, the answer opens under it */
+.qa__item {
+	border-bottom: 1px solid var(--line);
+}
+.qa__item summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s-4);
+	min-height: 44px;
+	padding: var(--s-4) 0;
+	list-style: none;
+	cursor: pointer;
+}
+.qa__item summary::-webkit-details-marker {
+	display: none;
+}
+.qa__item summary h3 {
+	margin: 0;
+	font: 500 var(--t-body) / 1.4 var(--font-text);
+	letter-spacing: 0;
+}
+.qa__item summary::after {
+	content: "";
+	flex: none;
+	width: 10px;
+	height: 10px;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: translateY(-3px) rotate(45deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.qa__item summary::after {
+		transition: transform 200ms ease-out;
+	}
+}
+.qa__item[open] summary::after {
+	transform: translateY(2px) rotate(-135deg);
+}
+.qa__item summary:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.qa__item p {
+	margin: 0;
+	padding-bottom: var(--s-4);
+	max-width: 78ch;
+	color: var(--muted);
+}
+
+/* forced-colors drops box-shadow: keep a transparent border so the framed
+   surfaces (app windows, tool chips) still draw an edge */
+@media (forced-colors: active) {
+	.app,
+	.tools__list li {
+		border: 1px solid CanvasText;
+	}
+}
+
+/* the hero: one more step of air under the header */
+main > .hero--centred {
+	padding-top: calc(var(--nav) + var(--photo, 0px) + var(--hgap) + var(--s-6));
+}
+
+/* ------------------------------------------------------------ dark mode --- */
+/* the kit derives every colour from the --p-* palette and the --ground-* sky,
+   so dark mode swaps those and the page follows */
+html[data-theme="dark"] {
+	color-scheme: dark;
+	/* cool slate neutrals around the brand blue; every text pair clears 4.5:1 */
+	--p-bg: #0e1116;
+	--p-surface: #161a21;
+	--p-ink: #e6e9ee;
+	--p-muted: #9ba3ae;
+	--p-accent: #5c9df5;
+	--p-accent-ink: #0b0f14;
+	--p-action: #4a8ff0;
+	--p-action-ink: #0b0f14;
+	/* the inverted band stays dark: a step lifted off the page, not flipped to light */
+	--p-inv-bg: #151a21;
+	--p-inv-surface: #1d232b;
+	--p-inv-ink: #e6e9ee;
+	--p-inv-muted: #9ba3ae;
+	--p-inv-accent: #5c9df5;
+	--p-inv-accent-ink: #0b0f14;
+	--p-inv-action: #4a8ff0;
+	--p-inv-action-ink: #0b0f14;
+	--ground-bg: #10151c;
+	--ground-surface: #18202a;
+	--ground-ink: #e3e9ef;
+	--ground-muted: #9eabb8;
+	--ground-accent: #8fb3d6;
+}
+/* elevation in the dark: the shadows mix --ink, which glows once ink is light,
+   so the raised surfaces take a black shadow and a faint light ring instead */
+html[data-theme="dark"] :is(.app, .sheet, .panel-card, .gb, .hero__window .ly-piece, .float) {
+	box-shadow:
+		inset 0 0 0 1px oklch(1 0 0 / 0.08),
+		0 1px 2px oklch(0 0 0 / 0.4),
+		0 18px 40px -24px oklch(0 0 0 / 0.7);
+}
+/* status chips: lighter text on the dark surface */
+html[data-theme="dark"] .sheet__letter[data-g="A"] {
+	color: #6fd39a;
+}
+html[data-theme="dark"] .sheet__letter:is([data-g="C"], [data-g="D"]) {
+	color: #f0b450;
+}
+html[data-theme="dark"] :is(.sheet__letter[data-g="F"], .float__file) {
+	color: #f08080;
+}
+
+/* the theme toggle: one button, the sun and the moon cross-fade in place */
+.theme-toggle {
+	position: relative;
+	display: inline-grid;
+	place-items: center;
+	width: var(--btn-h);
+	height: var(--btn-h);
+	flex: none;
+	margin-left: var(--s-2);
+	padding: 0;
+	border: 0;
+	border-radius: var(--r-btn);
+	background: transparent;
+	color: var(--ink);
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition: background-color 150ms ease-out;
+}
+.theme-toggle > svg {
+	grid-area: 1 / 1;
+	transition:
+		opacity 300ms cubic-bezier(0.2, 0, 0, 1),
+		scale 300ms cubic-bezier(0.2, 0, 0, 1),
+		filter 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+.theme-toggle__moon,
+html[data-theme="dark"] .theme-toggle__sun {
+	opacity: 0;
+	scale: 0.25;
+	filter: blur(4px);
+}
+html[data-theme="dark"] .theme-toggle__moon {
+	opacity: 1;
+	scale: 1;
+	filter: blur(0);
+}
+@media (prefers-reduced-motion: reduce) {
+	.theme-toggle > svg {
+		transition: opacity 300ms cubic-bezier(0.2, 0, 0, 1);
+		scale: 1 !important;
+		filter: none !important;
+	}
+}
+@media (hover: hover) and (pointer: fine) {
+	.theme-toggle:hover {
+		background: color-mix(in oklab, var(--ink) 7%, transparent);
+	}
+}
+.theme-toggle:not(:disabled):active > svg {
+	scale: 0.96;
+}
+.theme-toggle:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
