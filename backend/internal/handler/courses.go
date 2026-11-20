@@ -161,7 +161,15 @@ func scanCourse(row interface{ Scan(...any) error }) (courseOut, error) {
 
 func listCourses(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.QueryContext(r.Context(), courseSelect+` ORDER BY c.name`)
+		page, size := pagination(r)
+
+		var total int
+		if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM courses`).Scan(&total); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		rows, err := db.QueryContext(r.Context(), courseSelect+` ORDER BY c.name LIMIT ? OFFSET ?`, size, offset(page, size))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -176,7 +184,7 @@ func listCourses(db *sql.DB) http.HandlerFunc {
 			}
 			courses = append(courses, c)
 		}
-		writeJSON(w, http.StatusOK, courses)
+		writeJSON(w, http.StatusOK, pageOut{Items: courses, Total: total, Page: page, PageSize: size})
 	}
 }
 

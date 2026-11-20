@@ -29,5 +29,6 @@ func Register(mux *http.ServeMux, db *sql.DB) {
 	registerCampuses(mux, db)
 	registerRoles(mux, db)
 	registerCourses(mux, db)
+	registerUsers(mux, db)
 	registerNotifications(mux, db)
 }
