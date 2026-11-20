@@ -15,7 +15,6 @@ var seedModules = map[string]string{
 	"dashboard":  "Dashboard",
 	"users":      "User management",
 	"campuses":   "Campuses, stories & classes",
-	"courses":    "Courses",
 	"subjects":   "Subjects",
 	"lectures":   "Lectures",
 	"seminars":   "Seminars",
@@ -43,10 +42,6 @@ var seedPermissions = map[string][]seedPermission{
 	"campuses": {
 		{"campuses.view", "View campuses", "See campuses, stories and classes"},
 		{"campuses.manage", "Manage campuses", "Add, edit and remove campuses, stories and classes"},
-	},
-	"courses": {
-		{"courses.view", "View courses", "See courses and their content"},
-		{"courses.manage", "Manage courses", "Create, edit and remove courses"},
 	},
 	"subjects": {
 		{"subjects.view", "View subjects", "See subjects and their lecturers"},
@@ -84,7 +79,6 @@ var seedRoleGrants = map[string][]string{
 	"ADMIN": {"*"},
 	"LECTURER": {
 		"dashboard.view",
-		"courses.view", "courses.manage",
 		"subjects.view", "subjects.manage",
 		"lectures.view", "lectures.manage",
 		"seminars.view", "seminars.manage",
@@ -94,7 +88,6 @@ var seedRoleGrants = map[string][]string{
 	},
 	"STUDENT": {
 		"dashboard.view",
-		"courses.view",
 		"lectures.view",
 		"seminars.view",
 		"quizzes.view", "quizzes.take",
@@ -104,9 +97,9 @@ var seedRoleGrants = map[string][]string{
 
 // role -> module keys the role can access (ADMIN is additionally a wildcard in code)
 var seedRoleModules = map[string][]string{
-	"ADMIN":    {"dashboard", "users", "campuses", "courses", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students", "settings"},
-	"LECTURER": {"dashboard", "courses", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students"},
-	"STUDENT":  {"dashboard", "courses", "lectures", "seminars", "quizzes", "flashcards"},
+	"ADMIN":    {"dashboard", "users", "campuses", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students", "settings"},
+	"LECTURER": {"dashboard", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students"},
+	"STUDENT":  {"dashboard", "lectures", "seminars", "quizzes", "flashcards"},
 }
 
 type seedUser struct {
@@ -234,11 +227,11 @@ func seedNotifications(ctx context.Context, db *sql.DB) error {
 			{"Campus ready", "Main Campus and its rooms are ready for scheduling."},
 		},
 		"LECTURER": {
-			{"Course assigned", "You teach Calculus I this term."},
-			{"Student enrolled", "Student User enrolled in Calculus I."},
+			{"Course assigned", "You teach Mathematics I this term."},
+			{"Student enrolled", "Student User enrolled in Mathematics I."},
 		},
 		"STUDENT": {
-			{"Welcome to SmartLMS", "Your Calculus I enrollment is active."},
+			{"Welcome to SmartLMS", "Your Mathematics I enrollment is active."},
 			{"New quiz available", "Limits basics is open — 10 minutes, 2 questions."},
 		},
 	}
@@ -350,24 +343,18 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 		return err
 	}
 
-	courseID := util.NewID()
-	if _, err := db.ExecContext(ctx, `INSERT INTO courses (id, subject_id, lecturer_id, name, code, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		courseID, subjectID, userID["LECTURER"], "Calculus I", "CALC101", "First-semester calculus course.", now, now); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO lectures (id, subject_id, class_id, title, description, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		util.NewID(), subjectID, classIDs["B201"], "Introduction to limits", "Epsilon-delta intuition.", "2026-11-23T09:00:00Z", now, now); err != nil {
 		return err
 	}
-
-	if _, err := db.ExecContext(ctx, `INSERT INTO lectures (id, course_id, class_id, title, description, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		util.NewID(), courseID, classIDs["B201"], "Introduction to limits", "Epsilon-delta intuition.", "2026-11-23T09:00:00Z", now, now); err != nil {
-		return err
-	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO seminars (id, course_id, class_id, title, description, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		util.NewID(), courseID, classIDs["A102"], "Derivative exercises", "Worksheet on the chain rule.", "2026-11-24T11:00:00Z", now, now); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO seminars (id, subject_id, class_id, title, description, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		util.NewID(), subjectID, classIDs["A102"], "Derivative exercises", "Worksheet on the chain rule.", "2026-11-24T11:00:00Z", now, now); err != nil {
 		return err
 	}
 
 	quizID := util.NewID()
-	if _, err := db.ExecContext(ctx, `INSERT INTO quizzes (id, course_id, title, description, time_limit_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		quizID, courseID, "Limits basics", "Short quiz on limits.", 10, now, now); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO quizzes (id, subject_id, title, description, time_limit_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		quizID, subjectID, "Limits basics", "Short quiz on limits.", 10, now, now); err != nil {
 		return err
 	}
 	questions := []struct {
@@ -392,14 +379,14 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 		{"What is the integral of 2x?", "x^2 + C"},
 	}
 	for _, f := range flashcards {
-		if _, err := db.ExecContext(ctx, `INSERT INTO flashcards (id, course_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			util.NewID(), courseID, f[0], f[1], now, now); err != nil {
+		if _, err := db.ExecContext(ctx, `INSERT INTO flashcards (id, subject_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			util.NewID(), subjectID, f[0], f[1], now, now); err != nil {
 			return err
 		}
 	}
 
-	if _, err := db.ExecContext(ctx, `INSERT INTO enrollments (id, student_id, course_id, enrolled_at) VALUES (?, ?, ?, ?)`,
-		util.NewID(), userID["STUDENT"], courseID, now); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO enrollments (id, student_id, subject_id, enrolled_at) VALUES (?, ?, ?, ?)`,
+		util.NewID(), userID["STUDENT"], subjectID, now); err != nil {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO quiz_attempts (id, quiz_id, student_id, score, completed_at) VALUES (?, ?, ?, ?, ?)`,

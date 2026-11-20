@@ -36,13 +36,11 @@ type flashcardOut struct {
 	Back  string `json:"back"`
 }
 
-type courseOut struct {
+type subjectOut struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Code         string `json:"code,omitempty"`
 	Description  string `json:"description,omitempty"`
-	SubjectID    string `json:"subject_id,omitempty"`
-	SubjectName  string `json:"subject_name,omitempty"`
 	LecturerID   string `json:"lecturer_id,omitempty"`
 	LecturerName string `json:"lecturer_name,omitempty"`
 	Counts       struct {
@@ -53,36 +51,36 @@ type courseOut struct {
 	} `json:"counts"`
 }
 
-type courseDetailOut struct {
-	courseOut
+type subjectDetailOut struct {
+	subjectOut
 	Lectures   []lectureOut   `json:"lectures"`
 	Seminars   []seminarOut   `json:"seminars"`
 	Quizzes    []quizOut      `json:"quizzes"`
 	Flashcards []flashcardOut `json:"flashcards"`
 }
 
-// registerCourses wires course CRUD plus the content that lives inside a
+// registerSubjects wires course CRUD plus the content that lives inside a
 // course: lectures, seminars, quizzes and flashcards.
-func registerCourses(mux *http.ServeMux, db *sql.DB) {
-	mux.HandleFunc("GET /api/courses", listCourses(db))
-	mux.HandleFunc("GET /api/courses/{id}", getCourse(db))
-	mux.HandleFunc("POST /api/courses", createCourse(db))
-	mux.HandleFunc("PATCH /api/courses/{id}", patchCourse(db))
-	mux.HandleFunc("DELETE /api/courses/{id}", deleteCourse(db))
+func registerSubjects(mux *http.ServeMux, db *sql.DB) {
+	mux.HandleFunc("GET /api/subjects", listSubjects(db))
+	mux.HandleFunc("GET /api/subjects/{id}", getSubject(db))
+	mux.HandleFunc("POST /api/subjects", createSubject(db))
+	mux.HandleFunc("PATCH /api/subjects/{id}", patchSubject(db))
+	mux.HandleFunc("DELETE /api/subjects/{id}", deleteSubject(db))
 
-	mux.HandleFunc("POST /api/courses/{id}/lectures", createLecture(db))
+	mux.HandleFunc("POST /api/subjects/{id}/lectures", createLecture(db))
 	mux.HandleFunc("PATCH /api/lectures/{id}", patchLecture(db, "lectures"))
 	mux.HandleFunc("DELETE /api/lectures/{id}", deleteByID(db, "lectures"))
 
-	mux.HandleFunc("POST /api/courses/{id}/seminars", createSeminar(db))
+	mux.HandleFunc("POST /api/subjects/{id}/seminars", createSeminar(db))
 	mux.HandleFunc("PATCH /api/seminars/{id}", patchLecture(db, "seminars"))
 	mux.HandleFunc("DELETE /api/seminars/{id}", deleteByID(db, "seminars"))
 
-	mux.HandleFunc("POST /api/courses/{id}/quizzes", createQuiz(db))
+	mux.HandleFunc("POST /api/subjects/{id}/quizzes", createQuiz(db))
 	mux.HandleFunc("PATCH /api/quizzes/{id}", patchQuiz(db))
 	mux.HandleFunc("DELETE /api/quizzes/{id}", deleteByID(db, "quizzes"))
 
-	mux.HandleFunc("POST /api/courses/{id}/flashcards", createFlashcard(db))
+	mux.HandleFunc("POST /api/subjects/{id}/flashcards", createFlashcard(db))
 	mux.HandleFunc("PATCH /api/flashcards/{id}", patchFlashcard(db))
 	mux.HandleFunc("DELETE /api/flashcards/{id}", deleteByID(db, "flashcards"))
 }
@@ -137,65 +135,63 @@ func rowExists(ctx context.Context, db *sql.DB, table, id string) bool {
 	return n > 0
 }
 
-/* ---------- courses ---------- */
+/* ---------- subjects ---------- */
 
-const courseSelect = `
+const subjectSelect = `
 	SELECT c.id, c.name, COALESCE(c.code, ''), COALESCE(c.description, ''),
-	       COALESCE(c.subject_id, ''), COALESCE(s.name, ''),
 	       COALESCE(c.lecturer_id, ''), COALESCE(u.name, ''),
-	       (SELECT COUNT(*) FROM lectures   x WHERE x.course_id = c.id),
-	       (SELECT COUNT(*) FROM seminars   x WHERE x.course_id = c.id),
-	       (SELECT COUNT(*) FROM quizzes    x WHERE x.course_id = c.id),
-	       (SELECT COUNT(*) FROM flashcards x WHERE x.course_id = c.id)
-	FROM courses c
-	LEFT JOIN subjects s ON s.id = c.subject_id
+	       (SELECT COUNT(*) FROM lectures   x WHERE x.subject_id = c.id),
+	       (SELECT COUNT(*) FROM seminars   x WHERE x.subject_id = c.id),
+	       (SELECT COUNT(*) FROM quizzes    x WHERE x.subject_id = c.id),
+	       (SELECT COUNT(*) FROM flashcards x WHERE x.subject_id = c.id)
+	FROM subjects c
 	LEFT JOIN users u ON u.id = c.lecturer_id`
 
-func scanCourse(row interface{ Scan(...any) error }) (courseOut, error) {
-	var c courseOut
-	err := row.Scan(&c.ID, &c.Name, &c.Code, &c.Description, &c.SubjectID, &c.SubjectName,
+func scanSubject(row interface{ Scan(...any) error }) (subjectOut, error) {
+	var c subjectOut
+	err := row.Scan(&c.ID, &c.Name, &c.Code, &c.Description,
 		&c.LecturerID, &c.LecturerName,
 		&c.Counts.Lectures, &c.Counts.Seminars, &c.Counts.Quizzes, &c.Counts.Flashcards)
 	return c, err
 }
 
-func listCourses(db *sql.DB) http.HandlerFunc {
+func listSubjects(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		page, size := pagination(r)
 
 		var total int
-		if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM courses`).Scan(&total); err != nil {
+		if err := db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM subjects`).Scan(&total); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 
-		rows, err := db.QueryContext(r.Context(), courseSelect+` ORDER BY c.name LIMIT ? OFFSET ?`, size, offset(page, size))
+		rows, err := db.QueryContext(r.Context(), subjectSelect+` ORDER BY c.name LIMIT ? OFFSET ?`, size, offset(page, size))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 		defer rows.Close()
-		courses := []courseOut{}
+		subjects := []subjectOut{}
 		for rows.Next() {
-			c, err := scanCourse(rows)
+			c, err := scanSubject(rows)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
-			courses = append(courses, c)
+			subjects = append(subjects, c)
 		}
-		writeJSON(w, http.StatusOK, pageOut{Items: courses, Total: total, Page: page, PageSize: size})
+		writeJSON(w, http.StatusOK, pageOut{Items: subjects, Total: total, Page: page, PageSize: size})
 	}
 }
 
-func getCourse(db *sql.DB) http.HandlerFunc {
+func getSubject(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		id := r.PathValue("id")
 
-		c, err := scanCourse(db.QueryRowContext(ctx, courseSelect+` WHERE c.id = ?`, id))
+		c, err := scanSubject(db.QueryRowContext(ctx, subjectSelect+` WHERE c.id = ?`, id))
 		if err == sql.ErrNoRows {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		if err != nil {
@@ -203,8 +199,8 @@ func getCourse(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		detail := courseDetailOut{
-			courseOut:  c,
+		detail := subjectDetailOut{
+			subjectOut:  c,
 			Lectures:   []lectureOut{},
 			Seminars:   []seminarOut{},
 			Quizzes:    []quizOut{},
@@ -216,7 +212,7 @@ func getCourse(db *sql.DB) http.HandlerFunc {
 				SELECT x.id, x.title, COALESCE(x.description, ''), COALESCE(x.class_id, ''),
 				       COALESCE(cl.name, ''), COALESCE(x.scheduled_at, '')
 				FROM %s x LEFT JOIN classes cl ON cl.id = x.class_id
-				WHERE x.course_id = ? ORDER BY x.scheduled_at, x.title`, table), id)
+				WHERE x.subject_id = ? ORDER BY x.scheduled_at, x.title`, table), id)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
@@ -240,7 +236,7 @@ func getCourse(db *sql.DB) http.HandlerFunc {
 		quizRows, err := db.QueryContext(ctx, `
 			SELECT q.id, q.title, COALESCE(q.description, ''), COALESCE(q.time_limit_minutes, 0),
 			       (SELECT COUNT(*) FROM quiz_questions qq WHERE qq.quiz_id = q.id)
-			FROM quizzes q WHERE q.course_id = ? ORDER BY q.title`, id)
+			FROM quizzes q WHERE q.subject_id = ? ORDER BY q.title`, id)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -256,7 +252,7 @@ func getCourse(db *sql.DB) http.HandlerFunc {
 		}
 		quizRows.Close()
 
-		cardRows, err := db.QueryContext(ctx, `SELECT id, front, back FROM flashcards WHERE course_id = ? ORDER BY created_at`, id)
+		cardRows, err := db.QueryContext(ctx, `SELECT id, front, back FROM flashcards WHERE subject_id = ? ORDER BY created_at`, id)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -276,13 +272,12 @@ func getCourse(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func createCourse(db *sql.DB) http.HandlerFunc {
+func createSubject(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Name        string `json:"name"`
 			Code        string `json:"code"`
 			Description string `json:"description"`
-			SubjectID   string `json:"subject_id"`
 			LecturerID  string `json:"lecturer_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -298,19 +293,16 @@ func createCourse(db *sql.DB) http.HandlerFunc {
 		if strings.TrimSpace(body.Code) != "" {
 			code = strings.TrimSpace(body.Code)
 		}
-		var subjectID, lecturerID any
-		if body.SubjectID != "" {
-			subjectID = body.SubjectID
-		}
+		var lecturerID any
 		if body.LecturerID != "" {
 			lecturerID = body.LecturerID
 		}
 		_, err := db.ExecContext(r.Context(),
-			`INSERT INTO courses (id, name, code, description, subject_id, lecturer_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, strings.TrimSpace(body.Name), code, body.Description, subjectID, lecturerID, now, now)
+			`INSERT INTO subjects (id, name, code, description, lecturer_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, strings.TrimSpace(body.Name), code, body.Description, lecturerID, now, now)
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE") {
-				writeJSON(w, http.StatusConflict, map[string]string{"error": "a course with that code already exists"})
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "a subject with that code already exists"})
 				return
 			}
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -320,13 +312,12 @@ func createCourse(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func patchCourse(db *sql.DB) http.HandlerFunc {
+func patchSubject(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Name        *string `json:"name"`
 			Code        *string `json:"code"`
 			Description *string `json:"description"`
-			SubjectID   *string `json:"subject_id"`
 			LecturerID  *string `json:"lecturer_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -352,9 +343,6 @@ func patchCourse(db *sql.DB) http.HandlerFunc {
 		if body.Description != nil {
 			b.set("description", *body.Description)
 		}
-		if body.SubjectID != nil {
-			b.set("subject_id", nullIfEmpty(*body.SubjectID))
-		}
 		if body.LecturerID != nil {
 			b.set("lecturer_id", nullIfEmpty(*body.LecturerID))
 		}
@@ -362,32 +350,32 @@ func patchCourse(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nothing to update"})
 			return
 		}
-		found, err := b.updateRow(r.Context(), db, "courses", r.PathValue("id"))
+		found, err := b.updateRow(r.Context(), db, "subjects", r.PathValue("id"))
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE") {
-				writeJSON(w, http.StatusConflict, map[string]string{"error": "a course with that code already exists"})
+				writeJSON(w, http.StatusConflict, map[string]string{"error": "a subject with that code already exists"})
 				return
 			}
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 		if !found {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-func deleteCourse(db *sql.DB) http.HandlerFunc {
+func deleteSubject(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := db.ExecContext(r.Context(), `DELETE FROM courses WHERE id = ?`, r.PathValue("id"))
+		res, err := db.ExecContext(r.Context(), `DELETE FROM subjects WHERE id = ?`, r.PathValue("id"))
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -412,7 +400,7 @@ type sessionBody struct {
 
 func createSession(db *sql.DB, table string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		courseID := r.PathValue("id")
+		subjectID := r.PathValue("id")
 		var body sessionBody
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
@@ -422,8 +410,8 @@ func createSession(db *sql.DB, table string) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
 			return
 		}
-		if !rowExists(r.Context(), db, "courses", courseID) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+		if !rowExists(r.Context(), db, "subjects", subjectID) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		id, now := util.NewID(), util.Now()
@@ -432,9 +420,9 @@ func createSession(db *sql.DB, table string) http.HandlerFunc {
 			scheduled = *body.ScheduledAt
 		}
 		_, err := db.ExecContext(r.Context(), fmt.Sprintf(`
-			INSERT INTO %s (id, course_id, class_id, title, description, scheduled_at, created_at, updated_at)
+			INSERT INTO %s (id, subject_id, class_id, title, description, scheduled_at, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, table),
-			id, courseID, nullIfEmpty(body.ClassID), strings.TrimSpace(body.Title), body.Description, scheduled, now, now)
+			id, subjectID, nullIfEmpty(body.ClassID), strings.TrimSpace(body.Title), body.Description, scheduled, now, now)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
@@ -496,7 +484,7 @@ func patchLecture(db *sql.DB, table string) http.HandlerFunc {
 
 func createQuiz(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		courseID := r.PathValue("id")
+		subjectID := r.PathValue("id")
 		var body struct {
 			Title            string `json:"title"`
 			Description      string `json:"description"`
@@ -510,14 +498,14 @@ func createQuiz(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title is required"})
 			return
 		}
-		if !rowExists(r.Context(), db, "courses", courseID) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+		if !rowExists(r.Context(), db, "subjects", subjectID) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		id, now := util.NewID(), util.Now()
 		if _, err := db.ExecContext(r.Context(),
-			`INSERT INTO quizzes (id, course_id, title, description, time_limit_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, courseID, strings.TrimSpace(body.Title), body.Description, body.TimeLimitMinutes, now, now); err != nil {
+			`INSERT INTO quizzes (id, subject_id, title, description, time_limit_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, subjectID, strings.TrimSpace(body.Title), body.Description, body.TimeLimitMinutes, now, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
@@ -575,7 +563,7 @@ func patchQuiz(db *sql.DB) http.HandlerFunc {
 
 func createFlashcard(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		courseID := r.PathValue("id")
+		subjectID := r.PathValue("id")
 		var body struct {
 			Front string `json:"front"`
 			Back  string `json:"back"`
@@ -588,14 +576,14 @@ func createFlashcard(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "front and back are required"})
 			return
 		}
-		if !rowExists(r.Context(), db, "courses", courseID) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "course not found"})
+		if !rowExists(r.Context(), db, "subjects", subjectID) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subject not found"})
 			return
 		}
 		id, now := util.NewID(), util.Now()
 		if _, err := db.ExecContext(r.Context(),
-			`INSERT INTO flashcards (id, course_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			id, courseID, strings.TrimSpace(body.Front), strings.TrimSpace(body.Back), now, now); err != nil {
+			`INSERT INTO flashcards (id, subject_id, front, back, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			id, subjectID, strings.TrimSpace(body.Front), strings.TrimSpace(body.Back), now, now); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
