@@ -1,29 +1,44 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
 	"net/http"
-	"os"
+	"time"
+
+	"smartlms/backend/internal/config"
+	"smartlms/backend/internal/db"
+	"smartlms/backend/internal/handler"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
+	cfg := config.Load()
+
+	database, err := db.Open(cfg.DatabasePath)
+	if err != nil {
+		log.Fatalf("open db: %v", err)
 	}
+	defer database.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := db.Migrate(ctx, database); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+	log.Printf("migrations applied (db: %s)", cfg.DatabasePath)
+
+	if err := db.Seed(ctx, database); err != nil {
+		log.Fatalf("seed: %v", err)
+	}
+	log.Println("seed ok")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"status":  "ok",
-			"service": "smartlms-backend",
-		})
-	})
+	handler.Register(mux, database)
 
-	log.Printf("backend listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, cors(mux)); err != nil {
+	addr := ":" + cfg.Port
+	log.Printf("backend listening on %s", addr)
+	if err := http.ListenAndServe(addr, cors(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
