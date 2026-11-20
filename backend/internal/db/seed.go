@@ -220,6 +220,49 @@ func Seed(ctx context.Context, db *sql.DB) error {
 	if err := seedSample(ctx, db, roleID); err != nil {
 		return err
 	}
+	if err := seedNotifications(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+// seedNotifications gives every demo user a small, idempotent notification feed.
+func seedNotifications(ctx context.Context, db *sql.DB) error {
+	feeds := map[string][][2]string{
+		"ADMIN": {
+			{"Welcome to SmartLMS", "You have full access to every module and permission."},
+			{"Campus ready", "Main Campus and its rooms are ready for scheduling."},
+		},
+		"LECTURER": {
+			{"Course assigned", "You teach Calculus I this term."},
+			{"Student enrolled", "Student User enrolled in Calculus I."},
+		},
+		"STUDENT": {
+			{"Welcome to SmartLMS", "Your Calculus I enrollment is active."},
+			{"New quiz available", "Limits basics is open — 10 minutes, 2 questions."},
+		},
+	}
+
+	for _, u := range seedUsers {
+		var userID string
+		if err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ?`, u.email).Scan(&userID); err != nil {
+			return fmt.Errorf("lookup user %s: %w", u.email, err)
+		}
+		var count int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM notifications WHERE user_id = ?`, userID).Scan(&count); err != nil {
+			return err
+		}
+		if count > 0 {
+			continue
+		}
+		now := util.Now()
+		for _, item := range feeds[u.role] {
+			if _, err := db.ExecContext(ctx, `INSERT INTO notifications (id, user_id, title, message, created_at) VALUES (?, ?, ?, ?, ?)`,
+				util.NewID(), userID, item[0], item[1], now); err != nil {
+				return fmt.Errorf("seed notification for %s: %w", u.email, err)
+			}
+		}
+	}
 	return nil
 }
 
