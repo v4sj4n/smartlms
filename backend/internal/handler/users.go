@@ -13,6 +13,7 @@ type userRowOut struct {
 	Role                string `json:"role"`
 	FailedLoginAttempts int    `json:"failed_login_attempts"`
 	LockedUntil         string `json:"locked_until,omitempty"`
+	TwoFactorEnabled    bool   `json:"two_factor_enabled"`
 }
 
 type pageOut struct {
@@ -51,7 +52,8 @@ func registerUsers(mux *http.ServeMux, db *sql.DB) {
 
 		queryArgs := append(append([]any{}, args...), size, offset(page, size))
 		rows, err := db.QueryContext(r.Context(), `
-			SELECT u.id, u.email, u.name, r.name, u.failed_login_attempts, COALESCE(u.locked_until, '')
+			SELECT u.id, u.email, u.name, r.name, u.failed_login_attempts, COALESCE(u.locked_until, ''),
+			       CASE WHEN u.totp_enabled_at IS NOT NULL AND u.totp_secret IS NOT NULL THEN 1 ELSE 0 END
 			FROM users u JOIN roles r ON r.id = u.role_id
 			WHERE `+clause+`
 			ORDER BY u.email
@@ -65,10 +67,12 @@ func registerUsers(mux *http.ServeMux, db *sql.DB) {
 		items := []userRowOut{}
 		for rows.Next() {
 			var u userRowOut
-			if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.FailedLoginAttempts, &u.LockedUntil); err != nil {
+			var twoFactor int
+			if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.FailedLoginAttempts, &u.LockedUntil, &twoFactor); err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
+			u.TwoFactorEnabled = twoFactor == 1
 			items = append(items, u)
 		}
 

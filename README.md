@@ -74,6 +74,13 @@ Full layout: [project-structure.md](project-structure.md)
 - Assignment submission and professor grading with feedback
 - Quiz attempts with personalized lecture review suggestions
 - Balanced timetable generation (2h blocks, professor availability, group equilibrium)
+- Two-factor authentication (TOTP) for every account — see [docs/two-factor.md](docs/two-factor.md)
+- School years as a first-class academic calendar, one current at a time, with
+  subjects filed by year — see [docs/school-years.md](docs/school-years.md)
+- Faculties → departments → programmes, each programme with its own curriculum
+  and its admitted students — see [docs/academic-structure.md](docs/academic-structure.md)
+- Fall and summer seasons, and a subject read week by week with the content
+  taught in each week — see [docs/course-weeks.md](docs/course-weeks.md)
 - In-app notifications for grades and announcements
 - Student groups and subject assignments for institutional scheduling
 

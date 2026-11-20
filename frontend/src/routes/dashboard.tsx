@@ -1,0 +1,493 @@
+import {
+	Books,
+	CalendarBlank,
+	CaretRight,
+	Chalkboard,
+	ClipboardText,
+} from "@phosphor-icons/react";
+import { useQueries } from "@tanstack/react-query";
+import { createRoute, Link } from "@tanstack/react-router";
+import { api, type SubjectDetail } from "../api";
+import { useAuth, useSession } from "../auth";
+import {
+	Badge,
+	Card,
+	CardHeader,
+	EmptyState,
+	PageHeader,
+	Skeleton,
+	SkeletonStack,
+} from "../components/ui";
+import {
+	queryKeys,
+	useHealth,
+	useStudentAssignments,
+	useStudentRecord,
+	useSubjects,
+	useUsers,
+} from "../queries";
+import { appLayoutRoute } from "./app-layout";
+
+/** How many subjects the dashboard opens to collect lectures and deadlines. */
+const DETAIL_LIMIT = 8;
+const UPCOMING_LIMIT = 6;
+
+const plural = (count: number, one: string, many: string) =>
+	`${count} ${count === 1 ? one : many}`;
+
+function greeting(now: Date): string {
+	const hour = now.getHours();
+	if (hour < 12) return "Good morning";
+	if (hour < 18) return "Good afternoon";
+	return "Good evening";
+}
+
+const dayFormatter = new Intl.DateTimeFormat(undefined, {
+	weekday: "long",
+	day: "numeric",
+	month: "long",
+});
+const shortDayFormatter = new Intl.DateTimeFormat(undefined, {
+	weekday: "short",
+	day: "numeric",
+	month: "short",
+});
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+	hour: "2-digit",
+	minute: "2-digit",
+});
+
+/** "Today", "Tomorrow" or "Mon 24 Nov", for the left edge of an agenda row. */
+function dayLabel(date: Date, now: Date): string {
+	const startOf = (value: Date) =>
+		new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+	const days = Math.round((startOf(date) - startOf(now)) / 86_400_000);
+	if (days === 0) return "Today";
+	if (days === 1) return "Tomorrow";
+	return shortDayFormatter.format(date);
+}
+
+type AgendaItem = {
+	key: string;
+	kind: "lecture" | "deadline";
+	title: string;
+	subjectId: string;
+	subjectName: string;
+	at: Date;
+	place?: string;
+	status?: string;
+};
+
+function Metric({
+	label,
+	value,
+	foot,
+}: {
+	label: string;
+	value: string | number | undefined;
+	foot: string;
+}) {
+	return (
+		<div className="card">
+			<div className="metric">
+				<p className="metric__label">{label}</p>
+				{value === undefined ? (
+					<Skeleton variant="title" width="56px" />
+				) : (
+					<p className="metric__value num">{value}</p>
+				)}
+				<p className="metric__foot">{foot}</p>
+			</div>
+		</div>
+	);
+}
+
+function Agenda({ items, loading }: { items: AgendaItem[]; loading: boolean }) {
+	const now = new Date();
+	return (
+		<Card>
+			<CardHeader title="Coming up" hint="Lectures and deadlines" />
+			{loading ? (
+				<SkeletonStack rows={4} />
+			) : items.length === 0 ? (
+				<EmptyState
+					icon={CalendarBlank}
+					title="Nothing scheduled"
+					description="Upcoming lectures and assignment deadlines appear here."
+				/>
+			) : (
+				<ul className="agenda">
+					{items.map((item) => (
+						<li key={item.key}>
+							<Link
+								to="/subjects/$subjectId"
+								params={{ subjectId: item.subjectId }}
+								className="agenda__row"
+							>
+								<span className="agenda__when">
+									<span className="agenda__day">{dayLabel(item.at, now)}</span>
+									<span className="agenda__time num">
+										{timeFormatter.format(item.at)}
+									</span>
+								</span>
+								<span
+									className={`agenda__icon agenda__icon--${item.kind}`}
+									aria-hidden="true"
+								>
+									{item.kind === "lecture" ? (
+										<Chalkboard size={16} weight="regular" />
+									) : (
+										<ClipboardText size={16} weight="regular" />
+									)}
+								</span>
+								<span className="agenda__text">
+									<span className="agenda__title">{item.title}</span>
+									<span className="agenda__meta">
+										{item.kind === "lecture" ? "Lecture" : "Due"} ·{" "}
+										{item.subjectName}
+										{item.place ? ` · Room ${item.place}` : null}
+									</span>
+								</span>
+								{item.status ? (
+									<Badge tone="outline">{item.status}</Badge>
+								) : null}
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
+		</Card>
+	);
+}
+
+function SubjectList({
+	subjects,
+	loading,
+}: {
+	subjects: { id: string; name: string; code?: string; detail: string }[];
+	loading: boolean;
+}) {
+	const { hasModule } = useAuth();
+	return (
+		<Card>
+			<CardHeader
+				title="Your subjects"
+				actions={
+					hasModule("subjects") ? (
+						<Link to="/subjects" className="link-button">
+							All subjects
+						</Link>
+					) : hasModule("records") ? (
+						<Link to="/record" className="link-button">
+							Study record
+						</Link>
+					) : null
+				}
+			/>
+			{loading ? (
+				<SkeletonStack rows={3} />
+			) : subjects.length === 0 ? (
+				<EmptyState
+					icon={Books}
+					title="No subjects yet"
+					description="Subjects you teach or take appear here."
+				/>
+			) : (
+				<ul className="dash-subjects">
+					{subjects.map((subject) => (
+						<li key={subject.id}>
+							<Link
+								to="/subjects/$subjectId"
+								params={{ subjectId: subject.id }}
+								className="dash-subjects__row"
+							>
+								<span className="dash-subjects__text">
+									<span className="dash-subjects__name">
+										{subject.name}
+										{subject.code ? (
+											<span className="dash-subjects__code">
+												{subject.code}
+											</span>
+										) : null}
+									</span>
+									<span className="dash-subjects__detail">
+										{subject.detail}
+									</span>
+								</span>
+								<CaretRight size={14} weight="bold" aria-hidden="true" />
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
+		</Card>
+	);
+}
+
+function useSubjectDetails(ids: string[]) {
+	return useQueries({
+		queries: ids.slice(0, DETAIL_LIMIT).map((id) => ({
+			queryKey: queryKeys.subject(id),
+			queryFn: () => api.subject(id),
+			staleTime: 15_000,
+		})),
+	});
+}
+
+function lecturesFrom(
+	details: (SubjectDetail | undefined)[],
+	now: number,
+): AgendaItem[] {
+	return details.flatMap((subject) =>
+		subject
+			? subject.lectures
+					.filter(
+						(lecture) =>
+							lecture.scheduled_at && Date.parse(lecture.scheduled_at) >= now,
+					)
+					.map((lecture) => ({
+						key: `lecture-${lecture.id}`,
+						kind: "lecture" as const,
+						title: lecture.title,
+						subjectId: subject.id,
+						subjectName: subject.name,
+						at: new Date(lecture.scheduled_at as string),
+						place: lecture.class_name,
+					}))
+			: [],
+	);
+}
+
+function soonest(items: AgendaItem[]): AgendaItem[] {
+	return items
+		.sort((a, b) => a.at.getTime() - b.at.getTime())
+		.slice(0, UPCOMING_LIMIT);
+}
+
+function StaffDashboard() {
+	const { hasModule } = useAuth();
+	const canListStudents = hasModule("users") || hasModule("students");
+	const subjects = useSubjects({ page: 1, page_size: 50 });
+	const students = useUsers({ page: 1, page_size: 10, role: "STUDENT" });
+	const ids = (subjects.data?.items ?? []).map((subject) => subject.id);
+	const details = useSubjectDetails(ids);
+	const now = Date.now();
+
+	const detailData = details.map((query) => query.data);
+	const deadlines: AgendaItem[] = detailData.flatMap((subject) =>
+		subject
+			? subject.assignments
+					.filter(
+						(assignment) =>
+							assignment.due_at && Date.parse(assignment.due_at) >= now,
+					)
+					.map((assignment) => ({
+						key: `assignment-${assignment.id}`,
+						kind: "deadline" as const,
+						title: assignment.title,
+						subjectId: subject.id,
+						subjectName: subject.name,
+						at: new Date(assignment.due_at as string),
+						place: assignment.class_name,
+						status: assignment.is_published ? undefined : "Draft",
+					}))
+			: [],
+	);
+	const agenda = soonest([...lecturesFrom(detailData, now), ...deadlines]);
+
+	const weekAhead = now + 7 * 86_400_000;
+	const detailsLoading =
+		subjects.isPending || details.some((query) => query.isPending);
+	const lecturesThisWeek = lecturesFrom(detailData, now).filter(
+		(lecture) => lecture.at.getTime() <= weekAhead,
+	).length;
+	const openAssignments = deadlines.length;
+	const subjectRows = (subjects.data?.items ?? [])
+		.slice(0, 6)
+		.map((subject) => ({
+			id: subject.id,
+			name: subject.name,
+			code: subject.code,
+			detail: [
+				subject.lecturer_name,
+				plural(subject.counts.lectures, "lecture", "lectures"),
+				plural(subject.counts.assignments, "assignment", "assignments"),
+			]
+				.filter(Boolean)
+				.join(" · "),
+		}));
+
+	return (
+		<div className="stack">
+			<div className="grid grid--4">
+				<Metric
+					label="Students"
+					value={canListStudents ? students.data?.total : "—"}
+					foot="Student accounts"
+				/>
+				<Metric
+					label="Subjects"
+					value={subjects.data?.total}
+					foot={subjects.data ? "This school year" : "Loading"}
+				/>
+				<Metric
+					label="Lectures this week"
+					value={detailsLoading ? undefined : lecturesThisWeek}
+					foot="Next 7 days"
+				/>
+				<Metric
+					label="Open assignments"
+					value={detailsLoading ? undefined : openAssignments}
+					foot="Deadline still ahead"
+				/>
+			</div>
+
+			<div className="dash-columns">
+				<Agenda items={agenda} loading={detailsLoading} />
+				<SubjectList subjects={subjectRows} loading={subjects.isPending} />
+			</div>
+		</div>
+	);
+}
+
+function StudentDashboard({ studentId }: { studentId: string }) {
+	const { hasModule } = useAuth();
+	const assignments = useStudentAssignments(
+		hasModule("assignments") ? studentId : undefined,
+	);
+	const record = useStudentRecord(hasModule("records") ? studentId : undefined);
+	const entries = record.data?.entries ?? [];
+	const subjectIds = [...new Set(entries.map((entry) => entry.subject_id))];
+	const details = useSubjectDetails(subjectIds);
+	const now = Date.now();
+	const weekAhead = now + 7 * 86_400_000;
+
+	const open = (assignments.data ?? []).filter(
+		(assignment) =>
+			assignment.due_at &&
+			Date.parse(assignment.due_at) >= now &&
+			(assignment.status === "todo" || assignment.status === "overdue"),
+	);
+	const deadlines: AgendaItem[] = open.map((assignment) => ({
+		key: `assignment-${assignment.id}`,
+		kind: "deadline",
+		title: assignment.title,
+		subjectId: assignment.subject_id,
+		subjectName: assignment.subject_name,
+		at: new Date(assignment.due_at as string),
+		place: assignment.class_name,
+	}));
+	const agenda = soonest([
+		...lecturesFrom(
+			details.map((query) => query.data),
+			now,
+		),
+		...deadlines,
+	]);
+
+	const subjectRows = entries.map((entry) => ({
+		id: entry.subject_id,
+		name: entry.subject_name,
+		detail:
+			entry.status === "in_progress"
+				? entry.total_points != null
+					? `In progress · ${entry.total_points} points so far`
+					: "In progress"
+				: `${entry.status === "passed" ? "Passed" : entry.status === "failed" ? "Failed" : "Withdrawn"}${
+						entry.grade != null ? ` · grade ${entry.grade}` : ""
+					}`,
+	}));
+
+	return (
+		<div className="stack">
+			<div className="grid grid--4">
+				<Metric
+					label="Subjects"
+					value={record.data ? subjectIds.length : undefined}
+					foot="On your study record"
+				/>
+				<Metric
+					label="Due this week"
+					value={
+						assignments.data
+							? open.filter((a) => Date.parse(a.due_at as string) <= weekAhead)
+									.length
+							: undefined
+					}
+					foot="Assignments not yet handed in"
+				/>
+				<Metric
+					label="Average grade"
+					value={record.data ? (record.data.gpa?.toFixed(2) ?? "—") : undefined}
+					foot="Weighted by credits"
+				/>
+				<Metric
+					label="Credits"
+					value={record.data?.credits_earned}
+					foot={
+						record.data
+							? `${record.data.credits_in_flight} more in progress`
+							: "ECTS earned"
+					}
+				/>
+			</div>
+
+			<div className="dash-columns">
+				<Agenda
+					items={agenda}
+					loading={
+						assignments.isPending || details.some((query) => query.isPending)
+					}
+				/>
+				<SubjectList subjects={subjectRows} loading={record.isPending} />
+			</div>
+		</div>
+	);
+}
+
+function SystemStatus() {
+	const health = useHealth();
+	const ok = health.data?.status === "ok" && health.data?.db === "up";
+	if (health.isPending) return null;
+	return (
+		<Badge
+			tone={ok ? "success" : "error"}
+			title={
+				ok
+					? "Backend and database are up"
+					: "The backend is not responding normally"
+			}
+		>
+			{ok ? "All systems normal" : "Backend issue"}
+		</Badge>
+	);
+}
+
+function DashboardPage() {
+	const session = useSession();
+	const { isAdmin } = useAuth();
+	const now = new Date();
+	const firstName = session.user.name.split(" ")[0];
+	const isStudent = session.user.role === "STUDENT";
+
+	return (
+		<>
+			<PageHeader
+				title={`${greeting(now)}, ${firstName}`}
+				description={dayFormatter.format(now)}
+				actions={isAdmin ? <SystemStatus /> : null}
+			/>
+			{isStudent ? (
+				<StudentDashboard studentId={session.user.id} />
+			) : (
+				<StaffDashboard />
+			)}
+		</>
+	);
+}
+
+export const dashboardRoute = createRoute({
+	getParentRoute: () => appLayoutRoute,
+	path: "/",
+	component: DashboardPage,
+});

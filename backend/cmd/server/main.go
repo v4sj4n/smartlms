@@ -34,7 +34,7 @@ func main() {
 	log.Println("seed ok")
 
 	mux := http.NewServeMux()
-	handler.Register(mux, database)
+	handler.Register(mux, database, cfg)
 
 	addr := ":" + cfg.Port
 	log.Printf("backend listening on %s", addr)

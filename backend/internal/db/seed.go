@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"smartlms/backend/internal/auth"
 	"smartlms/backend/internal/util"
@@ -12,16 +13,22 @@ import (
 
 // module key -> human name
 var seedModules = map[string]string{
-	"dashboard":  "Dashboard",
-	"users":      "User management",
-	"campuses":   "Campuses, stories & classes",
-	"subjects":   "Subjects",
-	"lectures":   "Lectures",
-	"seminars":   "Seminars",
-	"quizzes":    "Quizzes",
-	"flashcards": "Flashcards",
-	"students":   "Students & enrollments",
-	"settings":   "Settings",
+	"dashboard":    "Dashboard",
+	"users":        "User management",
+	"campuses":     "Campuses, stories & classes",
+	"academic":     "Academic structure",
+	"school-years": "School years",
+	"subjects":     "Subjects",
+	"lectures":     "Lectures",
+	"assignments":  "Assignments",
+	"grades":       "Grades & gradebook",
+	"forums":       "Course forums",
+	"records":      "Study record",
+	"quizzes":      "Quizzes",
+	"flashcards":   "Flashcards",
+	"students":     "Students & enrollments",
+	"settings":     "Settings",
+	"assistant":    "AI assistant",
 }
 
 type seedPermission struct {
@@ -43,6 +50,14 @@ var seedPermissions = map[string][]seedPermission{
 		{"campuses.view", "View campuses", "See campuses, stories and classes"},
 		{"campuses.manage", "Manage campuses", "Add, edit and remove campuses, stories and classes"},
 	},
+	"academic": {
+		{"academic.view", "View academic structure", "See faculties, departments, programmes and their students"},
+		{"academic.manage", "Manage academic structure", "Add, edit and remove faculties, departments and programmes, and admit students"},
+	},
+	"school-years": {
+		{"school-years.view", "View school years", "See the academic years and which one is current"},
+		{"school-years.manage", "Manage school years", "Create, edit, activate and remove school years"},
+	},
 	"subjects": {
 		{"subjects.view", "View subjects", "See subjects and their lecturers"},
 		{"subjects.manage", "Manage subjects", "Create, edit and remove subjects"},
@@ -51,9 +66,25 @@ var seedPermissions = map[string][]seedPermission{
 		{"lectures.view", "View lectures", "See lectures and their rooms"},
 		{"lectures.manage", "Manage lectures", "Create, schedule, edit and remove lectures"},
 	},
-	"seminars": {
-		{"seminars.view", "View seminars", "See seminars and their rooms"},
-		{"seminars.manage", "Manage seminars", "Create, schedule, edit and remove seminars"},
+	"assignments": {
+		{"assignments.view", "View assignments", "See assignments, due dates and own submissions"},
+		{"assignments.manage", "Manage assignments", "Create, schedule, edit and remove assignments"},
+		{"assignments.submit", "Submit assignments", "Hand in work and see the grade and feedback"},
+		{"assignments.grade", "Grade assignments", "Score submissions and leave feedback"},
+	},
+	"grades": {
+		{"grades.view", "View grades", "See the weighted grade breakdown of a subject"},
+		{"grades.manage", "Manage gradebook", "Define grade components, weights and student points"},
+		{"grades.override", "Set official results", "Override a grade with the official exam-office value"},
+	},
+	"forums": {
+		{"forums.view", "View forums", "Read course forum threads and replies"},
+		{"forums.post", "Post in forums", "Reply to a course forum thread"},
+		{"forums.moderate", "Moderate forums", "Start topics, pin and lock threads"},
+	},
+	"records": {
+		{"records.view", "View study record", "See the study card, credits and GPA"},
+		{"records.manage", "Manage study record", "Record official results and past semesters"},
 	},
 	"quizzes": {
 		{"quizzes.view", "View quizzes", "See quizzes and question banks"},
@@ -72,6 +103,10 @@ var seedPermissions = map[string][]seedPermission{
 		{"settings.view", "View settings", "See system and role settings"},
 		{"settings.manage", "Manage settings", "Change system and role settings"},
 	},
+	"assistant": {
+		{"assistant.use", "Use the AI assistant", "Chat with the assistant, in the floating panel and on /chat"},
+		{"assistant.configure", "Manage assistant providers", "Add, edit and remove the assistant's AI providers and models"},
+	},
 }
 
 // role -> permission keys granted at seed time ("*" = every permission)
@@ -81,25 +116,34 @@ var seedRoleGrants = map[string][]string{
 		"dashboard.view",
 		"subjects.view", "subjects.manage",
 		"lectures.view", "lectures.manage",
-		"seminars.view", "seminars.manage",
+		"assignments.view", "assignments.manage", "assignments.grade",
 		"quizzes.view", "quizzes.manage",
 		"flashcards.view", "flashcards.manage",
 		"students.view",
+		"grades.view", "grades.manage",
+		"forums.view", "forums.post", "forums.moderate",
+		"records.view",
+		"academic.view",
+		"assistant.use", "assistant.configure",
 	},
 	"STUDENT": {
 		"dashboard.view",
 		"lectures.view",
-		"seminars.view",
+		"assignments.view", "assignments.submit",
 		"quizzes.view", "quizzes.take",
 		"flashcards.view",
+		"grades.view",
+		"forums.view", "forums.post",
+		"records.view",
+		"assistant.use",
 	},
 }
 
 // role -> module keys the role can access (ADMIN is additionally a wildcard in code)
 var seedRoleModules = map[string][]string{
-	"ADMIN":    {"dashboard", "users", "campuses", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students", "settings"},
-	"LECTURER": {"dashboard", "subjects", "lectures", "seminars", "quizzes", "flashcards", "students"},
-	"STUDENT":  {"dashboard", "lectures", "seminars", "quizzes", "flashcards"},
+	"ADMIN":    {"dashboard", "users", "campuses", "academic", "school-years", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "settings", "assistant"},
+	"LECTURER": {"dashboard", "academic", "subjects", "lectures", "assignments", "quizzes", "flashcards", "students", "grades", "forums", "records", "assistant"},
+	"STUDENT":  {"dashboard", "lectures", "assignments", "quizzes", "flashcards", "grades", "forums", "records", "assistant"},
 }
 
 type seedUser struct {
@@ -190,6 +234,9 @@ func Seed(ctx context.Context, db *sql.DB) error {
 		}
 	}
 
+	// Ids of the demo users created by this run: the demo MCP connections are
+	// seeded for them once, so a revoke is never undone by the next boot.
+	createdUserIDs := map[string]string{}
 	for _, u := range seedUsers {
 		var existing string
 		err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE email = ?`, u.email).Scan(&existing)
@@ -204,17 +251,138 @@ func Seed(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("hash password for %s: %w", u.email, err)
 		}
 		now := util.Now()
+		id := util.NewID()
 		if _, err := db.ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name, role_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			util.NewID(), u.email, string(hash), u.name, roleID[u.role], now, now); err != nil {
+			id, u.email, string(hash), u.name, roleID[u.role], now, now); err != nil {
 			return fmt.Errorf("seed user %s: %w", u.email, err)
 		}
+		createdUserIDs[u.email] = id
 	}
 
+	if err := seedSchoolYears(ctx, db); err != nil {
+		return err
+	}
 	if err := seedSample(ctx, db, roleID); err != nil {
+		return err
+	}
+	// The structure is seeded after the sample courses so the demo subjects can
+	// be attached to the programme that teaches them.
+	if err := seedAcademicStructure(ctx, db); err != nil {
+		return err
+	}
+	if err := seedPeople(ctx, db, roleID); err != nil {
+		return err
+	}
+	// Every student ends up in a programme, including those the demo population
+	// created and any left unplaced by an older database.
+	if err := seedAdmissions(ctx, db); err != nil {
+		return err
+	}
+	// Subjects are read week by week, so the demo content is laid out that way.
+	if err := seedCourseWeeks(ctx, db); err != nil {
 		return err
 	}
 	if err := seedNotifications(ctx, db); err != nil {
 		return err
+	}
+	if err := seedMcpApps(ctx, db, createdUserIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+// MCP app the assistant can act through, as the catalog stores it.
+type seedMcpApp struct {
+	key         string
+	name        string
+	description string
+	category    string
+	glyph       string
+	tone        string
+	scopes      []string
+}
+
+// The shared catalog. `glyph` is the mark the profile draws inside the app's
+// avatar and `tone` picks the HIG system colour behind it.
+var seedMcpAppsCatalog = []seedMcpApp{
+	{"github", "GitHub", "Repositories, issues and pull requests for coursework and projects.", "Development", "GH", "gray", []string{"repo:read", "issues:write"}},
+	{"google-drive", "Google Drive", "Course materials, lecture slides and shared folders.", "Files", "GD", "blue", []string{"drive.file", "drive.metadata.readonly"}},
+	{"google-calendar", "Google Calendar", "Deadlines, exam dates and office hours in the assistant's answers.", "Schedule", "GC", "red", []string{"calendar.events"}},
+	{"notion", "Notion", "Lecture notes and study pages the assistant can read and extend.", "Notes", "NO", "teal", []string{"read_content", "insert_content"}},
+	{"slack", "Slack", "Course channels and direct messages with lecturers.", "Messages", "SL", "indigo", []string{"channels:read", "chat:write"}},
+	{"figma", "Figma", "Design files for project work and reviews.", "Design", "FG", "orange", []string{"file_content:read"}},
+	{"postgres", "Postgres", "The read-only gradebook replica the assistant can query.", "Data", "PG", "green", []string{"select"}},
+}
+
+// A connection as seeded: how long ago it was made, and whether it was used.
+type seedMcpConnection struct {
+	key     string
+	daysAgo int
+	used    bool
+}
+
+var seedMcpConnections = map[string][]seedMcpConnection{
+	"admin@smartlms.dev": {
+		{"github", 2, true},
+		{"google-drive", 9, true},
+		{"slack", 21, false},
+	},
+	"lecturer@smartlms.dev": {
+		{"google-drive", 4, true},
+		{"notion", 12, true},
+		{"google-calendar", 30, true},
+	},
+	"student@smartlms.dev": {
+		{"github", 6, true},
+		{"notion", 15, false},
+	},
+}
+
+// seedMcpApps keeps the app catalog current and gives brand-new demo users a
+// few connections, so the profile's Security section has real rows to draw as
+// avatars. The catalog is reference data and is refreshed on every boot; the
+// connections are demo data and are written only for the users created by this
+// run, so disconnecting an app is never undone by a restart.
+func seedMcpApps(ctx context.Context, db *sql.DB, createdUserIDs map[string]string) error {
+	for _, app := range seedMcpAppsCatalog {
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO mcp_apps (key, name, description, category, glyph, tone, scopes, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(key) DO UPDATE SET
+				name = excluded.name,
+				description = excluded.description,
+				category = excluded.category,
+				glyph = excluded.glyph,
+				tone = excluded.tone,
+				scopes = excluded.scopes`,
+			app.key, app.name, app.description, app.category, app.glyph, app.tone,
+			mustJSON(app.scopes), util.Now()); err != nil {
+			return fmt.Errorf("seed mcp app %s: %w", app.key, err)
+		}
+	}
+
+	now := time.Now().UTC()
+	for email, connections := range seedMcpConnections {
+		userID, isNew := createdUserIDs[email]
+		if !isNew {
+			continue
+		}
+		for _, connection := range connections {
+			connectedAt := now.AddDate(0, 0, -connection.daysAgo).Format(time.RFC3339)
+			var lastUsedAt any // NULL until the assistant calls the app
+			if connection.used {
+				lastUsedAt = now.
+					AddDate(0, 0, -connection.daysAgo).
+					Add(2 * time.Hour).
+					Format(time.RFC3339)
+			}
+			if _, err := db.ExecContext(ctx, `
+				INSERT OR IGNORE INTO user_mcp_apps (user_id, app_key, connected_at, last_used_at)
+				VALUES (?, ?, ?, ?)`,
+				userID, connection.key, connectedAt, lastUsedAt); err != nil {
+				return fmt.Errorf("seed mcp connection %s->%s: %w", email, connection.key, err)
+			}
+		}
 	}
 	return nil
 }
@@ -255,6 +423,47 @@ func seedNotifications(ctx context.Context, db *sql.DB) error {
 				return fmt.Errorf("seed notification for %s: %w", u.email, err)
 			}
 		}
+	}
+	return nil
+}
+
+// seedSchoolYears puts the academic calendar in place: the year that just
+// ended and the one running now. Subjects are scheduled into the current one.
+// Idempotent: a year that already exists is left untouched.
+func seedSchoolYears(ctx context.Context, db *sql.DB) error {
+	years := []struct {
+		name     string
+		startsOn string
+		endsOn   string
+	}{
+		{"2025/2026", "2025-09-01", "2026-06-30"},
+		{"2026/2027", "2026-09-01", "2027-06-30"},
+	}
+	for _, year := range years {
+		var existing string
+		err := db.QueryRowContext(ctx, `SELECT id FROM school_years WHERE name = ?`, year.name).Scan(&existing)
+		if err == nil {
+			continue
+		}
+		if err != sql.ErrNoRows {
+			return fmt.Errorf("lookup school year %s: %w", year.name, err)
+		}
+		now := util.Now()
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO school_years (id, name, starts_on, ends_on, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, ?, 0, ?, ?)`,
+			util.NewID(), year.name, year.startsOn, year.endsOn, now, now); err != nil {
+			return fmt.Errorf("seed school year %s: %w", year.name, err)
+		}
+	}
+
+	// The current year, only when the calendar has none: a year an admin put in
+	// place is never overridden by a later boot.
+	if _, err := db.ExecContext(ctx, `
+		UPDATE school_years SET is_active = 1, updated_at = ?
+		WHERE name = '2026/2027'
+		  AND NOT EXISTS (SELECT 1 FROM school_years WHERE is_active = 1)`, util.Now()); err != nil {
+		return fmt.Errorf("seed active school year: %w", err)
 	}
 	return nil
 }
@@ -338,8 +547,14 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 	}
 
 	subjectID := util.NewID()
-	if _, err := db.ExecContext(ctx, `INSERT INTO subjects (id, name, code, description, lecturer_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		subjectID, "Mathematics I", "MATH101", "Limits, derivatives and integrals.", userID["LECTURER"], now, now); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO subjects (id, name, code, description, lecturer_id, ects, semester, school_year, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		subjectID, "Mathematics I", "MATH101", "Limits, derivatives and integrals.", userID["LECTURER"], 6, "FIRST", "2026/2027", now, now); err != nil {
+		return err
+	}
+
+	physicsID := util.NewID()
+	if _, err := db.ExecContext(ctx, `INSERT INTO subjects (id, name, code, description, lecturer_id, ects, semester, school_year, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		physicsID, "Physics I", "PHYS101", "Mechanics and thermodynamics.", userID["LECTURER"], 5, "FIRST", "2026/2027", now, now); err != nil {
 		return err
 	}
 
@@ -347,9 +562,27 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 		util.NewID(), subjectID, classIDs["B201"], "Introduction to limits", "Epsilon-delta intuition.", "2026-11-23T09:00:00Z", now, now); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO seminars (id, subject_id, class_id, title, description, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		util.NewID(), subjectID, classIDs["A102"], "Derivative exercises", "Worksheet on the chain rule.", "2026-11-24T11:00:00Z", now, now); err != nil {
-		return err
+	assignmentDefs := []struct {
+		id, subjectID, classID, title, description, scheduledAt, dueAt string
+		maxPoints                                                      int
+		submissionType                                                 string
+	}{
+		{util.NewID(), subjectID, classIDs["A102"], "Derivative exercises",
+			"Worksheet on the chain rule.", "2026-11-24T11:00:00Z", "2026-12-05T23:59:00Z", 100, "both"},
+		{util.NewID(), subjectID, classIDs["A102"], "Limits problem set",
+			"Ten limits to compute analytically.", "2026-12-01T11:00:00Z", "2026-12-15T23:59:00Z", 50, "file"},
+		{util.NewID(), physicsID, classIDs["A101"], "Free body diagrams",
+			"Draw and justify the forces for five systems.", "2026-12-02T09:00:00Z", "2026-12-12T23:59:00Z", 100, "file"},
+	}
+	for _, a := range assignmentDefs {
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO assignments (id, subject_id, class_id, title, description, scheduled_at, due_at,
+			                         max_points, allow_late, submission_type, is_published, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1, ?, ?)`,
+			a.id, a.subjectID, a.classID, a.title, a.description, a.scheduledAt, a.dueAt,
+			a.maxPoints, a.submissionType, now, now); err != nil {
+			return err
+		}
 	}
 
 	quizID := util.NewID()
@@ -385,13 +618,73 @@ func seedSample(ctx context.Context, db *sql.DB, roleID map[string]string) error
 		}
 	}
 
-	if _, err := db.ExecContext(ctx, `INSERT INTO enrollments (id, student_id, subject_id, enrolled_at) VALUES (?, ?, ?, ?)`,
-		util.NewID(), userID["STUDENT"], subjectID, now); err != nil {
+	for _, enrolledSubject := range []string{subjectID, physicsID} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO enrollments (id, student_id, subject_id, enrolled_at) VALUES (?, ?, ?, ?)`,
+			util.NewID(), userID["STUDENT"], enrolledSubject, now); err != nil {
+			return err
+		}
+	}
+
+	// gradebook: midterm 40% (graded), final 50% and engagement 10% still open
+	components := []struct {
+		name, kind string
+		weight     float64
+		points     *float64
+	}{
+		{"Midterm exam", "midterm", 40, floatPtr(82)},
+		{"Final exam", "final", 50, nil},
+		{"Engagement", "engagement", 10, floatPtr(90)},
+	}
+	for i, component := range components {
+		componentID := util.NewID()
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO grade_components (id, subject_id, name, type, weight_percent, max_points,
+			                              order_index, is_published, created_by, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, 100, ?, 1, ?, ?, ?)`,
+			componentID, subjectID, component.name, component.kind, component.weight, i,
+			userID["LECTURER"], now, now); err != nil {
+			return err
+		}
+		if component.points != nil {
+			if _, err := db.ExecContext(ctx, `
+				INSERT INTO grade_entries (id, component_id, student_id, points, graded_by, graded_at, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				util.NewID(), componentID, userID["STUDENT"], *component.points, userID["LECTURER"], now, now, now); err != nil {
+				return err
+			}
+		}
+	}
+
+	// a course forum with one topic and one reply
+	forumID := util.NewID()
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO forums (id, subject_id, title, description, is_locked, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+		forumID, subjectID, "Course questions", "Ask about the lectures and the problem sets.",
+		userID["LECTURER"], now, now); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO quiz_attempts (id, quiz_id, student_id, score, completed_at) VALUES (?, ?, ?, ?, ?)`,
-		util.NewID(), quizID, userID["STUDENT"], 2, now); err != nil {
+	threadID := util.NewID()
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO forum_threads (id, forum_id, title, body, author_id, is_pinned, is_locked, last_post_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`,
+		threadID, forumID, "How is the exam graded?", "The exam is 40% of the total; the rest is the final and engagement.",
+		userID["LECTURER"], now, now, now); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO forum_posts (id, thread_id, author_id, body, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		util.NewID(), threadID, userID["STUDENT"], "Thanks, is the engagement mark based on attendance?", now, now); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO quiz_attempts (id, quiz_id, student_id, score, started_at, expires_at, status, completed_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'completed', ?)`,
+		util.NewID(), quizID, userID["STUDENT"], 2, now, now, now); err != nil {
 		return err
 	}
 	return nil
 }
+
+func floatPtr(v float64) *float64 { return &v }

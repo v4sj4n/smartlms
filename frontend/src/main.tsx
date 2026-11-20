@@ -1,36 +1,38 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  RouterProvider,
-} from "@tanstack/react-router";
-import App from "./App";
+import { AppearanceSync } from "./appearance";
+import { AuthProvider } from "./auth";
+import { router } from "./router";
+import { ThemeProvider } from "./theme";
+import { AppToaster } from "./toast";
+import "./styles.css";
 
-const queryClient = new QueryClient();
-
-const rootRoute = createRootRoute();
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: App,
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			retry: 1,
+			refetchOnWindowFocus: false,
+		},
+	},
 });
 
-const routeTree = rootRoute.addChildren([indexRoute]);
-const router = createRouter({ routeTree });
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+	throw new Error("Missing #root element in index.html");
 }
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>
+createRoot(rootElement).render(
+	<StrictMode>
+		<QueryClientProvider client={queryClient}>
+			<ThemeProvider>
+				<AuthProvider>
+					<AppearanceSync />
+					<RouterProvider router={router} />
+					<AppToaster />
+				</AuthProvider>
+			</ThemeProvider>
+		</QueryClientProvider>
+	</StrictMode>,
 );

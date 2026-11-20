@@ -3,7 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="SmartLMS — campuses, users and role permissions for the learning management platform."
+    />
     <title>SmartLMS</title>
+    <!-- Resolve the theme before first paint so there is no flash of the wrong one. -->
+    <script>
+      (function () {
+        var STORAGE_KEY = "smartlms.theme.v1";
+        var preference = "system";
+        try {
+          var stored = window.localStorage.getItem(STORAGE_KEY);
+          if (stored === "light" || stored === "dark" || stored === "system") {
+            preference = stored;
+          }
+        } catch (error) {
+          preference = "system";
+        }
+        var theme = preference;
+        if (preference === "system") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+          // Keep "system" stored so the app keeps following the OS setting
+          // until the user picks an explicit theme.
+          try {
+            window.localStorage.setItem(STORAGE_KEY, "system");
+          } catch (error) {
+            /* persistence is optional */
+          }
+        }
+        var root = document.documentElement;
+        root.setAttribute("data-theme", theme);
+        root.setAttribute("data-theme-preference", preference);
+        root.style.colorScheme = theme;
+        try {
+          var font = window.localStorage.getItem("smartlms.font.v1");
+          if (font === "legible" || font === "dyslexic") root.setAttribute("data-font", font);
+        } catch (error) {
+          /* persistence is optional */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
