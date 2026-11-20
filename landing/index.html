@@ -441,5 +441,24 @@
   });
 })();
 </script>
+<script>
+// the URL follows the reader: the section crossing the middle of the screen
+// names the hash; the hero clears it. replaceState, so no history entries and no jump.
+(() => {
+  const sections = [...document.querySelectorAll('main > section[id]')];
+  const hero = document.querySelector('main > .hero');
+  const set = (hash) => {
+    if (location.hash === hash) return;
+    history.replaceState(null, '', hash || location.pathname + location.search);
+  };
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      set(e.target === hero ? '' : `#${e.target.id}`);
+    }
+  }, { rootMargin: '-50% 0px -50% 0px' });
+  for (const el of [hero, ...sections]) if (el) io.observe(el);
+})();
+</script>
 </body>
 </html>
