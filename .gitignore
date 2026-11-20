@@ -54,3 +54,4 @@ landing/dist/
 
 # cloudflare build output
 landing/.cloudflare/
+landing/.wrangler/
