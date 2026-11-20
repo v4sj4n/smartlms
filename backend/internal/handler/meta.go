@@ -6,16 +6,23 @@ import (
 	"sort"
 )
 
+type permissionOut struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
 type moduleOut struct {
-	Key         string   `json:"key"`
-	Name        string   `json:"name"`
-	Permissions []string `json:"permissions"`
+	Key         string          `json:"key"`
+	Name        string          `json:"name"`
+	Permissions []permissionOut `json:"permissions"`
 }
 
 type roleOut struct {
 	ID      string      `json:"id"`
 	Name    string      `json:"name"`
 	Modules []moduleOut `json:"modules"`
+	Granted []string    `json:"granted"` // granted permission keys
 }
 
 type userOut struct {
@@ -25,15 +32,61 @@ type userOut struct {
 }
 
 type metaOut struct {
-	Roles []roleOut `json:"roles"`
-	Users []userOut `json:"users"`
+	Modules []moduleOut `json:"modules"` // full permission catalog
+	Roles   []roleOut   `json:"roles"`
+	Users   []userOut   `json:"users"`
 }
 
-// GET /api/meta returns roles with their modules+permissions, and the seeded users.
+// GET /api/meta returns the module/permission catalog, roles with their module
+// access and granted permission keys, and the seeded users.
 func registerMeta(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /api/meta", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
+		// catalog: modules -> permissions
+		modRows, err := db.QueryContext(ctx, `SELECT id, key, name FROM modules ORDER BY key`)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		modules := []moduleOut{}
+		moduleIndex := map[string]int{}
+		for modRows.Next() {
+			var id string
+			var m moduleOut
+			if err := modRows.Scan(&id, &m.Key, &m.Name); err != nil {
+				modRows.Close()
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			m.Permissions = []permissionOut{}
+			moduleIndex[id] = len(modules)
+			modules = append(modules, m)
+		}
+		modRows.Close()
+
+		permRows, err := db.QueryContext(ctx, `
+			SELECT module_id, key, label, COALESCE(description, '')
+			FROM permissions ORDER BY key`)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		for permRows.Next() {
+			var moduleID string
+			var p permissionOut
+			if err := permRows.Scan(&moduleID, &p.Key, &p.Label, &p.Description); err != nil {
+				permRows.Close()
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			if idx, ok := moduleIndex[moduleID]; ok {
+				modules[idx].Permissions = append(modules[idx].Permissions, p)
+			}
+		}
+		permRows.Close()
+
+		// roles
 		roleRows, err := db.QueryContext(ctx, `SELECT id, name FROM roles ORDER BY name`)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -48,25 +101,25 @@ func registerMeta(mux *http.ServeMux, db *sql.DB) {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
-			roleIndex[ro.ID] = len(roles)
 			ro.Modules = []moduleOut{}
+			ro.Granted = []string{}
+			roleIndex[ro.ID] = len(roles)
 			roles = append(roles, ro)
 		}
 		roleRows.Close()
 
-		modRows, err := db.QueryContext(ctx, `
-			SELECT rm.role_id, m.key, m.name
+		accessRows, err := db.QueryContext(ctx, `
+			SELECT rm.role_id, m.key
 			FROM role_modules rm JOIN modules m ON m.id = rm.module_id
 			ORDER BY m.key`)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		moduleIndex := map[string]int{} // roleID+key -> index in role.Modules
-		for modRows.Next() {
-			var roleID, key, name string
-			if err := modRows.Scan(&roleID, &key, &name); err != nil {
-				modRows.Close()
+		for accessRows.Next() {
+			var roleID, key string
+			if err := accessRows.Scan(&roleID, &key); err != nil {
+				accessRows.Close()
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
@@ -74,38 +127,38 @@ func registerMeta(mux *http.ServeMux, db *sql.DB) {
 			if !ok {
 				continue
 			}
-			moduleIndex[roleID+"|"+key] = len(roles[ri].Modules)
-			roles[ri].Modules = append(roles[ri].Modules, moduleOut{Key: key, Name: name, Permissions: []string{}})
+			for _, m := range modules {
+				if m.Key == key {
+					roles[ri].Modules = append(roles[ri].Modules, m)
+					break
+				}
+			}
 		}
-		modRows.Close()
+		accessRows.Close()
 
-		permRows, err := db.QueryContext(ctx, `
-			SELECT p.module_id, m.key, p.action
-			FROM permissions p JOIN modules m ON m.id = p.module_id
-			ORDER BY p.action`)
+		grantRows, err := db.QueryContext(ctx, `
+			SELECT rp.role_id, p.key
+			FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id
+			ORDER BY p.key`)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		for permRows.Next() {
-			var moduleID, key, action string
-			if err := permRows.Scan(&moduleID, &key, &action); err != nil {
-				permRows.Close()
+		for grantRows.Next() {
+			var roleID, key string
+			if err := grantRows.Scan(&roleID, &key); err != nil {
+				grantRows.Close()
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
-			for ri := range roles {
-				if idx, ok := moduleIndex[roles[ri].ID+"|"+key]; ok {
-					roles[ri].Modules[idx].Permissions = append(roles[ri].Modules[idx].Permissions, action)
-				}
+			if ri, ok := roleIndex[roleID]; ok {
+				roles[ri].Granted = append(roles[ri].Granted, key)
 			}
 		}
-		permRows.Close()
+		grantRows.Close()
 
 		for ri := range roles {
-			sort.Slice(roles[ri].Modules, func(i, j int) bool {
-				return roles[ri].Modules[i].Key < roles[ri].Modules[j].Key
-			})
+			sort.Strings(roles[ri].Granted)
 		}
 
 		userRows, err := db.QueryContext(ctx, `
@@ -126,6 +179,6 @@ func registerMeta(mux *http.ServeMux, db *sql.DB) {
 		}
 		userRows.Close()
 
-		writeJSON(w, http.StatusOK, metaOut{Roles: roles, Users: users})
+		writeJSON(w, http.StatusOK, metaOut{Modules: modules, Roles: roles, Users: users})
 	})
 }

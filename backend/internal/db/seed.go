@@ -10,9 +10,7 @@ import (
 	"smartlms/backend/internal/util"
 )
 
-var moduleActions = []string{"create", "read", "update", "delete"}
-
-// moduleKey -> human name
+// module key -> human name
 var seedModules = map[string]string{
 	"dashboard":  "Dashboard",
 	"users":      "User management",
@@ -24,6 +22,77 @@ var seedModules = map[string]string{
 	"flashcards": "Flashcards",
 	"students":   "Students & enrollments",
 	"settings":   "Settings",
+}
+
+type seedPermission struct {
+	key   string
+	label string
+	desc  string
+}
+
+// each module owns its own named permissions
+var seedPermissions = map[string][]seedPermission{
+	"dashboard": {
+		{"dashboard.view", "View dashboard", "See the dashboard overview"},
+	},
+	"users": {
+		{"users.view", "View users", "List and inspect user accounts"},
+		{"users.manage", "Manage users", "Create, edit, lock and delete users"},
+	},
+	"campuses": {
+		{"campuses.view", "View campuses", "See campuses, stories and classes"},
+		{"campuses.manage", "Manage campuses", "Add, edit and remove campuses, stories and classes"},
+	},
+	"subjects": {
+		{"subjects.view", "View subjects", "See subjects and their lecturers"},
+		{"subjects.manage", "Manage subjects", "Create, edit and remove subjects"},
+	},
+	"lectures": {
+		{"lectures.view", "View lectures", "See lectures and their rooms"},
+		{"lectures.manage", "Manage lectures", "Create, schedule, edit and remove lectures"},
+	},
+	"seminars": {
+		{"seminars.view", "View seminars", "See seminars and their rooms"},
+		{"seminars.manage", "Manage seminars", "Create, schedule, edit and remove seminars"},
+	},
+	"quizzes": {
+		{"quizzes.view", "View quizzes", "See quizzes and question banks"},
+		{"quizzes.manage", "Manage quizzes", "Create, edit and remove quizzes"},
+		{"quizzes.take", "Take quizzes", "Attempt quizzes and see own results"},
+	},
+	"flashcards": {
+		{"flashcards.view", "View flashcards", "Study flashcard decks"},
+		{"flashcards.manage", "Manage flashcards", "Create, edit and remove flashcards"},
+	},
+	"students": {
+		{"students.view", "View students", "See students and their enrollments"},
+		{"students.manage", "Manage students", "Enroll and unenroll students"},
+	},
+	"settings": {
+		{"settings.view", "View settings", "See system and role settings"},
+		{"settings.manage", "Manage settings", "Change system and role settings"},
+	},
+}
+
+// role -> permission keys granted at seed time ("*" = every permission)
+var seedRoleGrants = map[string][]string{
+	"ADMIN": {"*"},
+	"LECTURER": {
+		"dashboard.view",
+		"subjects.view", "subjects.manage",
+		"lectures.view", "lectures.manage",
+		"seminars.view", "seminars.manage",
+		"quizzes.view", "quizzes.manage",
+		"flashcards.view", "flashcards.manage",
+		"students.view",
+	},
+	"STUDENT": {
+		"dashboard.view",
+		"lectures.view",
+		"seminars.view",
+		"quizzes.view", "quizzes.take",
+		"flashcards.view",
+	},
 }
 
 // role -> module keys the role can access (ADMIN is additionally a wildcard in code)
@@ -82,10 +151,32 @@ func Seed(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("lookup module %s: %w", key, err)
 		}
 		moduleID[key] = existing
-		for _, action := range moduleActions {
-			if _, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO permissions (id, module_id, action) VALUES (?, ?, ?)`,
-				util.NewID(), existing, action); err != nil {
-				return fmt.Errorf("seed permission %s:%s: %w", key, action, err)
+	}
+
+	for moduleKey, perms := range seedPermissions {
+		for _, p := range perms {
+			if _, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO permissions (id, module_id, key, label, description) VALUES (?, ?, ?, ?, ?)`,
+				util.NewID(), moduleID[moduleKey], p.key, p.label, p.desc); err != nil {
+				return fmt.Errorf("seed permission %s: %w", p.key, err)
+			}
+		}
+	}
+
+	allKeys := []string{}
+	for _, perms := range seedPermissions {
+		for _, p := range perms {
+			allKeys = append(allKeys, p.key)
+		}
+	}
+	for role, keys := range seedRoleGrants {
+		granted := keys
+		if len(keys) == 1 && keys[0] == "*" {
+			granted = allKeys
+		}
+		for _, key := range granted {
+			if _, err := db.ExecContext(ctx, `INSERT OR IGNORE INTO role_permissions (role_id, permission_id) SELECT ?, id FROM permissions WHERE key = ?`,
+				roleID[role], key); err != nil {
+				return fmt.Errorf("seed role_permission %s->%s: %w", role, key, err)
 			}
 		}
 	}

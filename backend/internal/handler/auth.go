@@ -16,8 +16,9 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
-	User    map[string]any `json:"user"`
-	Modules []string       `json:"modules"`
+	User        map[string]any `json:"user"`
+	Modules     []string       `json:"modules"`
+	Permissions []string       `json:"permissions"`
 }
 
 // registerAuth wires POST /api/auth/login with per-role lockout:
@@ -131,11 +132,36 @@ func registerAuth(mux *http.ServeMux, db *sql.DB) {
 		}
 		rows.Close()
 
+		// granted permission keys (ADMIN = wildcard, all permissions)
+		permissions := []string{}
+		var permRows *sql.Rows
+		if roleName == "ADMIN" {
+			permRows, err = db.QueryContext(ctx, `SELECT key FROM permissions ORDER BY key`)
+		} else {
+			permRows, err = db.QueryContext(ctx, `
+				SELECT p.key FROM role_permissions rp
+				JOIN permissions p ON p.id = rp.permission_id
+				JOIN users u ON u.role_id = rp.role_id
+				WHERE u.id = ? ORDER BY p.key`, id)
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		for permRows.Next() {
+			var key string
+			if err := permRows.Scan(&key); err == nil {
+				permissions = append(permissions, key)
+			}
+		}
+		permRows.Close()
+
 		writeJSON(w, http.StatusOK, loginResponse{
 			User: map[string]any{
 				"id": id, "email": email, "name": name, "role": roleName,
 			},
-			Modules: modules,
+			Modules:     modules,
+			Permissions: permissions,
 		})
 	})
 }
